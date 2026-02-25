@@ -1,0 +1,1425 @@
+openapi: 3.0.3
+info:
+  title: MERMAID API
+  version: 1.0.0
+  description: |
+    MERMAID (Marine Safety and Market Information Dashboard) API.
+    MVP scope includes authentication, advisories, marine conditions,
+    vendor demand listings, fisherman marketplace, trip sessions, and catch logs.
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local development server
+
+tags:
+  - name: Auth
+  - name: Marine
+  - name: Advisories
+  - name: Admin
+  - name: Vendor Demand Listings
+  - name: Marketplace
+  - name: Trips
+  - name: Catch Logs
+  - name: Lookups
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login user
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current authenticated user
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /lookups/fish-species:
+    get:
+      tags: [Lookups]
+      summary: List fish species
+      operationId: listFishSpecies
+      responses:
+        '200':
+          description: Fish species list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FishSpecies'
+
+  /lookups/market-locations:
+    get:
+      tags: [Lookups]
+      summary: List market locations
+      operationId: listMarketLocations
+      responses:
+        '200':
+          description: Market locations list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MarketLocation'
+
+  /marine/conditions:
+    get:
+      tags: [Marine]
+      summary: Get marine conditions and computed risk level
+      operationId: getMarineConditions
+      parameters:
+        - in: query
+          name: areaCode
+          required: false
+          schema:
+            type: string
+          description: Optional coastal area code or location identifier
+      responses:
+        '200':
+          description: Marine conditions retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarineConditionsResponse'
+        '503':
+          description: Forecast provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /advisories:
+    get:
+      tags: [Advisories]
+      summary: List advisories (optionally active only)
+      operationId: listAdvisories
+      parameters:
+        - in: query
+          name: activeOnly
+          required: false
+          schema:
+            type: boolean
+            default: true
+        - in: query
+          name: severity
+          required: false
+          schema:
+            $ref: '#/components/schemas/Severity'
+      responses:
+        '200':
+          description: Advisories list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Advisory'
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: List users (Admin only)
+      operationId: adminListUsers
+      responses:
+        '200':
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/fish-species:
+    post:
+      tags: [Admin]
+      summary: Create fish species (Admin only)
+      operationId: adminCreateFishSpecies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FishSpeciesCreateRequest'
+      responses:
+        '201':
+          description: Fish species created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FishSpecies'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/fish-species/{speciesId}:
+    put:
+      tags: [Admin]
+      summary: Update fish species (Admin only)
+      operationId: adminUpdateFishSpecies
+      parameters:
+        - $ref: '#/components/parameters/SpeciesId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FishSpeciesCreateRequest'
+      responses:
+        '200':
+          description: Fish species updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FishSpecies'
+        '404':
+          description: Fish species not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Admin]
+      summary: Delete fish species (Admin only)
+      operationId: adminDeleteFishSpecies
+      parameters:
+        - $ref: '#/components/parameters/SpeciesId'
+      responses:
+        '204':
+          description: Fish species deleted
+        '404':
+          description: Fish species not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/market-locations:
+    post:
+      tags: [Admin]
+      summary: Create market location (Admin only)
+      operationId: adminCreateMarketLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketLocationCreateRequest'
+      responses:
+        '201':
+          description: Market location created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketLocation'
+
+  /admin/market-locations/{locationId}:
+    put:
+      tags: [Admin]
+      summary: Update market location (Admin only)
+      operationId: adminUpdateMarketLocation
+      parameters:
+        - $ref: '#/components/parameters/LocationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketLocationCreateRequest'
+      responses:
+        '200':
+          description: Market location updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketLocation'
+
+    delete:
+      tags: [Admin]
+      summary: Delete market location (Admin only)
+      operationId: adminDeleteMarketLocation
+      parameters:
+        - $ref: '#/components/parameters/LocationId'
+      responses:
+        '204':
+          description: Market location deleted
+
+  /admin/advisories:
+    get:
+      tags: [Admin]
+      summary: List all advisories (Admin only)
+      operationId: adminListAdvisories
+      responses:
+        '200':
+          description: Advisories list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Advisory'
+
+    post:
+      tags: [Admin]
+      summary: Create advisory (Admin only)
+      operationId: adminCreateAdvisory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvisoryCreateRequest'
+      responses:
+        '201':
+          description: Advisory created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Advisory'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/advisories/{advisoryId}:
+    get:
+      tags: [Admin]
+      summary: Get advisory by ID (Admin only)
+      operationId: adminGetAdvisoryById
+      parameters:
+        - $ref: '#/components/parameters/AdvisoryId'
+      responses:
+        '200':
+          description: Advisory details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Advisory'
+        '404':
+          description: Advisory not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Admin]
+      summary: Update advisory (Admin only)
+      operationId: adminUpdateAdvisory
+      parameters:
+        - $ref: '#/components/parameters/AdvisoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdvisoryUpdateRequest'
+      responses:
+        '200':
+          description: Advisory updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Advisory'
+        '404':
+          description: Advisory not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Admin]
+      summary: Delete advisory (Admin only)
+      operationId: adminDeleteAdvisory
+      parameters:
+        - $ref: '#/components/parameters/AdvisoryId'
+      responses:
+        '204':
+          description: Advisory deleted
+
+  /vendor/demand-listings:
+    get:
+      tags: [Vendor Demand Listings]
+      summary: List current vendor's demand listings
+      operationId: vendorListDemandListings
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            $ref: '#/components/schemas/DemandListingStatus'
+      responses:
+        '200':
+          description: Vendor demand listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DemandListing'
+
+    post:
+      tags: [Vendor Demand Listings]
+      summary: Create demand listing
+      operationId: vendorCreateDemandListing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DemandListingCreateRequest'
+      responses:
+        '201':
+          description: Demand listing created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemandListing'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /vendor/demand-listings/{listingId}:
+    get:
+      tags: [Vendor Demand Listings]
+      summary: Get vendor demand listing by ID
+      operationId: vendorGetDemandListingById
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Demand listing details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemandListing'
+        '404':
+          description: Listing not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Vendor Demand Listings]
+      summary: Update demand listing
+      operationId: vendorUpdateDemandListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DemandListingUpdateRequest'
+      responses:
+        '200':
+          description: Demand listing updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemandListing'
+
+    delete:
+      tags: [Vendor Demand Listings]
+      summary: Delete demand listing
+      operationId: vendorDeleteDemandListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '204':
+          description: Demand listing deleted
+
+  /vendor/demand-listings/{listingId}/close:
+    post:
+      tags: [Vendor Demand Listings]
+      summary: Close demand listing
+      operationId: vendorCloseDemandListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Demand listing closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemandListing'
+
+  /marketplace/listings:
+    get:
+      tags: [Marketplace]
+      summary: Browse active demand listings (Fisherman view)
+      operationId: browseMarketplaceListings
+      parameters:
+        - in: query
+          name: speciesId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: locationId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: minOfferPrice
+          schema:
+            type: number
+            format: double
+        - in: query
+          name: maxOfferPrice
+          schema:
+            type: number
+            format: double
+      responses:
+        '200':
+          description: Active marketplace demand listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DemandListing'
+
+  /marketplace/offers/lookup:
+    get:
+      tags: [Marketplace]
+      summary: Lookup active offers for catch logging assistance
+      operationId: lookupActiveOffers
+      parameters:
+        - in: query
+          name: speciesId
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: locationId
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Matching active offers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OfferLookupItem'
+
+  /trips:
+    get:
+      tags: [Trips]
+      summary: List trips of current fisherman
+      operationId: listTrips
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            $ref: '#/components/schemas/TripStatus'
+      responses:
+        '200':
+          description: Trip history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Trip'
+
+    post:
+      tags: [Trips]
+      summary: Start a new trip
+      operationId: startTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripStartRequest'
+      responses:
+        '201':
+          description: Trip started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}:
+    get:
+      tags: [Trips]
+      summary: Get trip details
+      operationId: getTripById
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      responses:
+        '200':
+          description: Trip details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '404':
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}/checklist:
+    put:
+      tags: [Trips]
+      summary: Save or update trip safety checklist
+      operationId: saveTripChecklist
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SafetyChecklistRequest'
+      responses:
+        '200':
+          description: Checklist saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SafetyChecklist'
+        '404':
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}/end:
+    post:
+      tags: [Trips]
+      summary: End a trip
+      operationId: endTrip
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripEndRequest'
+      responses:
+        '200':
+          description: Trip ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '404':
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}/catches:
+    get:
+      tags: [Catch Logs]
+      summary: List catch logs for a trip
+      operationId: listCatchLogsByTrip
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      responses:
+        '200':
+          description: Catch logs list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatchLog'
+        '404':
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Catch Logs]
+      summary: Add catch log entry to a trip
+      operationId: createCatchLog
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatchLogCreateRequest'
+      responses:
+        '201':
+          description: Catch log created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatchLog'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}/catches/{catchId}:
+    put:
+      tags: [Catch Logs]
+      summary: Update catch log entry
+      operationId: updateCatchLog
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/CatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatchLogUpdateRequest'
+      responses:
+        '200':
+          description: Catch log updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatchLog'
+        '404':
+          description: Trip or catch log not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [Catch Logs]
+      summary: Delete catch log entry
+      operationId: deleteCatchLog
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/CatchId'
+      responses:
+        '204':
+          description: Catch log deleted
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    AdvisoryId:
+      in: path
+      name: advisoryId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    SpeciesId:
+      in: path
+      name: speciesId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    LocationId:
+      in: path
+      name: locationId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    ListingId:
+      in: path
+      name: listingId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    TripId:
+      in: path
+      name: tripId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    CatchId:
+      in: path
+      name: catchId
+      required: true
+      schema:
+        type: integer
+        format: int64
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, user]
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    UserProfile:
+      type: object
+      required: [id, fullName, email, role]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/Role'
+        createdAt:
+          type: string
+          format: date-time
+
+    UserSummary:
+      type: object
+      required: [id, fullName, email, role]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/Role'
+        active:
+          type: boolean
+
+    Role:
+      type: string
+      enum: [ADMIN, VENDOR, FISHERMAN]
+
+    Severity:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+
+    RiskLevel:
+      type: string
+      enum: [SAFE, CAUTION, UNSAFE]
+
+    DemandListingStatus:
+      type: string
+      enum: [OPEN, CLOSED]
+
+    TripStatus:
+      type: string
+      enum: [ACTIVE, COMPLETED, CANCELLED]
+
+    FishSpecies:
+      type: object
+      required: [id, commonName, active]
+      properties:
+        id:
+          type: integer
+          format: int64
+        commonName:
+          type: string
+        scientificName:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+
+    FishSpeciesCreateRequest:
+      type: object
+      required: [commonName]
+      properties:
+        commonName:
+          type: string
+          minLength: 2
+          maxLength: 100
+        scientificName:
+          type: string
+          nullable: true
+
+    MarketLocation:
+      type: object
+      required: [id, name, municipality, active]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        municipality:
+          type: string
+        province:
+          type: string
+          nullable: true
+        active:
+          type: boolean
+
+    MarketLocationCreateRequest:
+      type: object
+      required: [name, municipality]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        municipality:
+          type: string
+          minLength: 2
+          maxLength: 100
+        province:
+          type: string
+          nullable: true
+
+    MarineConditionsResponse:
+      type: object
+      required: [areaCode, observedAt, riskLevel]
+      properties:
+        areaCode:
+          type: string
+        areaName:
+          type: string
+        observedAt:
+          type: string
+          format: date-time
+        riskLevel:
+          $ref: '#/components/schemas/RiskLevel'
+        windSpeedKph:
+          type: number
+          format: double
+          nullable: true
+        waveHeightM:
+          type: number
+          format: double
+          nullable: true
+        rainfallMm:
+          type: number
+          format: double
+          nullable: true
+        visibilityKm:
+          type: number
+          format: double
+          nullable: true
+        source:
+          type: string
+        notes:
+          type: string
+          nullable: true
+
+    Advisory:
+      type: object
+      required: [id, title, message, severity, affectedArea, activeFrom, activeTo, isActive]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        message:
+          type: string
+        severity:
+          $ref: '#/components/schemas/Severity'
+        affectedArea:
+          type: string
+        activeFrom:
+          type: string
+          format: date-time
+        activeTo:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+        createdByUserId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AdvisoryCreateRequest:
+      type: object
+      required: [title, message, severity, affectedArea, activeFrom, activeTo]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+        message:
+          type: string
+          minLength: 5
+          maxLength: 1000
+        severity:
+          $ref: '#/components/schemas/Severity'
+        affectedArea:
+          type: string
+          minLength: 2
+          maxLength: 150
+        activeFrom:
+          type: string
+          format: date-time
+        activeTo:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+          default: true
+
+    AdvisoryUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+        message:
+          type: string
+          minLength: 5
+          maxLength: 1000
+        severity:
+          $ref: '#/components/schemas/Severity'
+        affectedArea:
+          type: string
+          minLength: 2
+          maxLength: 150
+        activeFrom:
+          type: string
+          format: date-time
+        activeTo:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+
+    DemandListing:
+      type: object
+      required:
+        [id, vendorId, fishSpecies, marketLocation, quantityKg, offerPricePerKg, status, postedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        vendorName:
+          type: string
+          nullable: true
+        fishSpecies:
+          $ref: '#/components/schemas/FishSpecies'
+        marketLocation:
+          $ref: '#/components/schemas/MarketLocation'
+        quantityKg:
+          type: number
+          format: double
+        offerPricePerKg:
+          type: number
+          format: double
+        notes:
+          type: string
+          nullable: true
+        neededBy:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/DemandListingStatus'
+        postedAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    DemandListingCreateRequest:
+      type: object
+      required: [speciesId, locationId, quantityKg, offerPricePerKg]
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        locationId:
+          type: integer
+          format: int64
+        quantityKg:
+          type: number
+          format: double
+          minimum: 0.1
+        offerPricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+        neededBy:
+          type: string
+          format: date-time
+          nullable: true
+
+    DemandListingUpdateRequest:
+      type: object
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        locationId:
+          type: integer
+          format: int64
+        quantityKg:
+          type: number
+          format: double
+          minimum: 0.1
+        offerPricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+        neededBy:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/DemandListingStatus'
+
+    OfferLookupItem:
+      type: object
+      required: [listingId, vendorId, vendorName, offerPricePerKg, quantityKg, marketLocation]
+      properties:
+        listingId:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        vendorName:
+          type: string
+        fishSpecies:
+          $ref: '#/components/schemas/FishSpecies'
+        marketLocation:
+          $ref: '#/components/schemas/MarketLocation'
+        offerPricePerKg:
+          type: number
+          format: double
+        quantityKg:
+          type: number
+          format: double
+        neededBy:
+          type: string
+          format: date-time
+          nullable: true
+
+    Trip:
+      type: object
+      required: [id, fishermanId, status, startedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fishermanId:
+          type: integer
+          format: int64
+        fishermanName:
+          type: string
+          nullable: true
+        departurePoint:
+          type: string
+          nullable: true
+        targetArea:
+          type: string
+          nullable: true
+        vesselName:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TripStatus'
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        checklist:
+          $ref: '#/components/schemas/SafetyChecklist'
+
+    TripStartRequest:
+      type: object
+      required: [departurePoint, targetArea]
+      properties:
+        departurePoint:
+          type: string
+          minLength: 2
+          maxLength: 150
+        targetArea:
+          type: string
+          minLength: 2
+          maxLength: 150
+        vesselName:
+          type: string
+          maxLength: 100
+          nullable: true
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    TripEndRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    SafetyChecklist:
+      type: object
+      nullable: true
+      properties:
+        fuelChecked:
+          type: boolean
+        engineChecked:
+          type: boolean
+        radioChecked:
+          type: boolean
+        lifeVestChecked:
+          type: boolean
+        weatherReviewed:
+          type: boolean
+        emergencyKitChecked:
+          type: boolean
+        checklistCompletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SafetyChecklistRequest:
+      type: object
+      required:
+        [fuelChecked, engineChecked, radioChecked, lifeVestChecked, weatherReviewed, emergencyKitChecked]
+      properties:
+        fuelChecked:
+          type: boolean
+        engineChecked:
+          type: boolean
+        radioChecked:
+          type: boolean
+        lifeVestChecked:
+          type: boolean
+        weatherReviewed:
+          type: boolean
+        emergencyKitChecked:
+          type: boolean
+
+    CatchLog:
+      type: object
+      required: [id, tripId, species, quantityKg, loggedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        tripId:
+          type: integer
+          format: int64
+        species:
+          $ref: '#/components/schemas/FishSpecies'
+        quantityKg:
+          type: number
+          format: double
+        estimatedPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        matchedListingId:
+          type: integer
+          format: int64
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        loggedAt:
+          type: string
+          format: date-time
+
+    CatchLogCreateRequest:
+      type: object
+      required: [speciesId, quantityKg]
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        quantityKg:
+          type: number
+          format: double
+          minimum: 0.1
+        estimatedPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        matchedListingId:
+          type: integer
+          format: int64
+          nullable: true
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    CatchLogUpdateRequest:
+      type: object
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        quantityKg:
+          type: number
+          format: double
+          minimum: 0.1
+        estimatedPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        matchedListingId:
+          type: integer
+          format: int64
+          nullable: true
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required: [timestamp, status, error, message, path]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          format: int32
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string
+        fieldErrors:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
