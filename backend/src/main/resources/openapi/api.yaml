@@ -45,6 +45,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Validation error (e.g. invalid email format, password too short)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Invalid credentials
           content:
@@ -52,7 +58,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /auth/me:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: Self-sign-up as Fisherman or Vendor. Client should call POST /auth/login after registration to obtain an access token.
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/profile:
     get:
       tags: [Auth]
       summary: Get current authenticated user
@@ -168,6 +207,107 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UserSummary'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags: [Admin]
+      summary: Create user (Admin only)
+      operationId: adminCreateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /admin/users/{userId}:
+    get:
+      tags: [Admin]
+      summary: Get user by id (Admin only)
+      operationId: adminGetUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Admin]
+      summary: Update user (Admin only)
+      operationId: adminUpdateUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Forbidden
           content:
@@ -786,6 +926,13 @@ components:
       bearerFormat: JWT
 
   parameters:
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema:
+        type: integer
+        format: int64
     AdvisoryId:
       in: path
       name: advisoryId
@@ -841,6 +988,25 @@ components:
           type: string
           minLength: 6
 
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName, role]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role:
+          type: string
+          enum: [VENDOR, FISHERMAN]
+          description: Self-registration only allows VENDOR or FISHERMAN
+
     LoginResponse:
       type: object
       required: [accessToken, tokenType, user]
@@ -850,8 +1016,41 @@ components:
         tokenType:
           type: string
           example: Bearer
+        expiresIn:
+          type: integer
+          format: int64
+          description: Access token lifetime in seconds (optional, for client use)
         user:
           $ref: '#/components/schemas/UserProfile'
+
+    UserCreateRequest:
+      type: object
+      required: [email, password, fullName, role]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role:
+          $ref: '#/components/schemas/Role'
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        role:
+          $ref: '#/components/schemas/Role'
+        active:
+          type: boolean
 
     UserProfile:
       type: object
