@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "health check endpoint returns service status",
+    "description": "Test GET /health endpoint to verify it returns 200 status with HealthResponse containing status, version, timestamp, and cache entry count."
+  },
+  {
+    "id": "TC002",
+    "title": "fishing zones listing returns all zones",
+    "description": "Test GET /conditions/zones endpoint to verify it returns 200 status with an array of FishingZone objects including id, name, coordinates, and metadata."
+  },
+  {
+    "id": "TC003",
+    "title": "current conditions all zones with valid auth",
+    "description": "Test GET /conditions endpoint with valid Authorization header to verify it returns 200 status with AllConditionsResponse containing zones and computed risk levels."
+  },
+  {
+    "id": "TC004",
+    "title": "current conditions all zones without auth",
+    "description": "Test GET /conditions endpoint without Authorization header to verify it returns 401 Unauthorized."
+  },
+  {
+    "id": "TC005",
+    "title": "current conditions specific zone valid",
+    "description": "Test GET /conditions/{zone_id} endpoint with valid Authorization header and valid zone_id to verify it returns 200 status with ZoneConditions including wave height, wind speed, and computed risk level."
+  },
+  {
+    "id": "TC006",
+    "title": "current conditions specific zone unknown",
+    "description": "Test GET /conditions/{zone_id} endpoint with valid Authorization header and unknown zone_id to verify it returns 404 Zone not found."
+  },
+  {
+    "id": "TC007",
+    "title": "marine forecast valid zone with auth",
+    "description": "Test GET /conditions/{zone_id}/forecast endpoint with valid Authorization header and valid zone_id to verify it returns 200 status with ZoneForecast containing daily summaries and hourly breakdowns with dominant risk levels."
+  },
+  {
+    "id": "TC008",
+    "title": "marine forecast unknown zone",
+    "description": "Test GET /conditions/{zone_id}/forecast endpoint with valid Authorization header and unknown zone_id to verify it returns 404 Zone not found."
+  },
+  {
+    "id": "TC009",
+    "title": "marine forecast without auth",
+    "description": "Test GET /conditions/{zone_id}/forecast endpoint without Authorization header to verify it returns 401 Unauthorized."
+  },
+  {
+    "id": "TC010",
+    "title": "upstream failure returns service unavailable",
+    "description": "Test GET endpoints /conditions, /conditions/{zone_id}, and /conditions/{zone_id}/forecast to verify they return 503 Marine data service unavailable when Open-Meteo upstream service fails or times out."
+  }
+]

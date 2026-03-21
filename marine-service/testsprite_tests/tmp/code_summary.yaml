@@ -1,0 +1,107 @@
+version: "2"
+type: backend
+tech_stack:
+  - language: Python 3.14
+  - framework: FastAPI 0.135.1
+  - other: httpx, pydantic-settings, uvicorn, Open-Meteo API
+features:
+  - name: Health Check
+    description: Returns service status, version, timestamp, and cache entry count
+    files:
+      - app/routers/health.py
+      - app/models/marine.py
+    endpoints:
+      - method: GET
+        path: /health
+        description: Service health check
+        auth_required: false
+        response_schema:
+          "200": HealthResponse
+
+  - name: Fishing Zones Listing
+    description: Returns static metadata for all supported Philippine fishing zones
+    files:
+      - app/routers/conditions.py
+      - app/models/marine.py
+    endpoints:
+      - method: GET
+        path: /conditions/zones
+        description: List all available fishing zones
+        auth_required: false
+        response_schema:
+          "200": FishingZone[]
+
+  - name: Current Marine Conditions
+    description: Fetches real-time marine and weather data from Open-Meteo for a specific zone and computes SAFE/CAUTION/UNSAFE risk level
+    files:
+      - app/routers/conditions.py
+      - app/services/open_meteo.py
+      - app/services/risk_engine.py
+      - app/models/marine.py
+      - app/cache/ttl_cache.py
+    endpoints:
+      - method: GET
+        path: /conditions
+        description: Current conditions for all zones
+        auth_required: true
+        response_schema:
+          "200": AllConditionsResponse
+          "401": Unauthorized
+          "503": Marine data service unavailable
+      - method: GET
+        path: /conditions/{zone_id}
+        description: Current conditions for a specific zone
+        auth_required: true
+        request_schema:
+          path:
+            zone_id: string
+        response_schema:
+          "200": ZoneConditions
+          "401": Unauthorized
+          "404": Zone not found
+          "503": Marine data service unavailable
+    depends_on:
+      - Open-Meteo Marine API
+      - Open-Meteo Weather API
+      - TTL Cache
+
+  - name: Marine Forecast
+    description: Fetches 7-day hourly forecast and aggregates into daily summaries with dominant risk level per day
+    files:
+      - app/routers/conditions.py
+      - app/services/open_meteo.py
+      - app/services/risk_engine.py
+      - app/models/marine.py
+      - app/cache/ttl_cache.py
+    endpoints:
+      - method: GET
+        path: /conditions/{zone_id}/forecast
+        description: 7-day forecast with daily summaries and hourly breakdown
+        auth_required: true
+        request_schema:
+          path:
+            zone_id: string
+        response_schema:
+          "200": ZoneForecast
+          "401": Unauthorized
+          "404": Zone not found
+          "503": Marine data service unavailable
+    depends_on:
+      - Open-Meteo Marine API
+      - Open-Meteo Weather API
+      - TTL Cache
+
+  - name: Risk Engine
+    description: Computes SAFE/CAUTION/UNSAFE risk level from wave height and wind speed using PAGASA-inspired thresholds
+    files:
+      - app/services/risk_engine.py
+    endpoints: []
+    depends_on: []
+
+known_limitations:
+  - issue: In-memory TTL cache is not shared across multiple process instances
+    location: app/cache/ttl_cache.py
+    impact: If scaled horizontally, each instance has its own cache
+  - issue: Fishing zones are hard-coded
+    location: app/routers/conditions.py
+    impact: Adding new zones requires a code change and redeployment

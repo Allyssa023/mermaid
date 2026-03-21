@@ -1,0 +1,20 @@
+{
+  "status": "commited",
+  "type": "backend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8081/api",
+  "backendAuthType": "Bearer token",
+  "backendCredential": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwicm9sZSI6IkFETUlOIiwiZW1haWwiOiJhZG1pbkBtZXJtYWlkLmxvY2FsIiwiZnVsbE5hbWUiOiJTeXN0ZW0gQWRtaW4iLCJpc3MiOiJtZXJtYWlkLWFwaSIsImlhdCI6MTc3NDA4NDcwNywiZXhwIjoxNzc0MTcxMTA3fQ.HJ-r6l4Zs66YZGJy7DePBb8_UiIDJjzUqGPg21TvYW4",
+  "executionArgs": {
+    "projectName": "marine-service",
+    "projectPath": "C:\\Users\\Allyssa Ashley Dulay\\Documents\\mermaid\\marine-service",
+    "testIds": [],
+    "additionalInstruction": "The service requires X-API-Key header with value 'dev-marine-key-change-in-prod' for protected endpoints. The /health and /conditions/zones endpoints are public (no auth needed).",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-kYdP9C6RBE5KD5vnrbTtyaVPoY9zOUpInS1KPO5cA9DIy-Ey-j0qu9SSWIXTJFY_U5VqSim4TxGjuY12sE_PrM4V0a_EE7mmyiPoidQbFk9oPkLjOj5BxsHA7LYpSdOTqTo"
+    }
+  },
+  "serverPort": 59486,
+  "proxy": "http://27f50f5e-b97e-46e2-bedc-ce051b3b4527:iEjEzDwBoRNkY5E45OCoCJGO4OvpPU1p@tun.testsprite.com:8080"
+}
