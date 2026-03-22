@@ -129,6 +129,24 @@
 			<version>0.2.9</version>
 			<scope>compile</scope>
 		</dependency>
+
+		<!-- Caffeine in-memory cache — used directly (no @EnableCaching needed) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
+
+		<!-- WireMock standalone — Spring Boot 4 compatible (do NOT use wiremock-spring-boot) -->
+		<dependency>
+			<groupId>org.wiremock</groupId>
+			<artifactId>wiremock</artifactId>
+			<version>3.13.0</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
