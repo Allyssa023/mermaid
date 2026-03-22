@@ -29,6 +29,31 @@
 	<properties>
 		<java.version>17</java.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- Force jetty-ee10 to match core Jetty 12.1.x used by WireMock -->
+			<dependency>
+				<groupId>org.eclipse.jetty.ee10</groupId>
+				<artifactId>jetty-ee10-servlet</artifactId>
+				<version>12.1.6</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty.ee10</groupId>
+				<artifactId>jetty-ee10-servlets</artifactId>
+				<version>12.1.6</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty.ee10</groupId>
+				<artifactId>jetty-ee10-webapp</artifactId>
+				<version>12.1.6</version>
+			</dependency>
+			<dependency>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-ee</artifactId>
+				<version>12.1.6</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -140,10 +165,10 @@
 			<artifactId>caffeine</artifactId>
 		</dependency>
 
-		<!-- WireMock standalone — Spring Boot 4 compatible (do NOT use wiremock-spring-boot) -->
+		<!-- WireMock standalone — Spring Boot 4 / Jetty 12 compatible -->
 		<dependency>
 			<groupId>org.wiremock</groupId>
-			<artifactId>wiremock</artifactId>
+			<artifactId>wiremock-jetty12</artifactId>
 			<version>3.13.0</version>
 			<scope>test</scope>
 		</dependency>
