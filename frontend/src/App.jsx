@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import './index.css'
 
-// ── API helper ───────────────────────────────────────────────────────────────
-const API_BASE = '/api' // Spring Boot context-path is /api
+// ── API ───────────────────────────────────────────────────────────────────────
+const API_BASE = '/api'
 
 async function apiPost(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -11,269 +11,261 @@ async function apiPost(path, body) {
     body: JSON.stringify(body),
   })
   const data = await res.json().catch(() => null)
-  if (!res.ok) {
-    const msg = data?.message || data?.error || `Request failed (${res.status})`
-    throw new Error(msg)
-  }
+  if (!res.ok) throw new Error(data?.message || data?.error || `Request failed (${res.status})`)
   return data
 }
 
-// ── Forms ────────────────────────────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
+const EmailIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="16" x="2" y="4" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+  </svg>
+)
+const LockIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+)
+const UserIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="8" r="5" />
+    <path d="M20 21a8 8 0 0 0-16 0" />
+  </svg>
+)
+const EyeOn = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+  </svg>
+)
+const EyeOff = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+    <line x1="2" x2="22" y1="2" y2="22" />
+  </svg>
+)
 
-function LoginForm() {
+// ── Input field ───────────────────────────────────────────────────────────────
+function Field({ type = 'text', value, onChange, placeholder, icon, required, minLength }) {
+  const [show, setShow] = useState(false)
+  const isPw = type === 'password'
+  return (
+    <div className="field-wrap">
+      {icon && <span className="field-icon">{icon}</span>}
+      <input
+        className="field-inp"
+        type={isPw ? (show ? 'text' : 'password') : type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        minLength={minLength}
+        style={{ paddingLeft: icon ? '38px' : '14px' }}
+      />
+      {isPw && (
+        <button type="button" className="field-eye" onClick={() => setShow(s => !s)} tabIndex={-1}>
+          {show ? <EyeOff /> : <EyeOn />}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── Login form ────────────────────────────────────────────────────────────────
+function LoginForm({ onSwitch }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+  async function submit(e) {
+    e.preventDefault(); setError(''); setLoading(true)
     try {
       const data = await apiPost('/auth/login', { email, password })
-      // Store JWT
       localStorage.setItem('accessToken', data.accessToken)
       localStorage.setItem('user', JSON.stringify(data.user))
-      // TODO: redirect to dashboard or reload
       window.location.reload()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   return (
-    <form className="form" onSubmit={handleSubmit}>
-      {error && <p className="form-error">{error}</p>}
-
-      <label className="form-label">EMAIL ADDRESS</label>
-      <input
-        className="form-input"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-
-      <label className="form-label">PASSWORD</label>
-      <input
-        className="form-input"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        minLength={6}
-      />
-
-      <button type="submit" className="form-btn" disabled={loading}>
-        {loading ? 'Signing in…' : 'Dive In'}
-      </button>
-    </form>
+    <div className="form-panel">
+      <div className="form-head">
+        <h2 className="form-title">Welcome back</h2>
+        <p className="form-desc">Sign in to navigate your waters</p>
+      </div>
+      <form onSubmit={submit} className="form-body">
+        {error && <p className="alert alert--err">{error}</p>}
+        <Field type="email" value={email} onChange={e => setEmail(e.target.value)}
+          placeholder="Email address" icon={<EmailIcon />} required />
+        <Field type="password" value={password} onChange={e => setPassword(e.target.value)}
+          placeholder="Password" icon={<LockIcon />} required minLength={6} />
+        <div className="form-extras">
+          <label className="check-label">
+            <input type="checkbox" className="check-inp" />
+            <span>Remember me</span>
+          </label>
+          <button type="button" className="link-btn">Forgot password?</button>
+        </div>
+        <button type="submit" className="cta" disabled={loading}>
+          {loading ? <><span className="spinner" /> Signing in…</> : 'Dive In'}
+        </button>
+      </form>
+      <p className="form-switch">
+        No account? <button type="button" className="link-btn link-btn--accent" onClick={onSwitch}>Create one</button>
+      </p>
+    </div>
   )
 }
 
-function SignupForm() {
+// ── Register form ─────────────────────────────────────────────────────────────
+function RegisterForm({ onSwitch }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [role, setRole] = useState('FISHERMAN')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setError('')
-    setSuccess('')
+  async function submit(e) {
+    e.preventDefault(); setError(''); setSuccess('')
+    if (password !== confirm) { setError('Passwords do not match'); return }
     setLoading(true)
     try {
-      await apiPost('/auth/register', {
-        fullName: name,
-        email,
-        password,
-        role,
-      })
+      await apiPost('/auth/register', { fullName: name, email, password, role })
       setSuccess('Account created! You can now sign in.')
-      setName('')
-      setEmail('')
-      setPassword('')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+      setName(''); setEmail(''); setPassword(''); setConfirm('')
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   return (
-    <form className="form" onSubmit={handleSubmit}>
-      {error && <p className="form-error">{error}</p>}
-      {success && <p className="form-success">{success}</p>}
-
-      <label className="form-label">FULL NAME</label>
-      <input
-        className="form-input"
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-      />
-
-      <label className="form-label">EMAIL ADDRESS</label>
-      <input
-        className="form-input"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-
-      <label className="form-label">PASSWORD</label>
-      <input
-        className="form-input"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-        minLength={6}
-      />
-
-      <label className="form-label">I AM A</label>
-      <div className="role-picker">
-        <button
-          type="button"
-          className={`role-btn${role === 'FISHERMAN' ? ' role-active' : ''}`}
-          onClick={() => setRole('FISHERMAN')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 16s1-4 4-4 4 4 7 4 4-4 7-4 4 4 4 4" />
-            <path d="M12 12V2" />
-            <path d="M12 6l-3-2" />
-            <path d="M12 8l3-2" />
-          </svg>
-          Fisherman
-        </button>
-        <button
-          type="button"
-          className={`role-btn${role === 'VENDOR' ? ' role-active' : ''}`}
-          onClick={() => setRole('VENDOR')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 9h18v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z" />
-            <path d="M3 9l2.45-4.9A2 2 0 0 1 7.24 3h9.52a2 2 0 0 1 1.8 1.1L21 9" />
-            <path d="M12 3v6" />
-          </svg>
-          Vendor
-        </button>
+    <div className="form-panel">
+      <div className="form-head">
+        <h2 className="form-title">Create account</h2>
+        <p className="form-desc">Join MERMAID — fish smarter, sail safer</p>
       </div>
-
-      <button type="submit" className="form-btn" disabled={loading}>
-        {loading ? 'Creating account…' : 'Start Exploring'}
-      </button>
-    </form>
-  )
-}
-
-function Bubbles() {
-  return (
-    <div className="bubbles" aria-hidden="true">
-      <span className="bubble b1" />
-      <span className="bubble b2" />
-      <span className="bubble b3" />
-      <span className="bubble b4" />
-      <span className="bubble b5" />
-      <span className="bubble b6" />
-      <span className="bubble b7" />
-      <span className="bubble b8" />
+      <form onSubmit={submit} className="form-body">
+        {error && <p className="alert alert--err">{error}</p>}
+        {success && <p className="alert alert--ok">{success}</p>}
+        <Field type="text" value={name} onChange={e => setName(e.target.value)}
+          placeholder="Full name" icon={<UserIcon />} required />
+        <Field type="email" value={email} onChange={e => setEmail(e.target.value)}
+          placeholder="Email address" icon={<EmailIcon />} required />
+        <Field type="password" value={password} onChange={e => setPassword(e.target.value)}
+          placeholder="Password" icon={<LockIcon />} required minLength={6} />
+        <Field type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+          placeholder="Confirm password" icon={<LockIcon />} required minLength={6} />
+        <div className="role-row">
+          <button type="button"
+            className={`role-chip${role === 'FISHERMAN' ? ' role-chip--on' : ''}`}
+            onClick={() => setRole('FISHERMAN')}>
+            🎣 Fisherman
+          </button>
+          <button type="button"
+            className={`role-chip${role === 'VENDOR' ? ' role-chip--on' : ''}`}
+            onClick={() => setRole('VENDOR')}>
+            🏪 Vendor
+          </button>
+        </div>
+        <button type="submit" className="cta" disabled={loading}>
+          {loading ? <><span className="spinner" /> Creating…</> : 'Start Exploring'}
+        </button>
+      </form>
+      <p className="form-switch">
+        Have an account? <button type="button" className="link-btn link-btn--accent" onClick={onSwitch}>Sign in</button>
+      </p>
     </div>
   )
 }
 
-function App() {
+// ── App ───────────────────────────────────────────────────────────────────────
+export default function App() {
   const [mode, setMode] = useState('login')
 
   return (
     <div className="page">
-      {/* Atmospheric background effects */}
-      <div className="caustics" aria-hidden="true" />
-      <div className="depth-particles" aria-hidden="true">
-        <span /><span /><span /><span /><span />
-      </div>
 
-      {/* Subtle left-side bubbles */}
-      <div className="left-bubbles" aria-hidden="true">
-        <span /><span /><span /><span /><span /><span />
-        <span /><span /><span /><span /><span /><span />
-      </div>
+      {/* Background video — fix: file is mainbg.mov not mainbgvid.mov */}
+      <video className="bg-video" autoPlay muted loop playsInline>
+        <source src="/mainbg.mov" type="video/mp4" />
+        <source src="/mainbg.mov" type="video/quicktime" />
+      </video>
+      <div className="bg-overlay" />
 
-      {/* Layer 1 – ocean scene background (S-curve) */}
-      <img src="/bg.png" alt="" className="ocean-bg" />
+      {/* Decorative images */}
+      <img src="/rightside.png"       alt="" className="deco-right" aria-hidden="true" />
+      <img src="/bottomleftside.png"  alt="" className="deco-bl"    aria-hidden="true" />
 
-      {/* Layer 2 – whale illustrations */}
-      <img src="/whale1.png" alt="" className="whale w1" />
-      <img src="/whale2.png" alt="" className="whale w2" />
+      {/* Layout */}
+      <div className="layout">
 
-      {/* Layer 2.5 – seaweed */}
-      <img src="/seaweed1.png" alt="" className="seaweed sw1" />
-      <img src="/seaweed2.png" alt="" className="seaweed sw2" />
+        {/* ── Left column ── */}
+        <div className="left-col">
 
-      {/* Layer 3 – bubbles */}
-      <Bubbles />
+          {/* Logo */}
+          <div className="logo-bar">
+            <img src="/logo.png" alt="MERMAID" className="logo-img" />
+            <span className="brand-name">MERMAID</span>
+          </div>
 
-      {/* Layer 4 – content (highest z-index) */}
-      <div className="top-bar">
-        <img src="/logo.png" alt="MERMAID logo" className="top-logo" />
-        <span className="top-brand">MERMAID</span>
-      </div>
+          {/* Hero tagline */}
+          <div className="hero-block">
+            <h1 className="hero-title">
+              Safer Seas.<br />
+              <em>Smarter Catch.</em>
+            </h1>
+            <p className="hero-sub">
+              Real-time marine conditions and market intelligence<br />
+              for Filipino fishermen and wet market vendors.
+            </p>
+          </div>
 
-      <div className="left-content">
-        <header className="hero-header">
-          <h1 className="hero-title">
-            Safer seas,<br />
-            <span className="hero-accent">smarter catch</span>
-          </h1>
-        </header>
+          {/* Glass card */}
+          <div className="glass-card">
 
-        <div className={`card card--${mode}`}>
-          <div className="card-glow" />
-
-          <h2 className="card-heading">
-            {mode === 'login' ? 'Sign In' : 'Create Account'}
-          </h2>
-
-          <div className="card-body">
-            <div className={`form-pane ${mode === 'login' ? 'form-pane--visible' : ''}`}>
-              <LoginForm />
+            {/* Tab switcher */}
+            <div className="tabs">
+              <div className="tab-line" style={{
+                transform: mode === 'login' ? 'translateX(0%)' : 'translateX(100%)'
+              }} />
+              <button
+                className={`tab-btn${mode === 'login' ? ' tab-btn--on' : ''}`}
+                onClick={() => setMode('login')}>
+                Login
+              </button>
+              <button
+                className={`tab-btn${mode === 'signup' ? ' tab-btn--on' : ''}`}
+                onClick={() => setMode('signup')}>
+                Register
+              </button>
             </div>
-            <div className={`form-pane ${mode === 'signup' ? 'form-pane--visible' : ''}`}>
-              <SignupForm />
+
+            {/* Form area */}
+            <div className="card-body">
+              {mode === 'login'
+                ? <LoginForm    key="login"  onSwitch={() => setMode('signup')} />
+                : <RegisterForm key="signup" onSwitch={() => setMode('login')} />}
             </div>
           </div>
 
-          <p className="card-switch">
-            {mode === 'login' ? (
-              <>Don&apos;t have an account?{' '}
-                <button type="button" className="switch-link" onClick={() => setMode('signup')}>
-                  Register
-                </button>
-              </>
-            ) : (
-              <>Already have an account?{' '}
-                <button type="button" className="switch-link" onClick={() => setMode('login')}>
-                  Sign In
-                </button>
-              </>
-            )}
+          {/* Terms */}
+          <p className="terms">
+            By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
           </p>
+
         </div>
 
-        <p className="footer-note">
-          By continuing you agree to our <a href="#">Terms</a> &amp; <a href="#">Privacy Policy</a>
-        </p>
+        {/* Right column — transparent, shows through to video + deco-right */}
+        <div className="right-col" />
+
       </div>
     </div>
   )
 }
-
-export default App

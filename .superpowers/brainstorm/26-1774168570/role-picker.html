@@ -1,0 +1,145 @@
+<h2>Role Picker — Fisherman vs Vendor</h2>
+<p class="subtitle">How should the user choose their role on the Register side?</p>
+
+<style>
+  .rp-cards { display: flex; gap: 18px; margin-top: 24px; flex-wrap: wrap; }
+  .rp-card {
+    flex: 1; min-width: 220px; border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s;
+    background: rgba(255,255,255,0.04);
+  }
+  .rp-card:hover { border-color: rgba(100,180,255,0.4); transform: translateY(-2px); }
+  .rp-card.selected { border-color: #0bb8ff; box-shadow: 0 0 24px rgba(11,184,255,0.25); }
+  .preview { height: 170px; background: #081928; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .card-info { padding: 14px 16px; }
+  .card-info h3 { margin: 0 0 5px; font-size: 14px; color: #fff; }
+  .card-info p { margin: 0; font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+  .tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 20px; margin-top: 8px; font-weight: 600; }
+  .tag-rec { background: rgba(58,232,214,0.15); color: #3ae8d6; border: 1px solid rgba(58,232,214,0.3); }
+  .tag-alt { background: rgba(11,184,255,0.15); color: #0bb8ff; border: 1px solid rgba(11,184,255,0.3); }
+  .tag-bold { background: rgba(255,140,50,0.15); color: #ffaa55; border: 1px solid rgba(255,140,50,0.3); }
+
+  /* Option A: Pill toggle */
+  .pill-wrap { background: rgba(0,0,0,0.3); border-radius: 50px; padding: 4px; display: flex; gap: 4px; }
+  .pill { padding: 8px 18px; border-radius: 50px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; color: rgba(255,255,255,0.4); }
+  .pill.active { background: linear-gradient(135deg,#1e6fd9,#0bb8ff); color: #fff; box-shadow: 0 4px 14px rgba(11,184,255,0.35); }
+
+  /* Option B: Large illustrated cards */
+  .role-cards-wrap { display: flex; gap: 12px; }
+  .role-card {
+    width: 100px; border-radius: 14px; padding: 14px 10px;
+    border: 2px solid rgba(255,255,255,0.1); text-align: center;
+    cursor: pointer; transition: all 0.2s; background: rgba(255,255,255,0.04);
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .role-card.active {
+    border-color: #3ae8d6; background: rgba(58,232,214,0.08);
+    box-shadow: 0 0 20px rgba(58,232,214,0.2);
+  }
+  .role-card .icon { font-size: 32px; }
+  .role-card .name { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.8); letter-spacing: 0.5px; }
+  .role-card .desc { font-size: 9px; color: rgba(255,255,255,0.35); line-height: 1.4; }
+  .role-card.active .name { color: #3ae8d6; }
+
+  /* Option C: Full-width illustrated panels */
+  .role-panels { display: flex; gap: 0; border-radius: 16px; overflow: hidden; width: 220px; height: 110px; }
+  .role-panel {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden;
+  }
+  .role-panel.fisher {
+    background: linear-gradient(160deg, #0a3060 0%, #041828 100%);
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+  .role-panel.vendor {
+    background: linear-gradient(160deg, #1a3020 0%, #041810 100%);
+  }
+  .role-panel.fisher.active { background: linear-gradient(160deg, #0d4a8c 0%, #0a2545 100%); }
+  .role-panel.vendor.active { background: linear-gradient(160deg, #1a5030 0%, #0a2815 100%); }
+  .role-panel .big-icon { font-size: 36px; transition: transform 0.3s; }
+  .role-panel.active .big-icon { transform: scale(1.15); }
+  .role-panel .rp-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; margin-top: 4px; color: rgba(255,255,255,0.6); }
+  .role-panel.active .rp-label { color: #3ae8d6; }
+  .role-panel::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, #1e6fd9, #0bb8ff); transform: scaleX(0); transition: transform 0.25s;
+  }
+  .role-panel.active::after { transform: scaleX(1); }
+  .selected-badge {
+    position: absolute; top: 6px; right: 6px; width: 14px; height: 14px;
+    background: #3ae8d6; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 8px; opacity: 0; transition: opacity 0.2s;
+  }
+  .role-panel.active .selected-badge { opacity: 1; }
+</style>
+
+<div class="rp-cards">
+
+  <!-- Option A: Pill toggle -->
+  <div class="rp-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div style="text-align:center;">
+        <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:10px;letter-spacing:1px;">I AM A</div>
+        <div class="pill-wrap">
+          <div class="pill active">🎣 Fisherman</div>
+          <div class="pill">🛒 Vendor</div>
+        </div>
+        <div style="font-size:9px;color:rgba(58,232,214,0.6);margin-top:10px;">Slides on click</div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>A — Pill toggle</h3>
+      <p>Simple sliding pill. Clean and compact. Works well as a small inline element inside the form.</p>
+      <span class="tag tag-alt">Minimal</span>
+    </div>
+  </div>
+
+  <!-- Option B: Illustrated cards -->
+  <div class="rp-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div class="role-cards-wrap">
+        <div class="role-card active">
+          <div class="icon">🎣</div>
+          <div class="name">FISHERMAN</div>
+          <div class="desc">I go out to sea to catch fish</div>
+        </div>
+        <div class="role-card">
+          <div class="icon">🏪</div>
+          <div class="name">VENDOR</div>
+          <div class="desc">I sell at the wet market</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>B — Illustrated selection cards</h3>
+      <p>Two cards with icons + short description. Selected card glows teal. Hover lifts with a shadow.</p>
+      <span class="tag tag-rec">⭐ Recommended</span>
+    </div>
+  </div>
+
+  <!-- Option C: Split panel -->
+  <div class="rp-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div class="role-panels">
+        <div class="role-panel fisher active">
+          <div class="selected-badge">✓</div>
+          <div class="big-icon">🎣</div>
+          <div class="rp-label">FISHERMAN</div>
+        </div>
+        <div class="role-panel vendor">
+          <div class="selected-badge">✓</div>
+          <div class="big-icon">🏪</div>
+          <div class="rp-label">VENDOR</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>C — Full-width split panels</h3>
+      <p>Two equal panels side-by-side spanning the full form width. Click activates the panel with a color shift + bottom border sweep.</p>
+      <span class="tag tag-bold">Dramatic</span>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:18px;font-size:12px;">Click to select, then tell me in the terminal.</p>

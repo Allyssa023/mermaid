@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MERMAID — Auth Page Full Design</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #07111e;
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .page-title {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+    text-transform: uppercase;
+    margin-bottom: 28px;
+  }
+  .page-title span { color: #3ae8d6; }
+
+  /* ── MAIN MOCKUP ── */
+  .mockup-shell {
+    max-width: 1000px;
+    margin: 0 auto;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 40px 120px rgba(0,0,0,0.6);
+    display: flex;
+    height: 580px;
+  }
+
+  /* ── LEFT PANEL — video side ── */
+  .left-panel {
+    width: 52%;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(160deg, #0a3060 0%, #021424 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 40px;
+  }
+
+  .left-panel .vid-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 40%, rgba(11,100,200,0.3) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 80%, rgba(0,60,120,0.4) 0%, transparent 50%),
+      linear-gradient(160deg, #0d3a6e 0%, #041828 100%);
+  }
+  .vid-label {
+    position: absolute; top: 16px; right: 16px;
+    font-size: 9px; color: rgba(255,255,255,0.25);
+    background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 20px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .vid-label::before { content: '▶'; font-size: 7px; }
+
+  /* floating fish decorations */
+  .fish-deco {
+    position: absolute; pointer-events: none;
+    animation: fishFloat 8s ease-in-out infinite;
+  }
+  @keyframes fishFloat {
+    0%, 100% { transform: translateY(0px) rotate(-5deg); }
+    50% { transform: translateY(-12px) rotate(5deg); }
+  }
+
+  /* gradient overlay for text readability */
+  .left-panel .overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(2,14,30,0.85) 0%, rgba(2,14,30,0.1) 60%, rgba(2,14,30,0.4) 100%);
+  }
+
+  .left-content { position: relative; z-index: 2; }
+
+  .lp-logo {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 28px;
+  }
+  .lp-logo img { width: 32px; height: 32px; border-radius: 8px; }
+  .lp-logo-text { font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #3ae8d6; }
+
+  .lp-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 32px; font-style: italic;
+    line-height: 1.2; color: #fff; margin-bottom: 12px;
+  }
+  .lp-headline span { color: #3ae8d6; }
+
+  .lp-sub {
+    font-size: 13px; color: rgba(255,255,255,0.5);
+    line-height: 1.6; margin-bottom: 20px;
+  }
+
+  .feature-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .feature-pill {
+    font-size: 11px; padding: 5px 12px; border-radius: 20px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.6);
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  /* ── RIGHT PANEL — form side ── */
+  .right-panel {
+    width: 48%;
+    background: #03101f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  .right-panel::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url('/sidebg.jpeg') center/cover no-repeat;
+    opacity: 0.04;
+  }
+
+  /* ── 3D FLIP CONTAINER ── */
+  .flip-scene {
+    width: 100%;
+    perspective: 800px;
+  }
+  .flip-card {
+    position: relative;
+    width: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.7s cubic-bezier(0.4, 0.2, 0.2, 1);
+  }
+  .flip-card.flipped { transform: rotateY(180deg); }
+
+  .flip-front, .flip-back {
+    width: 100%;
+    backface-visibility: hidden;
+  }
+  .flip-back {
+    position: absolute; top: 0; left: 0;
+    transform: rotateY(180deg);
+  }
+
+  /* ── FORM SHARED ── */
+  .form-title { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+  .form-sub { font-size: 12px; color: rgba(255,255,255,0.45); margin-bottom: 24px; }
+  .form-sub a { color: #0bb8ff; cursor: pointer; text-decoration: none; }
+  .form-sub a:hover { text-decoration: underline; }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.5); margin-bottom: 6px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .field input {
+    width: 100%; height: 44px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 0 14px;
+    font-size: 13px; color: #fff;
+    font-family: 'Outfit', sans-serif;
+    outline: none; transition: all 0.2s;
+  }
+  .field input:focus {
+    border-color: rgba(11,184,255,0.5);
+    background: rgba(255,255,255,0.07);
+    box-shadow: 0 0 0 3px rgba(11,184,255,0.12);
+  }
+  .field input::placeholder { color: rgba(255,255,255,0.2); }
+
+  .submit-btn {
+    width: 100%; height: 46px; border: none; border-radius: 12px;
+    background: linear-gradient(135deg, #1e6fd9 0%, #0bb8ff 100%);
+    color: #fff; font-size: 14px; font-weight: 700; font-family: 'Outfit', sans-serif;
+    cursor: pointer; margin-top: 6px;
+    box-shadow: 0 8px 24px rgba(11,184,255,0.35);
+    transition: all 0.2s; letter-spacing: 0.3px;
+  }
+  .submit-btn:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(11,184,255,0.45); }
+  .submit-btn:active { transform: translateY(0); }
+
+  /* ── ROLE PICKER (split panels) ── */
+  .role-picker { display: flex; border-radius: 14px; overflow: hidden; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.08); }
+  .role-opt {
+    flex: 1; padding: 14px 10px; text-align: center; cursor: pointer;
+    transition: all 0.25s; position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .role-opt.fisher { background: linear-gradient(160deg, #0a3060, #041828); }
+  .role-opt.vendor { background: linear-gradient(160deg, #1a2a10, #041408); border-left: 1px solid rgba(255,255,255,0.06); }
+  .role-opt.selected.fisher { background: linear-gradient(160deg, #0d4a8c, #0a2545); }
+  .role-opt.selected.vendor { background: linear-gradient(160deg, #254a15, #0d2808); }
+  .role-opt::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, #1e6fd9, #0bb8ff);
+    transform: scaleX(0); transition: transform 0.3s;
+  }
+  .role-opt.selected::after { transform: scaleX(1); }
+  .role-opt .r-icon { font-size: 26px; transition: transform 0.3s; }
+  .role-opt.selected .r-icon { transform: scale(1.1); }
+  .role-opt .r-name { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: rgba(255,255,255,0.5); transition: color 0.2s; }
+  .role-opt.selected .r-name { color: #3ae8d6; }
+
+  /* ── TOGGLE TABS ── */
+  .tab-row { display: flex; gap: 0; margin-bottom: 28px; background: rgba(255,255,255,0.04); border-radius: 12px; padding: 3px; }
+  .tab {
+    flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 600;
+    border-radius: 10px; cursor: pointer; transition: all 0.2s;
+    color: rgba(255,255,255,0.4);
+  }
+  .tab.active { background: rgba(255,255,255,0.08); color: #fff; }
+
+  /* ── DIVIDER ── */
+  .section-divider {
+    height: 1px; background: rgba(255,255,255,0.06); margin: 4px 0 16px;
+  }
+
+  /* ── BOTTOM ANNOTATION ── */
+  .annotations {
+    max-width: 1000px; margin: 28px auto 0;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  }
+  .ann {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px; padding: 14px;
+  }
+  .ann-icon { font-size: 18px; margin-bottom: 6px; }
+  .ann-title { font-size: 11px; font-weight: 700; color: #3ae8d6; margin-bottom: 4px; letter-spacing: 0.5px; }
+  .ann-desc { font-size: 11px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+
+  /* ── FLIP DEMO BUTTON ── */
+  .demo-row {
+    max-width: 1000px; margin: 16px auto;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .demo-btn {
+    font-size: 12px; font-weight: 600; padding: 8px 18px; border-radius: 20px;
+    background: rgba(11,184,255,0.12); border: 1px solid rgba(11,184,255,0.3);
+    color: #0bb8ff; cursor: pointer; transition: all 0.2s;
+    font-family: 'Outfit', sans-serif;
+  }
+  .demo-btn:hover { background: rgba(11,184,255,0.2); }
+  .demo-hint { font-size: 11px; color: rgba(255,255,255,0.3); }
+</style>
+</head>
+<body>
+
+<div class="page-title">MERMAID — Auth Page Design · <span>Full Mockup</span></div>
+
+<div class="demo-row">
+  <button class="demo-btn" onclick="document.querySelector('.flip-card').classList.toggle('flipped'); this.textContent = document.querySelector('.flip-card').classList.contains('flipped') ? '↩ Show Login' : '↩ Show Register'">↩ Flip to Register</button>
+  <span class="demo-hint">Try the 3D card flip transition</span>
+</div>
+
+<div class="mockup-shell">
+
+  <!-- LEFT: Video panel -->
+  <div class="left-panel">
+    <div class="vid-bg"></div>
+    <div class="overlay"></div>
+    <div class="vid-label">mainbgvid.mov</div>
+
+    <!-- Floating fish decorations -->
+    <div class="fish-deco" style="top:18%;right:14%;font-size:38px;animation-delay:0s;opacity:0.18;">🐟</div>
+    <div class="fish-deco" style="top:38%;left:10%;font-size:22px;animation-delay:2s;opacity:0.12;animation-duration:6s;">🐠</div>
+    <div class="fish-deco" style="top:55%;right:20%;font-size:16px;animation-delay:4s;opacity:0.1;">🐡</div>
+
+    <div class="left-content">
+      <div class="lp-logo">
+        <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#1e6fd9,#3ae8d6);display:flex;align-items:center;justify-content:center;font-size:16px;">🌊</div>
+        <div class="lp-logo-text">MERMAID</div>
+      </div>
+
+      <div class="lp-headline">Know the sea.<br><span>Fish smarter.</span></div>
+      <div class="lp-sub">Real-time marine conditions, risk assessments, and market demand — built for Filipino fishermen and vendors.</div>
+
+      <div class="feature-pills">
+        <span class="feature-pill">🌊 Wave alerts</span>
+        <span class="feature-pill">⚠️ Risk levels</span>
+        <span class="feature-pill">📈 Market demand</span>
+        <span class="feature-pill">🗺️ Zone maps</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Form panel -->
+  <div class="right-panel">
+    <div class="flip-scene">
+      <div class="flip-card" id="flipCard">
+
+        <!-- FRONT: Login -->
+        <div class="flip-front">
+          <div class="tab-row">
+            <div class="tab active">Sign In</div>
+            <div class="tab" onclick="document.getElementById('flipCard').classList.add('flipped')">Register</div>
+          </div>
+
+          <div class="form-title">Welcome back</div>
+          <div class="form-sub">No account? <a onclick="document.getElementById('flipCard').classList.add('flipped')">Create one</a></div>
+
+          <div class="field">
+            <label>Email</label>
+            <input type="email" placeholder="you@example.com">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" placeholder="••••••••">
+          </div>
+
+          <button class="submit-btn">Sign In →</button>
+        </div>
+
+        <!-- BACK: Register -->
+        <div class="flip-back">
+          <div class="tab-row">
+            <div class="tab" onclick="document.getElementById('flipCard').classList.remove('flipped')">Sign In</div>
+            <div class="tab active">Register</div>
+          </div>
+
+          <div class="form-title">Create account</div>
+          <div class="form-sub">Already registered? <a onclick="document.getElementById('flipCard').classList.remove('flipped')">Sign in</a></div>
+
+          <div class="field">
+            <label>Full name</label>
+            <input type="text" placeholder="Isidro Reyes">
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" placeholder="you@example.com">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" placeholder="••••••••">
+          </div>
+
+          <div class="field">
+            <label>I am a</label>
+            <div class="role-picker">
+              <div class="role-opt fisher selected" onclick="selectRole(this)">
+                <div class="r-icon">🎣</div>
+                <div class="r-name">FISHERMAN</div>
+              </div>
+              <div class="role-opt vendor" onclick="selectRole(this)">
+                <div class="r-icon">🏪</div>
+                <div class="r-name">VENDOR</div>
+              </div>
+            </div>
+          </div>
+
+          <button class="submit-btn">Create Account →</button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Micro-interaction annotations -->
+<div class="annotations">
+  <div class="ann">
+    <div class="ann-icon">🃏</div>
+    <div class="ann-title">3D Card Flip</div>
+    <div class="ann-desc">700ms cubic-bezier flip on Y-axis when switching between Sign In / Register. Tab row + link both trigger it.</div>
+  </div>
+  <div class="ann">
+    <div class="ann-icon">🎥</div>
+    <div class="ann-title">Video Left Panel</div>
+    <div class="ann-desc"><code>mainbgvid.mov</code> plays muted + looped. Gradient overlays ensure text is always readable. Fish float on top.</div>
+  </div>
+  <div class="ann">
+    <div class="ann-icon">🐠</div>
+    <div class="ann-title">Role Picker</div>
+    <div class="ann-desc">Split panel — click sweeps a bottom border in, shifts background color, scales the icon. FISHERMAN selected by default.</div>
+  </div>
+  <div class="ann">
+    <div class="ann-icon">✨</div>
+    <div class="ann-title">Micro-interactions</div>
+    <div class="ann-desc">Input focus: glow ring + bg shift. Button hover: lift + deeper shadow. Field entrance: staggered fade-slide-up on flip.</div>
+  </div>
+</div>
+
+<script>
+function selectRole(el) {
+  el.closest('.role-picker').querySelectorAll('.role-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+</script>
+</body>
+</html>

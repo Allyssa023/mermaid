@@ -1,0 +1,110 @@
+<h2>Login ↔ Register Transition</h2>
+<p class="subtitle">When the user switches between Sign In and Register, how does the form change?</p>
+
+<style>
+  .tr-cards { display: flex; gap: 18px; margin-top: 24px; flex-wrap: wrap; }
+  .tr-card {
+    flex: 1; min-width: 220px; border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s;
+    background: rgba(255,255,255,0.04);
+  }
+  .tr-card:hover { border-color: rgba(100,180,255,0.4); transform: translateY(-2px); }
+  .tr-card.selected { border-color: #0bb8ff; box-shadow: 0 0 24px rgba(11,184,255,0.25); }
+  .preview { height: 160px; position: relative; overflow: hidden; background: #081928; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .card-info { padding: 14px 16px; }
+  .card-info h3 { margin: 0 0 5px; font-size: 14px; color: #fff; }
+  .card-info p { margin: 0; font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+  .tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 20px; margin-top: 8px; font-weight: 600; }
+  .tag-rec { background: rgba(58,232,214,0.15); color: #3ae8d6; border: 1px solid rgba(58,232,214,0.3); }
+  .tag-alt { background: rgba(11,184,255,0.15); color: #0bb8ff; border: 1px solid rgba(11,184,255,0.3); }
+
+  .panel {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 14px; width: 110px;
+  }
+  .f { height: 7px; background: rgba(255,255,255,0.15); border-radius: 4px; margin-bottom: 5px; }
+  .f.short { width: 60%; }
+  .btn { height: 9px; background: linear-gradient(90deg,#1e6fd9,#0bb8ff); border-radius: 4px; margin-top: 8px; }
+  .lbl { font-size: 8px; color: rgba(255,255,255,0.35); margin-bottom: 2px; }
+  .title-bar { font-size: 9px; color: #3ae8d6; font-weight: 700; margin-bottom: 10px; }
+  .arrow { font-size: 18px; color: rgba(255,255,255,0.2); }
+
+  /* slide panel */
+  .slide-wrap { position: relative; width: 240px; height: 120px; }
+  .slide-panel { position: absolute; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px; width: 110px; top: 10px; }
+  .slide-panel.login { left: 10px; opacity: 1; }
+  .slide-panel.register { right: 10px; opacity: 0.35; transform: translateX(8px); border-style: dashed; }
+  .slide-arrow { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 14px; color: rgba(11,184,255,0.5); }
+</style>
+
+<div class="tr-cards">
+
+  <!-- Option A: Fade + scale -->
+  <div class="tr-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div class="panel" style="opacity:0.3;transform:scale(0.92);">
+        <div class="title-bar">REGISTER</div>
+        <div class="f"></div><div class="f short"></div><div class="f"></div>
+        <div class="btn"></div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="panel">
+        <div class="title-bar">SIGN IN</div>
+        <div class="f"></div>
+        <div class="f"></div>
+        <div class="btn"></div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>A — Fade + scale in-place</h3>
+      <p>Old form fades out + shrinks, new form fades in + grows. Card height animates smoothly.</p>
+      <span class="tag tag-alt">Subtle</span>
+    </div>
+  </div>
+
+  <!-- Option B: Slide horizontal -->
+  <div class="tr-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div class="slide-wrap">
+        <div class="slide-panel login">
+          <div class="title-bar">SIGN IN</div>
+          <div class="f"></div><div class="f"></div><div class="btn"></div>
+        </div>
+        <div class="slide-panel register">
+          <div class="title-bar">REGISTER</div>
+          <div class="f"></div><div class="f short"></div><div class="f"></div><div class="btn"></div>
+        </div>
+        <div class="slide-arrow">⟶</div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>B — Slide horizontally</h3>
+      <p>Forms sit side-by-side off-screen. Switching slides the panel left or right like a carousel.</p>
+      <span class="tag tag-rec">⭐ Recommended</span>
+    </div>
+  </div>
+
+  <!-- Option C: Panel flip -->
+  <div class="tr-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="preview" style="perspective: 600px;">
+      <div style="position:relative; width:120px; height:110px;">
+        <div class="panel" style="position:absolute;transform:rotateY(-15deg);transform-origin:right center;">
+          <div class="title-bar">SIGN IN</div>
+          <div class="f"></div><div class="f"></div><div class="btn"></div>
+        </div>
+        <div class="panel" style="position:absolute;left:14px;top:8px;opacity:0.25;transform:rotateY(30deg);transform-origin:left center;">
+          <div class="title-bar">REGISTER</div>
+          <div class="f"></div><div class="f short"></div><div class="f"></div><div class="btn"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>C — 3D card flip</h3>
+      <p>The card flips on the Y-axis like turning a card over. Login on front, register on back.</p>
+      <span class="tag tag-alt">Dramatic</span>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:18px;font-size:12px;">Click to select, then tell me in the terminal.</p>

@@ -1,0 +1,155 @@
+<h2>Login / Register — Layout Approach</h2>
+<p class="subtitle">Which layout structure feels right for MERMAID's auth page?</p>
+
+<style>
+  .layout-cards { display: flex; gap: 20px; margin-top: 24px; flex-wrap: wrap; }
+  .layout-card {
+    flex: 1; min-width: 260px; border: 2px solid rgba(255,255,255,0.08);
+    border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.2s;
+    background: rgba(255,255,255,0.04);
+  }
+  .layout-card:hover { border-color: rgba(100,180,255,0.4); transform: translateY(-2px); }
+  .layout-card.selected { border-color: #0bb8ff; box-shadow: 0 0 24px rgba(11,184,255,0.25); }
+  .layout-card .preview {
+    height: 180px; position: relative; overflow: hidden;
+    display: flex;
+  }
+  .layout-card .card-info { padding: 16px; }
+  .layout-card .card-info h3 { margin: 0 0 6px; font-size: 15px; color: #fff; }
+  .layout-card .card-info p { margin: 0; font-size: 13px; color: rgba(255,255,255,0.55); line-height: 1.5; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-top: 8px; font-weight: 600; }
+  .tag-rec { background: rgba(58,232,214,0.15); color: #3ae8d6; border: 1px solid rgba(58,232,214,0.3); }
+  .tag-bold { background: rgba(11,184,255,0.15); color: #0bb8ff; border: 1px solid rgba(11,184,255,0.3); }
+  .tag-simple { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); }
+
+  /* Option A: Full-screen video bg, centered form */
+  .opt-a { background: linear-gradient(135deg, #0d2342 0%, #081928 100%); align-items: center; justify-content: center; }
+  .opt-a .vid-hint { position: absolute; inset: 0; background: linear-gradient(135deg, #0d4070 0%, #020f1e 100%); opacity: 0.9; }
+  .opt-a .form-float {
+    position: relative; z-index: 2;
+    background: rgba(255,255,255,0.07); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+    padding: 20px 24px; width: 140px;
+  }
+  .opt-a .fish-hint { position: absolute; bottom: 10px; right: 12px; font-size: 28px; opacity: 0.25; z-index: 1; }
+  .mock-field { height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; margin-bottom: 6px; }
+  .mock-btn { height: 10px; background: linear-gradient(90deg,#1e6fd9,#0bb8ff); border-radius: 4px; margin-top: 10px; }
+  .mock-label { font-size: 9px; color: rgba(255,255,255,0.4); margin-bottom: 3px; }
+  .mock-logo { font-size: 9px; font-weight: 700; color: #3ae8d6; margin-bottom: 10px; letter-spacing: 1px; }
+  .wave-lines { position: absolute; bottom: 0; left: 0; right: 0; height: 40px; overflow: hidden; }
+
+  /* Option B: Split — video left, form right */
+  .opt-b { background: #081928; }
+  .opt-b .left-panel {
+    width: 52%; background: linear-gradient(160deg,#0d4070,#021424);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .opt-b .left-panel::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(to right, transparent 70%, #081928 100%);
+  }
+  .opt-b .right-panel {
+    width: 48%; display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .brand-text { font-size: 11px; font-weight: 700; color: #3ae8d6; letter-spacing: 2px; text-align: center; position: relative; z-index: 2; }
+  .brand-sub { font-size: 8px; color: rgba(255,255,255,0.4); text-align: center; margin-top: 4px; position: relative; z-index: 2; }
+  .wave-deco { font-size: 36px; margin-bottom: 8px; position: relative; z-index: 2; opacity: 0.7; }
+
+  /* Option C: Video right hero, form overlay left */
+  .opt-c { background: #081928; }
+  .opt-c .left-form {
+    width: 45%; background: rgba(13,35,66,0.95); backdrop-filter: blur(30px);
+    display: flex; flex-direction: column; justify-content: center; padding: 20px;
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+  .opt-c .right-vid {
+    flex: 1; background: linear-gradient(135deg, #0a3060 0%, #041020 100%);
+    position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  }
+  .opt-c .right-vid::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, rgba(11,184,255,0.08) 0%, transparent 70%);
+  }
+  .underwater-hint { font-size: 48px; opacity: 0.12; position: relative; z-index: 1; }
+  .vid-label { position: absolute; bottom: 8px; right: 8px; font-size: 8px; color: rgba(255,255,255,0.3); z-index:2; }
+  .form-mini { width: 100%; }
+</style>
+
+<div class="layout-cards">
+
+  <!-- Option A -->
+  <div class="layout-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div class="opt-a" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+        <div class="vid-hint"></div>
+        <div class="fish-hint">🐋</div>
+        <div class="opt-a form-float">
+          <div class="mock-logo">MERMAID</div>
+          <div class="mock-label">Email</div>
+          <div class="mock-field"></div>
+          <div class="mock-label">Password</div>
+          <div class="mock-field"></div>
+          <div class="mock-btn"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>A — Full-screen video, centered form</h3>
+      <p><code>mainbgvid.mov</code> fills the entire viewport. Glassmorphism card floats centered. Fish/seaweed animations layer on top.</p>
+      <span class="tag tag-bold">Immersive</span>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="layout-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div class="opt-b" style="position:absolute;inset:0;display:flex;">
+        <div class="opt-b left-panel">
+          <div class="wave-deco">🌊</div>
+          <div class="brand-text">MERMAID</div>
+          <div class="brand-sub">mainbgvid.mov plays here</div>
+        </div>
+        <div class="opt-b right-panel">
+          <div style="width:100%;">
+            <div class="mock-logo" style="font-size:8px;color:#3ae8d6;">Sign In</div>
+            <div class="mock-field"></div>
+            <div class="mock-field"></div>
+            <div class="mock-btn"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>B — Video left, form right</h3>
+      <p><code>mainbgvid.mov</code> plays on the left with branding/tagline. <code>sidebg.jpeg</code> as the form panel background. Form slides in on load.</p>
+      <span class="tag tag-rec">⭐ Recommended</span>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="layout-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="preview">
+      <div class="opt-c" style="position:absolute;inset:0;display:flex;">
+        <div class="opt-c left-form">
+          <div class="mock-logo" style="font-size:8px;color:#3ae8d6;margin-bottom:6px;">MERMAID</div>
+          <div class="mock-field"></div>
+          <div class="mock-field"></div>
+          <div class="mock-btn"></div>
+        </div>
+        <div class="opt-c right-vid">
+          <div class="underwater-hint">🐠🐟🌿</div>
+          <div class="vid-label">sidebg.jpeg + mainbgvid.mov</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-info">
+      <h3>C — Form left, underwater scene right</h3>
+      <p>Solid dark form panel on the left. <code>sidebg.jpeg</code> + <code>mainbgvid.mov</code> play on the right 55%. Existing layout, upgraded.</p>
+      <span class="tag tag-simple">Familiar</span>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:20px;font-size:12px;">Click a layout to select it, then tell me in the terminal.</p>
