@@ -143,24 +143,49 @@ paths:
   /marine/conditions:
     get:
       tags: [Marine]
-      summary: Get marine conditions and computed risk level
-      operationId: getMarineConditions
-      parameters:
-        - in: query
-          name: areaCode
-          required: false
-          schema:
-            type: string
-          description: Optional coastal area code or location identifier
+      summary: Current conditions — all zones
+      operationId: getAllMarineConditions
       responses:
         '200':
-          description: Marine conditions retrieved
+          description: Conditions for all fishing zones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllMarineConditionsResponse'
+        '503':
+          description: Marine data service temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /marine/conditions/{zoneId}:
+    get:
+      tags: [Marine]
+      summary: Current conditions — single zone
+      operationId: getMarineConditionsByZone
+      parameters:
+        - in: path
+          name: zoneId
+          required: true
+          schema:
+            type: string
+          description: "Zone ID — e.g. manila_bay, visayan_sea"
+      responses:
+        '200':
+          description: Conditions for the requested zone
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MarineConditionsResponse'
+        '404':
+          description: Zone ID not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '503':
-          description: Forecast provider unavailable
+          description: Marine data service temporarily unavailable
           content:
             application/json:
               schema:
@@ -1167,41 +1192,6 @@ components:
           type: string
           nullable: true
 
-    MarineConditionsResponse:
-      type: object
-      required: [areaCode, observedAt, riskLevel]
-      properties:
-        areaCode:
-          type: string
-        areaName:
-          type: string
-        observedAt:
-          type: string
-          format: date-time
-        riskLevel:
-          $ref: '#/components/schemas/RiskLevel'
-        windSpeedKph:
-          type: number
-          format: double
-          nullable: true
-        waveHeightM:
-          type: number
-          format: double
-          nullable: true
-        rainfallMm:
-          type: number
-          format: double
-          nullable: true
-        visibilityKm:
-          type: number
-          format: double
-          nullable: true
-        source:
-          type: string
-        notes:
-          type: string
-          nullable: true
-
     Advisory:
       type: object
       required: [id, title, message, severity, affectedArea, activeFrom, activeTo, isActive]
@@ -1622,3 +1612,103 @@ components:
           type: string
         message:
           type: string
+
+    RiskAssessmentDto:
+      type: object
+      required: [level, score, factors, advisory]
+      properties:
+        level:
+          $ref: '#/components/schemas/RiskLevel'
+        score:
+          type: integer
+          minimum: 0
+          maximum: 10
+        factors:
+          type: array
+          items:
+            type: string
+        advisory:
+          type: string
+
+    MarineDataDto:
+      type: object
+      properties:
+        waveHeightM:
+          type: number
+          format: double
+          nullable: true
+        swellHeightM:
+          type: number
+          format: double
+          nullable: true
+        swellPeriodS:
+          type: number
+          format: double
+          nullable: true
+        swellDirectionDeg:
+          type: number
+          format: double
+          nullable: true
+
+    WeatherDataDto:
+      type: object
+      required: [windSpeedKmh, windDirectionDeg, windGustsKmh, precipitationMm, temperatureC, cloudCoverPct]
+      properties:
+        windSpeedKmh:
+          type: number
+          format: double
+        windDirectionDeg:
+          type: number
+          format: double
+        windGustsKmh:
+          type: number
+          format: double
+        precipitationMm:
+          type: number
+          format: double
+        temperatureC:
+          type: number
+          format: double
+        cloudCoverPct:
+          type: number
+          format: double
+
+    MarineConditionsResponse:
+      type: object
+      required: [zoneId, zoneName, region, lat, lng, observedAt, risk, marine, weather, dataSource]
+      properties:
+        zoneId:
+          type: string
+        zoneName:
+          type: string
+        region:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        observedAt:
+          type: string
+          format: date-time
+        risk:
+          $ref: '#/components/schemas/RiskAssessmentDto'
+        marine:
+          $ref: '#/components/schemas/MarineDataDto'
+        weather:
+          $ref: '#/components/schemas/WeatherDataDto'
+        dataSource:
+          type: string
+
+    AllMarineConditionsResponse:
+      type: object
+      required: [zones, generatedAt]
+      properties:
+        zones:
+          type: array
+          items:
+            $ref: '#/components/schemas/MarineConditionsResponse'
+        generatedAt:
+          type: string
+          format: date-time

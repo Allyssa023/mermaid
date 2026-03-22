@@ -52,6 +52,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
     }
 
+    @ExceptionHandler(MarineServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleMarineServiceUnavailable(
+            MarineServiceUnavailableException ex, HttpServletRequest request) {
+        ErrorResponse body = errorResponse(request.getRequestURI(), HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+    }
+
     private static ErrorResponse errorResponse(String path, HttpStatus status, String message) {
         ErrorResponse r = new ErrorResponse();
         r.setTimestamp(OffsetDateTime.now());
