@@ -7,6 +7,7 @@ The /zones listing is intentionally public — it returns only static metadata.
 
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,7 +25,6 @@ from app.services import open_meteo
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 router = APIRouter(tags=["Conditions"])
 
@@ -77,6 +77,24 @@ def _get_zone_or_404(zone_id: str) -> FishingZone:
     return zone
 
 
+@asynccontextmanager
+async def _open_meteo_errors(zone_id: str):
+    try:
+        yield
+    except httpx.HTTPStatusError as exc:
+        logger.error("Open-Meteo HTTP error for %s: %s", zone_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Marine data service temporarily unavailable",
+        )
+    except httpx.RequestError as exc:
+        logger.error("Open-Meteo request error for %s: %s", zone_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Marine data service temporarily unavailable",
+        )
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -113,10 +131,11 @@ async def get_all_conditions(
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     zones_data: list[ZoneConditions] = []
-    for r in results:
+    for zone, r in zip(ZONES.values(), results):  # gather preserves task order
         if isinstance(r, Exception):
-            logger.warning("Failed to fetch zone conditions: %s", r)
+            logger.warning("Failed to fetch zone %s: %s", zone.id, r)
         else:
+            cache.set(f"conditions:{zone.id}", r, get_settings().conditions_cache_ttl)
             zones_data.append(r)
 
     if not zones_data:
@@ -129,7 +148,7 @@ async def get_all_conditions(
         zones=zones_data,
         generated_at=datetime.now(timezone.utc),
     )
-    cache.set(cache_key, response, settings.conditions_cache_ttl)
+    cache.set(cache_key, response, get_settings().conditions_cache_ttl)
     return response
 
 
@@ -151,16 +170,10 @@ async def get_zone_conditions(
     if cached:
         return cached
 
-    try:
+    async with _open_meteo_errors(zone_id):
         conditions = await open_meteo.fetch_current_conditions(zone, client)
-    except httpx.HTTPStatusError as exc:
-        logger.error("Open-Meteo HTTP error for zone %s: %s", zone_id, exc)
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Marine data service temporarily unavailable")
-    except httpx.RequestError as exc:
-        logger.error("Open-Meteo request error for zone %s: %s", zone_id, exc)
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Marine data service temporarily unavailable")
 
-    cache.set(cache_key, conditions, settings.conditions_cache_ttl)
+    cache.set(cache_key, conditions, get_settings().conditions_cache_ttl)
     return conditions
 
 
@@ -182,14 +195,8 @@ async def get_zone_forecast(
     if cached:
         return cached
 
-    try:
+    async with _open_meteo_errors(zone_id):
         forecast = await open_meteo.fetch_forecast(zone, client)
-    except httpx.HTTPStatusError as exc:
-        logger.error("Open-Meteo HTTP error for forecast %s: %s", zone_id, exc)
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Marine data service temporarily unavailable")
-    except httpx.RequestError as exc:
-        logger.error("Open-Meteo request error for forecast %s: %s", zone_id, exc)
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Marine data service temporarily unavailable")
 
-    cache.set(cache_key, forecast, settings.forecast_cache_ttl)
+    cache.set(cache_key, forecast, get_settings().forecast_cache_ttl)
     return forecast
