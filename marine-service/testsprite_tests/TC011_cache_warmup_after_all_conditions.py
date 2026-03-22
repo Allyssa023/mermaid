@@ -5,7 +5,7 @@ After fetching all zones, a subsequent GET /api/conditions/manila_bay
 must be served from cache — no second call to open_meteo.fetch_current_conditions.
 """
 import pytest
-from unittest.mock import AsyncMock, patch, call
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -46,7 +46,7 @@ def test_all_conditions_warms_per_zone_cache():
             r1 = client.get("/api/conditions", headers=HEADERS)
             assert r1.status_code == 200
             calls_after_all = mock_fetch.call_count
-            assert calls_after_all == 8, f"Expected 8 Open-Meteo calls, got {calls_after_all}"
+            assert calls_after_all == 8, f"Expected 8 Open-Meteo calls for all zones, got {calls_after_all} — some zones may have raised exceptions during gather"
 
             # Second call — should be a cache hit, zero new Open-Meteo calls
             r2 = client.get("/api/conditions/manila_bay", headers=HEADERS)
