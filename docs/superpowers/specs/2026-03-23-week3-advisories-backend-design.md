@@ -80,7 +80,10 @@ Inserts ~10 common Philippine fish species and 3–5 sample market locations. Pr
 - Fields: `id`, `name`, `municipality`, `province`, `active`, `createdAt`
 
 **`Advisory.java`**
-- Fields: `id`, `title`, `message`, `severity` (`@Enumerated(EnumType.STRING)`), `affectedArea`, `activeFrom`, `activeTo`, `isActive`, `createdByUserId` (`Long` — no `@ManyToOne`, avoids eager user graph loading), `createdAt`
+- Fields: `id`, `title`, `message`, `severity` (`@Enumerated(EnumType.STRING)`), `affectedArea`, `activeFrom` (`OffsetDateTime`), `activeTo` (`OffsetDateTime`), `isActive`, `createdByUserId` (`Long` — no `@ManyToOne`, avoids eager user graph loading), `createdAt`
+- Uses `OffsetDateTime` for date fields (consistent with the existing `User` entity pattern; Hibernate maps `TIMESTAMPTZ` to `OffsetDateTime` by default)
+- `Advisory` intentionally omits `updated_at` — mutation history is not tracked for advisories in this MVP. Do not add it ad-hoc; it would require a new migration.
+- The `Severity` enum field reuses the generated model's `com.mermaid.app.model.Severity` directly (same pattern as `User` importing `com.mermaid.app.model.Role`), eliminating any cross-package enum conversion in mappers.
 
 ### Repositories
 
@@ -92,8 +95,8 @@ Inserts ~10 common Philippine fish species and 3–5 sample market locations. Pr
 
 **`AdvisoryRepository extends JpaRepository<Advisory, Long>`**
 - `List<Advisory> findAllByOrderByCreatedAtDesc()` — for admin (all rows)
-- `List<Advisory> findAllByIsActiveTrueAndActiveFromBeforeAndActiveToAfter(Instant now1, Instant now2)` — for public active feed (AND logic)
-- Severity filter applied as an additional `@Query` or in-memory filter in the service
+- `@Query("SELECT a FROM Advisory a WHERE a.isActive = true AND a.activeFrom <= :now AND a.activeTo >= :now") List<Advisory> findActive(@Param("now") OffsetDateTime now)` — single-parameter query avoids the ambiguity of a two-parameter derived method name
+- Severity filter applied in-memory in `AdvisoryService.listActive()` after loading active advisories (MVP trade-off — advisory volume is small and avoids an additional `@Query` overload)
 
 ## Service Layer
 
@@ -106,7 +109,7 @@ All services live in `com.mermaid.app.service`. Each uses a dedicated mapper cla
 | `listActive()` | `findAllByActiveTrue()`, map to API models |
 | `create(request)` | Save new entity, return API model |
 | `update(id, request)` | Load (throw `ResourceNotFoundException` if missing), apply changes, save |
-| `delete(id)` | Load, set `active = false` (soft delete — safe for future FK references from demand listings) |
+| `delete(id)` | Load, set `active = false` (soft delete — safe for future FK references from demand listings). **Note:** Future services that accept a `fishSpeciesId` or `marketLocationId` (e.g. demand listings in Week 4) must validate `active = true` at time of reference. The lookup endpoints already filter to active-only so UI clients are protected, but direct API callers are not. |
 
 ### `MarketLocationService`
 Identical shape to `FishSpeciesService` with its own entity and repository.
@@ -126,7 +129,12 @@ Identical shape to `FishSpeciesService` with its own entity and repository.
 
 ### `AdminController` (existing — remove stubs)
 - Inject `AdvisoryService`, `FishSpeciesService`, `MarketLocationService`
-- Advisory `create` method extracts admin user ID from `Authentication` principal
+- Advisory `create` method must match the generated `AdminApi` interface signature (single `AdvisoryCreateRequest` parameter — no `Authentication` parameter allowed on the override). Obtain the current user from `SecurityContextHolder` inside the method body instead:
+  ```java
+  Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+  Long adminUserId = Long.parseLong(auth.getName());
+  ```
+  `auth.getName()` returns the JWT `sub` claim, which `JwtTokenService` sets to `String.valueOf(user.getId())`.
 - Class-level `@PreAuthorize("hasRole('ADMIN')")` already in place — no security changes needed
 
 ### `AdvisoryController` (new)
