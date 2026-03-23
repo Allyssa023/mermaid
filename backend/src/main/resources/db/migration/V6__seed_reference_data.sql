@@ -10,12 +10,14 @@ INSERT INTO fish_species (common_name, scientific_name) VALUES
     ('Dilis',       'Stolephorus sp.'),
     ('Alumahan',    'Rastrelliger kanagurta'),
     ('Espada',      'Trichiurus lepturus'),
-    ('Maya-maya',   'Lutjanus campechanus'),
-    ('Pampano',     'Trachinotus blochii');
+    ('Maya-maya',   'Lutjanus sebae'),
+    ('Pampano',     'Trachinotus blochii')
+ON CONFLICT (common_name) DO NOTHING;
 
 INSERT INTO market_locations (name, municipality, province) VALUES
     ('Navotas Fish Port Complex', 'Navotas',      'Metro Manila'),
     ('Divisoria Market',          'Manila',        'Metro Manila'),
     ('Commonwealth Market',       'Quezon City',   'Metro Manila'),
     ('Carbon Market',             'Cebu City',     'Cebu'),
-    ('Taboan Public Market',      'Cebu City',     'Cebu');
+    ('Taboan Public Market',      'Cebu City',     'Cebu')
+ON CONFLICT (name, municipality) DO NOTHING;

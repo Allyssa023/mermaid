@@ -18,7 +18,8 @@ CREATE TABLE market_locations (
     municipality VARCHAR(100) NOT NULL,
     province     VARCHAR(100),
     active       BOOLEAN      NOT NULL DEFAULT true,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT uq_market_locations_name_municipality UNIQUE (name, municipality)
 );
 
 CREATE INDEX idx_market_locations_active ON market_locations (active) WHERE active = true;
