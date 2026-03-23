@@ -3,104 +3,120 @@ package com.mermaid.app.controller;
 import com.mermaid.app.api.AdminApi;
 import com.mermaid.app.model.*;
 import com.mermaid.app.service.AdminUserService;
+import com.mermaid.app.service.AdvisoryService;
+import com.mermaid.app.service.FishSpeciesService;
+import com.mermaid.app.service.MarketLocationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Admin API implementation. All endpoints require ROLE_ADMIN (least privilege).
- * User management is implemented; other admin features (advisories, reference data) are stubbed for later.
- */
 @RestController
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController implements AdminApi {
 
     private final AdminUserService adminUserService;
+    private final AdvisoryService advisoryService;
+    private final FishSpeciesService fishSpeciesService;
+    private final MarketLocationService marketLocationService;
 
-    public AdminController(AdminUserService adminUserService) {
+    public AdminController(AdminUserService adminUserService,
+                           AdvisoryService advisoryService,
+                           FishSpeciesService fishSpeciesService,
+                           MarketLocationService marketLocationService) {
         this.adminUserService = adminUserService;
+        this.advisoryService = advisoryService;
+        this.fishSpeciesService = fishSpeciesService;
+        this.marketLocationService = marketLocationService;
     }
 
+    // --- User management (existing) ---
+
     @Override
-    public ResponseEntity<UserSummary> adminCreateUser(UserCreateRequest userCreateRequest) {
-        UserSummary created = adminUserService.createUser(userCreateRequest);
-        return ResponseEntity.status(201).body(created);
+    public ResponseEntity<UserSummary> adminCreateUser(UserCreateRequest request) {
+        return ResponseEntity.status(201).body(adminUserService.createUser(request));
     }
 
     @Override
     public ResponseEntity<UserSummary> adminGetUser(Long userId) {
-        UserSummary user = adminUserService.getUser(userId);
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(adminUserService.getUser(userId));
     }
 
     @Override
     public ResponseEntity<List<UserSummary>> adminListUsers() {
-        List<UserSummary> list = adminUserService.listUsers();
-        return ResponseEntity.ok(list);
+        return ResponseEntity.ok(adminUserService.listUsers());
     }
 
     @Override
-    public ResponseEntity<UserSummary> adminUpdateUser(Long userId, UserUpdateRequest userUpdateRequest) {
-        UserSummary updated = adminUserService.updateUser(userId, userUpdateRequest);
-        return ResponseEntity.ok(updated);
+    public ResponseEntity<UserSummary> adminUpdateUser(Long userId, UserUpdateRequest request) {
+        return ResponseEntity.ok(adminUserService.updateUser(userId, request));
     }
 
-    // --- Stubbed (not yet implemented) ---
+    // --- Advisory CRUD ---
 
     @Override
-    public ResponseEntity<Advisory> adminCreateAdvisory(AdvisoryCreateRequest advisoryCreateRequest) {
-        throw new UnsupportedOperationException("Advisory CRUD not implemented yet");
-    }
-
-    @Override
-    public ResponseEntity<FishSpecies> adminCreateFishSpecies(FishSpeciesCreateRequest fishSpeciesCreateRequest) {
-        throw new UnsupportedOperationException("Fish species CRUD not implemented yet");
-    }
-
-    @Override
-    public ResponseEntity<MarketLocation> adminCreateMarketLocation(MarketLocationCreateRequest marketLocationCreateRequest) {
-        throw new UnsupportedOperationException("Market location CRUD not implemented yet");
-    }
-
-    @Override
-    public ResponseEntity<Void> adminDeleteAdvisory(Long advisoryId) {
-        throw new UnsupportedOperationException("Advisory CRUD not implemented yet");
-    }
-
-    @Override
-    public ResponseEntity<Void> adminDeleteFishSpecies(Long speciesId) {
-        throw new UnsupportedOperationException("Fish species CRUD not implemented yet");
-    }
-
-    @Override
-    public ResponseEntity<Void> adminDeleteMarketLocation(Long locationId) {
-        throw new UnsupportedOperationException("Market location CRUD not implemented yet");
+    public ResponseEntity<List<Advisory>> adminListAdvisories() {
+        return ResponseEntity.ok(advisoryService.listAll());
     }
 
     @Override
     public ResponseEntity<Advisory> adminGetAdvisoryById(Long advisoryId) {
-        throw new UnsupportedOperationException("Advisory CRUD not implemented yet");
+        return ResponseEntity.ok(advisoryService.getById(advisoryId));
     }
 
     @Override
-    public ResponseEntity<List<Advisory>> adminListAdvisories() {
-        throw new UnsupportedOperationException("Advisory CRUD not implemented yet");
+    public ResponseEntity<Advisory> adminCreateAdvisory(AdvisoryCreateRequest request) {
+        Long adminUserId = Long.parseLong(
+            SecurityContextHolder.getContext().getAuthentication().getName());
+        return ResponseEntity.status(201).body(advisoryService.create(request, adminUserId));
     }
 
     @Override
-    public ResponseEntity<Advisory> adminUpdateAdvisory(Long advisoryId, AdvisoryUpdateRequest advisoryUpdateRequest) {
-        throw new UnsupportedOperationException("Advisory CRUD not implemented yet");
+    public ResponseEntity<Advisory> adminUpdateAdvisory(Long advisoryId, AdvisoryUpdateRequest request) {
+        return ResponseEntity.ok(advisoryService.update(advisoryId, request));
     }
 
     @Override
-    public ResponseEntity<FishSpecies> adminUpdateFishSpecies(Long speciesId, FishSpeciesCreateRequest fishSpeciesCreateRequest) {
-        throw new UnsupportedOperationException("Fish species CRUD not implemented yet");
+    public ResponseEntity<Void> adminDeleteAdvisory(Long advisoryId) {
+        advisoryService.delete(advisoryId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // --- Fish species CRUD ---
+
+    @Override
+    public ResponseEntity<FishSpecies> adminCreateFishSpecies(FishSpeciesCreateRequest request) {
+        return ResponseEntity.status(201).body(fishSpeciesService.create(request));
     }
 
     @Override
-    public ResponseEntity<MarketLocation> adminUpdateMarketLocation(Long locationId, MarketLocationCreateRequest marketLocationCreateRequest) {
-        throw new UnsupportedOperationException("Market location CRUD not implemented yet");
+    public ResponseEntity<FishSpecies> adminUpdateFishSpecies(Long speciesId, FishSpeciesCreateRequest request) {
+        return ResponseEntity.ok(fishSpeciesService.update(speciesId, request));
+    }
+
+    @Override
+    public ResponseEntity<Void> adminDeleteFishSpecies(Long speciesId) {
+        fishSpeciesService.delete(speciesId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // --- Market location CRUD ---
+
+    @Override
+    public ResponseEntity<MarketLocation> adminCreateMarketLocation(MarketLocationCreateRequest request) {
+        return ResponseEntity.status(201).body(marketLocationService.create(request));
+    }
+
+    @Override
+    public ResponseEntity<MarketLocation> adminUpdateMarketLocation(Long locationId, MarketLocationCreateRequest request) {
+        return ResponseEntity.ok(marketLocationService.update(locationId, request));
+    }
+
+    @Override
+    public ResponseEntity<Void> adminDeleteMarketLocation(Long locationId) {
+        marketLocationService.delete(locationId);
+        return ResponseEntity.noContent().build();
     }
 }
