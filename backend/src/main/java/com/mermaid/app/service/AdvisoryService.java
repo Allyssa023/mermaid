@@ -80,9 +80,9 @@ public class AdvisoryService {
 
     @Transactional
     public void delete(Long id) {
-        if (!repo.existsById(id)) {
-            throw new ResourceNotFoundException("Advisory not found: " + id);
-        }
-        repo.deleteById(id);
+        Advisory entity = repo.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Advisory not found: " + id));
+        entity.setActive(false);
+        repo.save(entity);
     }
 }

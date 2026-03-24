@@ -113,8 +113,21 @@ class AdvisoryServiceTest {
     }
 
     @Test
+    void delete_setsActiveFalse_neverHardDeletes() {
+        Advisory entity = advisoryEntity(1L, Severity.HIGH);
+        when(repo.findById(1L)).thenReturn(Optional.of(entity));
+
+        service.delete(1L);
+
+        assertFalse(entity.isActive());
+        verify(repo).save(entity);
+        verify(repo, never()).deleteById(any());
+        verify(repo, never()).delete(any());
+    }
+
+    @Test
     void delete_notFound_throwsResourceNotFoundException() {
-        when(repo.existsById(99L)).thenReturn(false);
+        when(repo.findById(99L)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class, () -> service.delete(99L));
         verify(repo, never()).deleteById(any());
     }

@@ -84,6 +84,20 @@ class AdminAdvisoryControllerTest {
     }
 
     @Test
+    void adminCreateAdvisory_blankTitle_returns400() throws Exception {
+        AdvisoryCreateRequest request = new AdvisoryCreateRequest(
+            "", "Rough seas expected",
+            Severity.HIGH, "Visayan Sea",
+            OffsetDateTime.now(), OffsetDateTime.now().plusDays(2));
+
+        mockMvc.perform(post("/admin/advisories")
+               .with(jwt().jwt(b -> b.subject("1").claim("roles", List.of("ROLE_ADMIN"))))
+               .contentType(MediaType.APPLICATION_JSON)
+               .content(objectMapper.writeValueAsString(request)))
+               .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void adminCreateAdvisory_invalidDates_returns400() throws Exception {
         OffsetDateTime now = OffsetDateTime.now();
         AdvisoryCreateRequest request = new AdvisoryCreateRequest(
