@@ -1370,8 +1370,6 @@ components:
           type: string
           format: date-time
           nullable: true
-        status:
-          $ref: '#/components/schemas/DemandListingStatus'
 
     OfferLookupItem:
       type: object

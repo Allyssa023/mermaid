@@ -8,7 +8,7 @@ import com.mermaid.app.service.FishSpeciesService;
 import com.mermaid.app.service.MarketLocationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
+import com.mermaid.app.security.SecurityUtils;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -68,8 +68,7 @@ public class AdminController implements AdminApi {
 
     @Override
     public ResponseEntity<Advisory> adminCreateAdvisory(AdvisoryCreateRequest request) {
-        Long adminUserId = Long.parseLong(
-            SecurityContextHolder.getContext().getAuthentication().getName());
+        Long adminUserId = SecurityUtils.currentUserId();
         return ResponseEntity.status(201).body(advisoryService.create(request, adminUserId));
     }
 

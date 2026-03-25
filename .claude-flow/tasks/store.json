@@ -1,0 +1,117 @@
+{
+  "tasks": {
+    "task-1774406364334-r2ukyj": {
+      "taskId": "task-1774406364334-r2ukyj",
+      "type": "research",
+      "description": "Check transaction boundaries in DemandListingService: verify all write methods are @Transactional, reads are @Transactional(readOnly=true), and no N+1 queries remain",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "reviewer-service"
+      ],
+      "tags": [
+        "week4",
+        "service",
+        "transactions"
+      ],
+      "createdAt": "2026-03-25T02:39:24.334Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1774406365170-hljve4": {
+      "taskId": "task-1774406365170-hljve4",
+      "type": "research",
+      "description": "Verify VendorDemandListingController test coverage: list all HTTP scenarios (200/201/204/400/401/404/409) and confirm each has a test case",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "tester-api"
+      ],
+      "tags": [
+        "week4",
+        "controller",
+        "coverage"
+      ],
+      "createdAt": "2026-03-25T02:39:25.170Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1774406366412-2r3rst": {
+      "taskId": "task-1774406366412-2r3rst",
+      "type": "research",
+      "description": "Coordinate: summarise findings from reviewer-service and tester-api agents, identify any remaining gaps in Week 4 implementation",
+      "priority": "normal",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "coord-week4"
+      ],
+      "tags": [
+        "week4",
+        "coordination",
+        "summary"
+      ],
+      "createdAt": "2026-03-25T02:39:26.412Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1774406856030-uewgzy": {
+      "taskId": "task-1774406856030-uewgzy",
+      "type": "feature",
+      "description": "Add findOpenListings (4 optional filters) and findOpenOffersBySpecies to DemandListingRepository",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "dev-marketplace"
+      ],
+      "tags": [
+        "week5",
+        "repository"
+      ],
+      "createdAt": "2026-03-25T02:47:36.030Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1774406857325-ypr8w3": {
+      "taskId": "task-1774406857325-ypr8w3",
+      "type": "feature",
+      "description": "Create MarketplaceService + MarketplaceController implementing MarketplaceApi with FISHERMAN role",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "dev-marketplace"
+      ],
+      "tags": [
+        "week5",
+        "service",
+        "controller"
+      ],
+      "createdAt": "2026-03-25T02:47:37.325Z",
+      "startedAt": null,
+      "completedAt": null
+    },
+    "task-1774406858140-jko45y": {
+      "taskId": "task-1774406858140-jko45y",
+      "type": "feature",
+      "description": "Write MarketplaceControllerTest and MarketplaceServiceTest with full scenario coverage",
+      "priority": "high",
+      "status": "pending",
+      "progress": 0,
+      "assignedTo": [
+        "tester-marketplace"
+      ],
+      "tags": [
+        "week5",
+        "tests"
+      ],
+      "createdAt": "2026-03-25T02:47:38.140Z",
+      "startedAt": null,
+      "completedAt": null
+    }
+  },
+  "version": "3.0.0"
+}
