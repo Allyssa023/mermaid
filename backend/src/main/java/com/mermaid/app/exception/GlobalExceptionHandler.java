@@ -82,6 +82,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(TripNotActiveException.class)
+    public ResponseEntity<ErrorResponse> handleTripNotActive(
+            TripNotActiveException ex, HttpServletRequest request) {
+        ErrorResponse body = errorResponse(request.getRequestURI(), HttpStatus.CONFLICT, ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex,
