@@ -327,7 +327,22 @@ backend/src/test/java/com/mermaid/app/
 
 ### Modified files
 ```
+backend/src/main/resources/openapi/api.yaml
+  — add '409' response block to PUT /trips/{tripId}/checklist (saveTripChecklist)
+  — add '409' response block to POST /trips/{tripId}/end (endTrip)
+  — regenerate sources after change
+
 backend/src/main/java/com/mermaid/app/
   exception/GlobalExceptionHandler.java
     — add TripNotActiveException → 409
+```
+
+**`api.yaml` 409 response block (apply to both endpoints above):**
+```yaml
+'409':
+  description: Trip is not active
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ErrorResponse'
 ```
