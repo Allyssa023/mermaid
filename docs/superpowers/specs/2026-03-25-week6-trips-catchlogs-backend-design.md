@@ -102,15 +102,15 @@ CREATE INDEX idx_catch_logs_trip ON catch_logs (trip_id);
 **`Trip.java`**
 - `@Entity`, maps to `trips` table.
 - `fishermanId` stored as bare `Long` — consistent with `DemandListing.vendorId` and `Advisory.createdByUserId`. No `@ManyToOne` to `User`.
-- `status` typed as the generated `com.mermaid.app.model.TripStatus` enum.
+- `status` typed as `com.mermaid.app.model.TripStatus` — same pattern as `DemandListing` using `com.mermaid.app.model.DemandListingStatus` (confirmed in production code). This project intentionally reuses the generated enum in the entity layer.
 - Checklist columns as boxed `Boolean` (nullable — null means not submitted).
-- `@PrePersist` sets `startedAt = Instant.now()`.
+- `@PrePersist` sets `startedAt = Instant.now()`. The SQL `DEFAULT now()` also present as a safety net for raw SQL inserts — same dual approach as `DemandListing.postedAt`.
 
 **`CatchLog.java`**
 - `@Entity`, maps to `catch_logs` table.
 - `@ManyToOne(fetch = FetchType.LAZY)` on `species → FishSpecies`. LAZY gives explicit control — association only loads when requested via `@EntityGraph`.
 - `tripId` and `matchedListingId` stored as bare `Long` (nullable for `matchedListingId`).
-- `@PrePersist` sets `loggedAt = Instant.now()`.
+- `@PrePersist` sets `loggedAt = Instant.now()`. Same dual approach with SQL DEFAULT.
 
 ### Repositories
 
@@ -141,7 +141,7 @@ The `findByIdAndTripId` method enforces catch-to-trip scoping. A catch that belo
 
 **`TripMapper.toModel(Trip entity)`** — maps all fields. Checklist: if all 6 boolean fields are `null` → returns `null` for the `checklist` response field; otherwise builds a `SafetyChecklist` model from the trip's inline columns. No repository injection — dependency-free, same pattern as all existing mappers.
 
-**`CatchLogMapper.toModel(CatchLog entity)`** — maps all fields. Delegates the nested `species` object to the existing `FishSpeciesMapper`. Species is already JOIN-fetched via `@EntityGraph`, so no extra query is triggered.
+**`CatchLogMapper.toModel(CatchLog entity)`** — maps all fields. Delegates the nested `species` object to the existing `FishSpeciesMapper`. Species is already JOIN-fetched via `@EntityGraph`, so no extra query is triggered. `FishSpecies` has no lazy associations that `CatchLogMapper` touches (confirmed: the entity has only scalar fields — `id`, `commonName`, `scientificName`, `active`), so the `@EntityGraph` on `species` alone is sufficient.
 
 ---
 
@@ -165,10 +165,10 @@ Maps to 409 Conflict via a targeted handler in `GlobalExceptionHandler`. Same pa
 
 | Method | Signature | Key behaviour |
 |--------|-----------|---------------|
-| `listTrips` | `(TripStatus statusFilter)` | Null → unfiltered; otherwise status-filtered. Both ordered `started_at DESC, id DESC`. |
-| `startTrip` | `(TripStartRequest)` | Sets `fishermanId` from `SecurityUtils.currentUserId()`. Status defaults to `ACTIVE`. |
+| `listTrips` | `(TripStatus statusFilter)` | Null → unfiltered; otherwise single-status filter (`ACTIVE`, `COMPLETED`, or `CANCELLED` — the three values defined in `api.yaml`). Multi-status filtering is out of scope. Both ordered `started_at DESC, id DESC`. |
+| `startTrip` | `(TripStartRequest)` | Sets `fishermanId` from `SecurityUtils.currentUserId()`. Status defaults to `ACTIVE`. Multiple concurrent ACTIVE trips are intentionally allowed — a fisherman may operate more than one vessel. No unique constraint or service guard is applied. |
 | `getTripById` | `(Long tripId)` | Ownership via `findByIdAndFishermanId` → `ResourceNotFoundException` (404) if not found or not owned. |
-| `saveTripChecklist` | `(Long tripId, SafetyChecklistRequest)` | Ownership check → guard: `status != ACTIVE` → `TripNotActiveException` (409). Sets all 6 booleans and `checklistCompletedAt = now()`. Saves. |
+| `saveTripChecklist` | `(Long tripId, SafetyChecklistRequest)` | Ownership check → guard: `status != ACTIVE` → `TripNotActiveException` (409). Idempotent overwrite: sets all 6 booleans and resets `checklistCompletedAt = now()` on every call, whether or not the checklist was previously submitted. Saves. |
 | `endTrip` | `(Long tripId, TripEndRequest)` | Ownership check → guard: `status != ACTIVE` → `TripNotActiveException` (409). Sets `status = COMPLETED`, `endedAt = now()`. Updates `notes` only if request field is non-null (partial). Saves. |
 
 ### `CatchLogService`
@@ -190,12 +190,10 @@ private Trip getOwnedActiveTrip(Long tripId) {
 
 | Method | Key behaviour |
 |--------|---------------|
-| `listByTrip(Long tripId)` | Verifies trip ownership (not the ACTIVE guard — read is allowed on completed trips). Fetches catches — species already loaded via `@EntityGraph`. |
-| `create(Long tripId, CatchLogCreateRequest)` | `getOwnedActiveTrip`. Validates `speciesId` exists → 404 if not. If `matchedListingId` non-null, validates it exists in `DemandListingRepository` → 404 if not. Saves. |
-| `update(Long tripId, Long catchId, CatchLogUpdateRequest)` | `getOwnedActiveTrip`. `findByIdAndTripId` → 404 if not found. Applies non-null fields only (partial PUT). Re-validates `speciesId`/`matchedListingId` if non-null. |
-| `delete(Long tripId, Long catchId)` | `getOwnedActiveTrip`. `findByIdAndTripId` → 404 if not found. Hard delete via `deleteById`. |
-
-> **`listByTrip` ownership note:** Ownership is checked (trip must belong to the calling fisherman) but the ACTIVE guard is not applied — a fisherman can view the catch history of a completed trip. Only mutations (create/update/delete) are blocked on non-ACTIVE trips.
+| `listByTrip(Long tripId)` | Two-step: (1) `TripRepository.findByIdAndFishermanId(tripId, currentUserId())` → 404 if not owned. (2) `CatchLogRepository.findAllByTripIdOrderByLoggedAtDesc(tripId)`. The ACTIVE guard is NOT applied — a fisherman can view the catch history of a completed trip. |
+| `create(Long tripId, CatchLogCreateRequest)` | `getOwnedActiveTrip`. Validates `speciesId` exists → 404 if not. If `matchedListingId` non-null, validates it exists in `DemandListingRepository` → 404 if not. A `null` `matchedListingId` skips validation entirely. Saves. |
+| `update(Long tripId, Long catchId, CatchLogUpdateRequest)` | `getOwnedActiveTrip`. `findByIdAndTripId` → 404 if catch not in trip. Non-null fields only. `speciesId`: null means leave unchanged (cannot be cleared — `species_id NOT NULL` in DB); non-null means validate and update. `matchedListingId`: null means clear the field (sets to `null` in DB — column is nullable); non-null means validate and update. |
+| `delete(Long tripId, Long catchId)` | `getOwnedActiveTrip`. `findByIdAndTripId` → 404 if catch not in trip. Hard delete via `deleteById`. |
 
 All writes use `@Transactional`; reads use `@Transactional(readOnly = true)`.
 
@@ -264,9 +262,12 @@ public ResponseEntity<ErrorResponse> handleTripNotActive(
 | `create_activeTrip_savesAndReturnsMappedModel` | Species validated; catch saved |
 | `create_speciesNotFound_throwsResourceNotFoundException` | `FishSpeciesRepository` returns empty → 404 |
 | `create_invalidMatchedListingId_throwsResourceNotFoundException` | `DemandListingRepository` returns empty → 404 |
+| `create_nullMatchedListingId_skipsListingValidation` | `null` `matchedListingId` → `DemandListingRepository` never called |
 | `create_completedTrip_throwsTripNotActiveException` | Guard fires before save |
 | `update_nonNullFieldsOnly_applied` | Null fields in request leave entity fields unchanged |
+| `update_nullMatchedListingId_clearsField` | `null` clears field; `DemandListingRepository` never called |
 | `update_newSpeciesNotFound_throwsResourceNotFoundException` | Non-null `speciesId` not found → 404 |
+| `update_catchNotInTrip_throwsResourceNotFoundException` | `findByIdAndTripId` returns empty → 404 |
 | `update_completedTrip_throwsTripNotActiveException` | Guard fires |
 | `delete_activeTrip_callsDeleteById` | Hard delete; `save()` never called |
 | `delete_completedTrip_throwsTripNotActiveException` | Guard fires |
@@ -276,12 +277,14 @@ public ResponseEntity<ErrorResponse> handleTripNotActive(
 
 `TripControllerTest`:
 - `startTrip_asFisherman_returns201`
-- `startTrip_asNonFisherman_returns403`
+- `startTrip_asNonFisherman_returns403` — confirms `@PreAuthorize("hasRole('FISHERMAN')")` at class level
 - `startTrip_missingDeparturePoint_returns400` — confirms `@Valid` fires on required field
 - `getTripById_notFound_returns404`
+- `saveTripChecklist_activeTrip_returns200`
 - `saveTripChecklist_completedTrip_returns409` — service throws `TripNotActiveException`
-- `endTrip_returns200`
-- `listTrips_invalidStatusParam_returns400` — `?status=BOGUS` triggers `MethodArgumentTypeMismatchException`
+- `endTrip_activeTrip_returns200`
+- `endTrip_completedTrip_returns409` — service throws `TripNotActiveException`
+- `listTrips_invalidStatusParam_returns400` — `?status=BOGUS` triggers `MethodArgumentTypeMismatchException` at the controller binding layer (the OpenAPI generator emits `TripStatus` as the query parameter type; Spring throws `MethodArgumentTypeMismatchException` on conversion failure, which the existing `GlobalExceptionHandler` handler maps to 400). Same mechanism as `VendorDemandListingController`.
 
 `CatchLogControllerTest`:
 - `createCatchLog_asFisherman_returns201`
