@@ -79,7 +79,17 @@ mapper/FooMapper         — maps entity ↔ generated model DTO
 service/FooService       — business logic, all writes are @Transactional
 ```
 
-Service methods use `@Transactional(readOnly = true)` for reads and `@Transactional` for writes. Throw `ResourceNotFoundException` (→ 404) and `IllegalArgumentException` (→ 400) — both are handled in `GlobalExceptionHandler`.
+Service methods use `@Transactional(readOnly = true)` for reads and `@Transactional` for writes. `GlobalExceptionHandler` maps domain exceptions to HTTP responses:
+
+| Exception | HTTP |
+|-----------|------|
+| `ResourceNotFoundException` | 404 |
+| `IllegalArgumentException` | 400 |
+| `EmailAlreadyExistsException` | 409 |
+| `ListingClosedException` | 409 |
+| `TripNotActiveException` | 409 |
+| `MarineServiceUnavailableException` | 503 |
+| `InvalidCredentialsException` | 401 |
 
 ### Soft delete
 All domain entities use soft delete — never call `deleteById()`. Set the boolean active flag to `false` and call `save()`. The `fish_species` and `market_locations` tables index on `active = true`; the `advisories` table uses `is_active`.
@@ -112,8 +122,8 @@ Risk levels (`SAFE`/`CAUTION`/`UNSAFE`) are computed by `risk_engine.py` from wa
 
 ## Project Status
 
-**Implemented:** Auth (login/register/current-user), admin user management, marine conditions with risk assessment, admin advisories CRUD, fish species and market location reference data (lookup endpoints + admin CRUD).
+**Implemented:** Auth (login/register/current-user), admin user management, marine conditions with risk assessment, admin advisories CRUD, fish species and market location reference data (lookup endpoints + admin CRUD), vendor demand listings (`VendorDemandListingController` + `MarketplaceController`), fisherman marketplace, trip sessions with safety checklists (`TripController`, full ACTIVE→ENDED lifecycle with `TripStatus` enum).
 
-**Still MVP-pending:** Vendor demand listings, fisherman marketplace, trip sessions, safety checklists, catch logging, Docker Compose orchestration.
+**Still MVP-pending:** Catch log CRUD (schema in V9 migration and `api.yaml` endpoints defined, but no domain entity/service/mapper yet), Docker Compose orchestration.
 
 **Frontend:** Early MVP stage — currently a single `App.jsx` with login/register UI. No component structure yet.
