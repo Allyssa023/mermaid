@@ -16,5 +16,9 @@
       "Bash(xargs grep:*)",
       "Bash(jar tf:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "claude-flow"
+  ],
+  "enableAllProjectMcpServers": true
 }
