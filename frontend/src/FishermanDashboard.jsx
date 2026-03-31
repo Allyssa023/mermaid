@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import './dashboard.css'
 import { apiGet } from './api'
+import MyTrips from './MyTrips'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -290,6 +291,10 @@ export default function FishermanDashboard({ user, token, onLogout }) {
       <Sidebar user={user} activeNav={activeNav} onNav={setActiveNav} onLogout={onLogout} />
 
       <main className="db-main">
+        {activeNav === 'trips' ? (
+          <MyTrips token={token} />
+        ) : (
+          <>
 
         {/* ── Top bar ── */}
         <header className="db-topbar">
@@ -448,6 +453,8 @@ export default function FishermanDashboard({ user, token, onLogout }) {
           )}
         </section>
 
+          </>
+        )}
       </main>
     </div>
   )
