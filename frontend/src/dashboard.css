@@ -548,3 +548,39 @@
   .db-highlights { grid-template-columns: 1fr; }
   .db-greeting { font-size: 1.4rem; }
 }
+
+/* ════════════════════════════════════
+   MY TRIPS
+   ════════════════════════════════════ */
+.trips-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Tab bar ── */
+.trips-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 4px;
+  width: fit-content;
+}
+.trips-tab {
+  padding: 8px 20px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  transition: background 0.18s, color 0.18s;
+}
+.trips-tab--on {
+  background: rgba(14, 116, 144, 0.22);
+  color: #7DD3FC;
+}
+.trips-tab:hover:not(.trips-tab--on) {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
