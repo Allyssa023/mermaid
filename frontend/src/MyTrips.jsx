@@ -603,10 +603,147 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
   )
 }
 
-function TripHistoryList({ trips, token }) {
+// ─── TripHistoryCard ──────────────────────────────────────────────────────────
+
+function TripHistoryCard({ trip, token }) {
+  const [open, setOpen]       = useState(false)
+  const [catches, setCatches] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState(null)
+  const [fetched, setFetched] = useState(false)
+
+  async function fetchCatches() {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await apiGet(`/trips/${trip.id}/catches`, token)
+      setCatches(data)
+      setFetched(true)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function expand() {
+    const next = !open
+    setOpen(next)
+    if (next && !fetched) fetchCatches()
+  }
+
+  const cl = trip.checklist
+
   return (
-    <div style={{ color: 'rgba(255,255,255,0.4)', padding: '24px 0' }}>
-      Trip history — coming soon
+    <div className="history-card">
+      <button className="history-card__summary" onClick={expand}>
+        <div className="history-card__left">
+          <span className="history-card__route">
+            {trip.departurePoint} → {trip.targetArea}
+          </span>
+          <span className="history-card__sub">
+            {trip.vesselName && `${trip.vesselName} · `}
+            {fmtDate(trip.startedAt)}
+            {trip.endedAt && ` – ${fmtDate(trip.endedAt)}`}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span className={`trip-status trip-status--${statusClass(trip.status)}`}>
+            {statusLabel(trip.status)}
+          </span>
+          <span style={{
+            color: 'rgba(255,255,255,0.3)',
+            transition: 'transform 0.2s',
+            transform: open ? 'rotate(180deg)' : 'none',
+            display: 'inline-block',
+          }}>▾</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="history-card__detail">
+          <div>
+            <p className="history-section-title">Safety Checklist</p>
+            {cl ? (
+              <div className="history-checklist">
+                {CHECKLIST_FIELDS.map(({ key, label }) => (
+                  <span
+                    key={key}
+                    className={`history-check-item history-check-item--${cl[key] ? 'yes' : 'no'}`}
+                  >
+                    {cl[key] ? '✓' : '✕'} {label}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>
+                No checklist recorded.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <p className="history-section-title">Catch Logs</p>
+            {loading && <div className="skeleton" style={{ height: '60px' }} />}
+            {error && (
+              <div style={{ color: '#FCA5A5', fontSize: '13px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {error}
+                <button
+                  className="trip-btn trip-btn--ghost"
+                  style={{ padding: '4px 10px', fontSize: '12px' }}
+                  onClick={fetchCatches}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {!loading && !error && catches.length === 0 && (
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.35)' }}>
+                No catches logged.
+              </p>
+            )}
+            {!loading && catches.length > 0 && (
+              <table className="catch-table">
+                <thead>
+                  <tr>
+                    <th>Species</th>
+                    <th>Qty (kg)</th>
+                    <th>Price/kg</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {catches.map(c => (
+                    <tr key={c.id}>
+                      <td>{c.species.commonName}</td>
+                      <td>{c.quantityKg}</td>
+                      <td>{c.estimatedPricePerKg ? `₱${c.estimatedPricePerKg}` : '—'}</td>
+                      <td>{c.notes || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── TripHistoryList ──────────────────────────────────────────────────────────
+
+function TripHistoryList({ trips, token }) {
+  if (trips.length === 0) {
+    return (
+      <div className="trips-empty-history">
+        <p>No past trips yet. Your history will appear here after you end a trip.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="history-list">
+      {trips.map(t => <TripHistoryCard key={t.id} trip={t} token={token} />)}
     </div>
   )
 }
