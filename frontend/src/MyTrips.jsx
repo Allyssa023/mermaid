@@ -384,6 +384,79 @@ function CatchLogsSection({ trip, token, species, catches, loading, error, onAdd
   )
 }
 
+// ─── EndTripButton ────────────────────────────────────────────────────────────
+
+function EndTripButton({ tripId, token, onEnded }) {
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [notes, setNotes]             = useState('')
+  const [ending, setEnding]           = useState(false)
+  const [error, setError]             = useState(null)
+
+  async function confirmEnd() {
+    setEnding(true)
+    setError(null)
+    try {
+      await apiPost(`/trips/${tripId}/end`, token, { notes: notes.trim() || null })
+      onEnded()
+    } catch (err) {
+      setError(err.message)
+      setEnding(false)
+    }
+  }
+
+  return (
+    <div className="end-trip-wrap">
+      <button
+        className="trip-btn trip-btn--danger"
+        style={{ width: '100%' }}
+        onClick={() => setShowConfirm(true)}
+      >
+        End Trip
+      </button>
+      {showConfirm && (
+        <div
+          className="confirm-overlay"
+          onClick={e => e.target === e.currentTarget && setShowConfirm(false)}
+        >
+          <div className="confirm-box">
+            <p className="confirm-box__title">End this trip?</p>
+            <p className="confirm-box__msg">
+              This will mark the trip as completed. You won't be able to add more catches after ending.
+            </p>
+            {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+            <label className="trip-form__label">
+              Notes (optional)
+              <textarea
+                className="trip-form__textarea"
+                placeholder="Any final notes…"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                maxLength={500}
+              />
+            </label>
+            <div className="trip-form__actions">
+              <button
+                className="trip-btn trip-btn--ghost"
+                onClick={() => { setShowConfirm(false); setError(null) }}
+                disabled={ending}
+              >
+                Cancel
+              </button>
+              <button
+                className="trip-btn trip-btn--danger"
+                onClick={confirmEnd}
+                disabled={ending}
+              >
+                {ending ? 'Ending…' : 'Confirm End Trip'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── EmptyState ───────────────────────────────────────────────────────────────
 
 function EmptyState({ onStart }) {
@@ -525,6 +598,7 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
         onAdded={onCatchAdded}
         onRetry={onCatchesRetry}
       />
+      <EndTripButton tripId={trip.id} token={token} onEnded={onTripEnded} />
     </div>
   )
 }
