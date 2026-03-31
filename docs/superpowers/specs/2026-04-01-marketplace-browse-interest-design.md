@@ -113,7 +113,10 @@ CREATE INDEX idx_listing_interests_listing   ON listing_interests(listing_id);
 - Body: `ListingInterestRequest { message: string, minLength: 1, maxLength: 500 }`
 - Response 201: `ListingInterest { id, listingId, fishermanId, fishermanName, message, createdAt }`
 - Response 404: listing not found
-- Response 409: already interested OR listing is not OPEN (`ListingClosedException`)
+- Response 409 (LISTING_CLOSED): listing is not OPEN — error body includes `code: "LISTING_CLOSED"`
+- Response 409 (DUPLICATE_INTEREST): fisherman already interested — error body includes `code: "DUPLICATE_INTEREST"`
+
+The existing `ErrorResponse` schema must include a `code` string field so the frontend can distinguish 409 subtypes and show the correct message.
 
 **`GET /marketplace/my-interests`**
 - Auth: `ROLE_FISHERMAN`
@@ -140,7 +143,7 @@ Follows the existing Service–Repository–Mapper triad pattern:
 | Repository | `ListingInterestRepository extends JpaRepository<ListingInterest, Long>` |
 | Service | `ListingInterestService` — `express(listingId, fishermanId, message)`, `myInterests(fishermanId)` |
 | Mapper | `ListingInterestMapper` — entity ↔ generated DTO |
-| Controller | `MarketplaceInterestController implements MarketplaceApi` (generated) |
+| Controller | Extend/create `MarketplaceController implements MarketplaceApi` (generated). The two new endpoints are tagged `[Marketplace]` in `api.yaml`, so they are added to the same generated `MarketplaceApi` interface. Check if `MarketplaceController` already exists before creating one — if it does, add the new method implementations there. |
 
 **`express()` logic:**
 1. Load listing by id — throw `ResourceNotFoundException` if absent
@@ -169,7 +172,7 @@ Filter change (client-side, no refetch)
 Express interest
   POST /marketplace/listings/{id}/interest { message }
   → optimistic: add to interestedSet
-  → success: toast, update myInterests list
+  → success: toast, append 201 response body to local myInterests state (no re-fetch)
   → failure: rollback interestedSet, show modal error
 ```
 
