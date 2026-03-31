@@ -192,6 +192,198 @@ function SafetyChecklistSection({ trip, token, onSaved }) {
   )
 }
 
+// ─── AddCatchForm ─────────────────────────────────────────────────────────────
+
+function AddCatchForm({ tripId, token, species, onAdded, onCancel }) {
+  const [search, setSearch]             = useState('')
+  const [selectedSpecies, setSelected]  = useState(null)
+  const [showDropdown, setShowDropdown] = useState(false)
+  const [quantity, setQuantity]         = useState('')
+  const [price, setPrice]               = useState('')
+  const [notes, setNotes]               = useState('')
+  const [submitting, setSubmitting]     = useState(false)
+  const [error, setError]               = useState(null)
+
+  const filtered = species.filter(s =>
+    s.commonName.toLowerCase().includes(search.toLowerCase())
+  )
+
+  function selectSpecies(s) {
+    setSelected(s)
+    setSearch(s.commonName)
+    setShowDropdown(false)
+  }
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!selectedSpecies)                    { setError('Please select a species'); return }
+    if (!quantity || Number(quantity) < 0.1) { setError('Quantity must be at least 0.1 kg'); return }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await apiPost(`/trips/${tripId}/catches`, token, {
+        speciesId:           selectedSpecies.id,
+        quantityKg:          Number(quantity),
+        estimatedPricePerKg: price ? Number(price) : null,
+        notes:               notes.trim() || null,
+      })
+      onAdded()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form className="catch-form" onSubmit={submit}>
+      {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+      <div className="species-search-wrap">
+        <input
+          className="trip-form__input"
+          style={{ width: '100%', boxSizing: 'border-box' }}
+          placeholder="Search species…"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setSelected(null); setShowDropdown(true) }}
+          onFocus={() => setShowDropdown(true)}
+          onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+        />
+        {showDropdown && filtered.length > 0 && (
+          <div className="species-dropdown">
+            {filtered.slice(0, 20).map(s => (
+              <div key={s.id} className="species-option" onMouseDown={() => selectSpecies(s)}>
+                {s.commonName}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="catch-form__row">
+        <label className="trip-form__label">
+          Quantity (kg) *
+          <input
+            className="trip-form__input"
+            type="number"
+            min="0.1"
+            step="0.01"
+            placeholder="0.00"
+            value={quantity}
+            onChange={e => setQuantity(e.target.value)}
+            required
+          />
+        </label>
+        <label className="trip-form__label">
+          Price / kg
+          <input
+            className="trip-form__input"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="optional"
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+          />
+        </label>
+      </div>
+      <input
+        className="trip-form__input"
+        placeholder="Notes (optional)"
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+      />
+      <div className="trip-form__actions">
+        <button type="button" className="trip-btn trip-btn--ghost" onClick={onCancel}>Cancel</button>
+        <button type="submit" className="trip-btn trip-btn--primary" disabled={submitting}>
+          {submitting ? 'Adding…' : 'Add Catch'}
+        </button>
+      </div>
+    </form>
+  )
+}
+
+// ─── CatchLogsSection ─────────────────────────────────────────────────────────
+
+function CatchLogsSection({ trip, token, species, catches, loading, error, onAdded, onRetry }) {
+  const [open, setOpen]         = useState(false)
+  const [showForm, setShowForm] = useState(false)
+
+  return (
+    <div className={`trip-section${open ? ' trip-section--open' : ''}`}>
+      <button className="trip-section__head" onClick={() => setOpen(o => !o)}>
+        <span className="trip-section__title">
+          🐟 Catch Logs
+          {catches.length > 0 && (
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>
+              {' '}({catches.length})
+            </span>
+          )}
+        </span>
+        <span className="trip-section__chevron">▾</span>
+      </button>
+      {open && (
+        <div className="trip-section__body">
+          {loading && <div className="skeleton" style={{ height: '60px' }} />}
+          {error && (
+            <div style={{ color: '#FCA5A5', fontSize: '13px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {error}
+              <button
+                className="trip-btn trip-btn--ghost"
+                style={{ padding: '4px 10px', fontSize: '12px' }}
+                onClick={onRetry}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {!loading && !error && catches.length === 0 && (
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '13.5px' }}>No catches logged yet.</p>
+          )}
+          {!loading && catches.length > 0 && (
+            <div className="catch-list">
+              {catches.map(c => (
+                <div key={c.id} className="catch-card">
+                  <div>
+                    <p className="catch-card__species">{c.species.commonName}</p>
+                    {c.notes && <p className="catch-card__detail">{c.notes}</p>}
+                  </div>
+                  <div className="catch-card__qty">
+                    <div>{c.quantityKg} kg</div>
+                    {c.estimatedPricePerKg && (
+                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
+                        ₱{c.estimatedPricePerKg}/kg
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!showForm && (
+            <div>
+              <button
+                className="trip-btn trip-btn--primary"
+                style={{ fontSize: '13px', padding: '8px 18px' }}
+                onClick={() => setShowForm(true)}
+              >
+                + Add Catch
+              </button>
+            </div>
+          )}
+          {showForm && (
+            <AddCatchForm
+              tripId={trip.id}
+              token={token}
+              species={species}
+              onAdded={() => { setShowForm(false); onAdded() }}
+              onCancel={() => setShowForm(false)}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── EmptyState ───────────────────────────────────────────────────────────────
 
 function EmptyState({ onStart }) {
@@ -323,9 +515,16 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <TripHeaderCard trip={trip} />
       <SafetyChecklistSection trip={trip} token={token} onSaved={onChecklistSaved} />
-      <p style={{ color: 'rgba(255,255,255,0.4)' }}>
-        Catch logs — coming in next task
-      </p>
+      <CatchLogsSection
+        trip={trip}
+        token={token}
+        species={species}
+        catches={catches}
+        loading={catchesLoading}
+        error={catchesError}
+        onAdded={onCatchAdded}
+        onRetry={onCatchesRetry}
+      />
     </div>
   )
 }

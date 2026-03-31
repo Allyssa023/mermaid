@@ -782,3 +782,55 @@
 }
 .checklist-item input[type="checkbox"] { accent-color: #22c55e; width: 16px; height: 16px; }
 .checklist-saved { font-size: 12px; color: rgba(125, 211, 252, 0.7); padding: 4px 0 0; }
+
+/* ── Catch logs ── */
+.catch-list { display: flex; flex-direction: column; gap: 8px; }
+.catch-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+.catch-card__species { font-size: 14px; font-weight: 500; color: #fff; }
+.catch-card__detail  { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+.catch-card__qty     { font-size: 14px; font-weight: 600; color: #7DD3FC; text-align: right; }
+
+/* ── Add catch form ── */
+.catch-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(14, 116, 144, 0.08);
+  border: 1px solid rgba(14, 116, 144, 0.2);
+  border-radius: 12px;
+}
+.catch-form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ── Species search ── */
+.species-search-wrap { position: relative; }
+.species-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #0d1f35;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  max-height: 180px;
+  overflow-y: auto;
+  z-index: 20;
+  margin-top: 4px;
+  scrollbar-width: thin;
+}
+.species-option {
+  padding: 9px 14px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.species-option:hover { background: rgba(14, 116, 144, 0.25); color: #fff; }
