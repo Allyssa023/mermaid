@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     forecast_cache_ttl: int = 3600    # 1 hour
 
     # HTTP client settings
-    http_timeout: float = 10.0
+    http_timeout: float = 30.0
 
 
 @lru_cache

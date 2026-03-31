@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './index.css'
+import FishermanDashboard from './FishermanDashboard'
 
 // ── API ───────────────────────────────────────────────────────────────────────
 const API_BASE = '/api'
@@ -188,6 +189,20 @@ function RegisterForm({ onSwitch }) {
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [mode, setMode] = useState('login')
+
+  // Route to role-specific dashboard if already authenticated
+  const storedToken = localStorage.getItem('accessToken')
+  const storedUser  = JSON.parse(localStorage.getItem('user') || 'null')
+
+  function logout() {
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('user')
+    window.location.reload()
+  }
+
+  if (storedToken && storedUser?.role === 'FISHERMAN') {
+    return <FishermanDashboard user={storedUser} token={storedToken} onLogout={logout} />
+  }
 
   return (
     <div className="page">

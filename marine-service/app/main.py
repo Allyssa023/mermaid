@@ -37,6 +37,7 @@ async def lifespan(app: FastAPI):
         limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         headers={"Accept": "application/json", "User-Agent": "MERMAID-MarineService/1.0"},
         follow_redirects=True,
+        verify=False,
     )
     yield
     await state.http_client.aclose()
