@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { apiGet, apiPost } from './api'
+import { apiGet, apiPost, apiPut } from './api'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -54,6 +54,140 @@ function TripTabs({ active, onChange }) {
       >
         History
       </button>
+    </div>
+  )
+}
+
+// ─── TripHeaderCard ───────────────────────────────────────────────────────────
+
+function TripHeaderCard({ trip }) {
+  const [duration, setDuration] = useState(fmtDuration(trip.startedAt))
+
+  useEffect(() => {
+    const id = setInterval(() => setDuration(fmtDuration(trip.startedAt)), 1000)
+    return () => clearInterval(id)
+  }, [trip.startedAt])
+
+  return (
+    <div className="trip-header">
+      <div className="trip-header__top">
+        <span className={`trip-status trip-status--${statusClass(trip.status)}`}>
+          {statusLabel(trip.status)}
+        </span>
+        <span className="trip-duration">{duration}</span>
+      </div>
+      <div className="trip-header__meta">
+        <div className="trip-meta-row">
+          <span>From:</span>
+          <strong>{trip.departurePoint}</strong>
+          <span>→ To:</span>
+          <strong>{trip.targetArea}</strong>
+        </div>
+        {trip.vesselName && (
+          <div className="trip-meta-row">
+            <span>Vessel:</span>
+            <strong>{trip.vesselName}</strong>
+          </div>
+        )}
+        <div className="trip-meta-row">
+          <span>Started:</span>
+          <strong>{fmtDate(trip.startedAt)}</strong>
+        </div>
+        {trip.notes && (
+          <div className="trip-meta-row">
+            <span>Notes:</span>
+            <strong>{trip.notes}</strong>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const CHECKLIST_FIELDS = [
+  { key: 'fuelChecked',         label: 'Fuel' },
+  { key: 'engineChecked',       label: 'Engine' },
+  { key: 'radioChecked',        label: 'Radio' },
+  { key: 'lifeVestChecked',     label: 'Life Vest' },
+  { key: 'weatherReviewed',     label: 'Weather' },
+  { key: 'emergencyKitChecked', label: 'Emergency Kit' },
+]
+
+// ─── SafetyChecklistSection ───────────────────────────────────────────────────
+
+function SafetyChecklistSection({ trip, token, onSaved }) {
+  const [open, setOpen]           = useState(false)
+  const [dirty, setDirty]         = useState(false)
+  const [saving, setSaving]       = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [values, setValues]       = useState({
+    fuelChecked:         trip.checklist?.fuelChecked         ?? false,
+    engineChecked:       trip.checklist?.engineChecked       ?? false,
+    radioChecked:        trip.checklist?.radioChecked        ?? false,
+    lifeVestChecked:     trip.checklist?.lifeVestChecked     ?? false,
+    weatherReviewed:     trip.checklist?.weatherReviewed     ?? false,
+    emergencyKitChecked: trip.checklist?.emergencyKitChecked ?? false,
+  })
+
+  function toggle(key) {
+    setValues(v => ({ ...v, [key]: !v[key] }))
+    setDirty(true)
+  }
+
+  async function save() {
+    setSaving(true)
+    setSaveError(null)
+    try {
+      const updated = await apiPut(`/trips/${trip.id}/checklist`, token, values)
+      setDirty(false)
+      onSaved(updated)
+    } catch (err) {
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className={`trip-section${open ? ' trip-section--open' : ''}`}>
+      <button className="trip-section__head" onClick={() => setOpen(o => !o)}>
+        <span className="trip-section__title">🛡 Safety Checklist</span>
+        <span className="trip-section__chevron">▾</span>
+      </button>
+      {open && (
+        <div className="trip-section__body">
+          <div className="checklist-grid">
+            {CHECKLIST_FIELDS.map(({ key, label }) => (
+              <label
+                key={key}
+                className={`checklist-item${values[key] ? ' checklist-item--checked' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={values[key]}
+                  onChange={() => toggle(key)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          {saveError && (
+            <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{saveError}</p>
+          )}
+          {trip.checklist?.checklistCompletedAt && !dirty && (
+            <p className="checklist-saved">✓ Saved {fmtDate(trip.checklist.checklistCompletedAt)}</p>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              className="trip-btn trip-btn--primary"
+              disabled={!dirty || saving}
+              onClick={save}
+            >
+              {saving ? 'Saving…' : 'Save Checklist'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -187,8 +321,10 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <TripHeaderCard trip={trip} />
+      <SafetyChecklistSection trip={trip} token={token} onSaved={onChecklistSaved} />
       <p style={{ color: 'rgba(255,255,255,0.4)' }}>
-        Trip active — more components coming in next tasks
+        Catch logs — coming in next task
       </p>
     </div>
   )
