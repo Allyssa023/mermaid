@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { apiGet } from './api'
+import { apiGet, apiPost } from './api'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -58,13 +58,138 @@ function TripTabs({ active, onChange }) {
   )
 }
 
+// ─── EmptyState ───────────────────────────────────────────────────────────────
+
+function EmptyState({ onStart }) {
+  return (
+    <div className="trip-empty">
+      <span className="trip-empty__icon">⚓</span>
+      <p className="trip-empty__msg">No active trip. Ready to set sail?</p>
+      <button className="trip-empty__btn" onClick={onStart}>Start Trip</button>
+    </div>
+  )
+}
+
+// ─── StartTripModal ───────────────────────────────────────────────────────────
+
+function StartTripModal({ token, onCreated, onClose }) {
+  const [departurePoint, setDeparturePoint] = useState('')
+  const [targetArea, setTargetArea]         = useState('')
+  const [vesselName, setVesselName]         = useState('')
+  const [notes, setNotes]                   = useState('')
+  const [error, setError]                   = useState(null)
+  const [submitting, setSubmitting]         = useState(false)
+
+  async function submit(e) {
+    e.preventDefault()
+    if (departurePoint.trim().length < 2) { setError('Departure point must be at least 2 characters'); return }
+    if (targetArea.trim().length < 2)     { setError('Target area must be at least 2 characters'); return }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await apiPost('/trips', token, {
+        departurePoint: departurePoint.trim(),
+        targetArea:     targetArea.trim(),
+        vesselName:     vesselName.trim() || null,
+        notes:          notes.trim() || null,
+      })
+      onCreated()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="trip-modal">
+        <div className="trip-modal__header">
+          <h2 className="trip-modal__title">Start a Trip</h2>
+          <button className="trip-modal__close" onClick={onClose}>✕</button>
+        </div>
+        <form className="trip-form" onSubmit={submit}>
+          {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+          <label className="trip-form__label">
+            Departure Point *
+            <input
+              className="trip-form__input"
+              placeholder="e.g. Navotas Fish Port"
+              value={departurePoint}
+              onChange={e => setDeparturePoint(e.target.value)}
+              maxLength={150}
+              required
+            />
+          </label>
+          <label className="trip-form__label">
+            Target Area *
+            <input
+              className="trip-form__input"
+              placeholder="e.g. Manila Bay Zone A"
+              value={targetArea}
+              onChange={e => setTargetArea(e.target.value)}
+              maxLength={150}
+              required
+            />
+          </label>
+          <label className="trip-form__label">
+            Vessel Name
+            <input
+              className="trip-form__input"
+              placeholder="e.g. M/B Ligaya"
+              value={vesselName}
+              onChange={e => setVesselName(e.target.value)}
+              maxLength={100}
+            />
+          </label>
+          <label className="trip-form__label">
+            Notes
+            <textarea
+              className="trip-form__textarea"
+              placeholder="Any notes for this trip…"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              maxLength={500}
+            />
+          </label>
+          <div className="trip-form__actions">
+            <button type="button" className="trip-btn trip-btn--ghost" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="trip-btn trip-btn--primary" disabled={submitting}>
+              {submitting ? 'Starting…' : 'Start Trip'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ─── Placeholders (replaced in later tasks) ──────────────────────────────────
 
 function ActiveTripView({ trip, token, species, catches, catchesLoading, catchesError,
   onTripStarted, onTripEnded, onChecklistSaved, onCatchAdded, onCatchesRetry }) {
+  const [showModal, setShowModal] = useState(false)
+
+  if (!trip) return (
+    <>
+      <EmptyState onStart={() => setShowModal(true)} />
+      {showModal && (
+        <StartTripModal
+          token={token}
+          onCreated={() => { setShowModal(false); onTripStarted() }}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  )
+
   return (
-    <div style={{ color: 'rgba(255,255,255,0.4)', padding: '24px 0' }}>
-      Active trip view — coming soon
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <p style={{ color: 'rgba(255,255,255,0.4)' }}>
+        Trip active — more components coming in next tasks
+      </p>
     </div>
   )
 }
