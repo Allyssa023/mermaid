@@ -24,7 +24,7 @@ class ApiKeyAuthentication(BaseAuthentication):
         return (None, key)
 
     def authenticate_header(self, request):
-        return "X-API-Key"
+        return None
 
 
 class HasValidApiKey(BasePermission):
