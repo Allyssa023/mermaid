@@ -1,0 +1,155 @@
+.ocean-scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.ocean-scene__water {
+  position: absolute;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.5;
+}
+
+.ocean-scene__water--top {
+  background: linear-gradient(135deg, #87CEEB 0%, #5BA3C6 50%, transparent 100%);
+  top: 0;
+  height: 45%;
+}
+
+.ocean-scene__water--mid {
+  background: linear-gradient(180deg, transparent 0%, #4A90B8 30%, #3d7a9e 70%, transparent 100%);
+  top: 20%;
+  height: 60%;
+}
+
+.ocean-scene__water--deep {
+  background: linear-gradient(0deg, #2B4E7A 0%, #1A203C 100%);
+  top: 50%;
+  height: 55%;
+}
+
+.ocean-scene__bubbles {
+  position: absolute;
+  top: 15%;
+  left: 25%;
+  width: 80px;
+  height: 120px;
+  pointer-events: none;
+}
+
+.ocean-scene__bubble {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(176, 215, 255, 0.6);
+  animation: bubble-rise 4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.4s);
+  left: calc(var(--i) * 10px);
+  bottom: 0;
+}
+
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-120px) scale(0.5);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocean-scene__bubble {
+    animation: none;
+    opacity: 0.5;
+  }
+  .ocean-scene__plant,
+  .ocean-scene__whale {
+    animation: none;
+  }
+}
+
+.ocean-scene__plants {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 55%;
+  z-index: 1;
+}
+
+.ocean-scene__plant {
+  transform-origin: bottom center;
+  animation: sway 5s ease-in-out infinite;
+}
+
+.ocean-scene__plant--1 { animation-delay: 0s; }
+.ocean-scene__plant--2 { animation-delay: 0.5s; }
+.ocean-scene__plant--3 { animation-delay: 1s; }
+.ocean-scene__plant--4 { animation-delay: 1.5s; }
+.ocean-scene__plant--5 { animation-delay: 0.25s; }
+
+@keyframes sway {
+  0%, 100% { transform: translateX(0) skewX(0deg); }
+  50% { transform: translateX(4px) skewX(2deg); }
+}
+
+.ocean-scene__whales {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Whale image: white background removed via multiply so it blends into ocean */
+.ocean-scene__whale {
+  position: absolute;
+  object-fit: contain;
+  object-position: center;
+  mix-blend-mode: multiply;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+  display: block;
+}
+
+.ocean-scene__whale--large {
+  width: clamp(160px, 22vw, 280px);
+  top: 22%;
+  left: 32%;
+  animation: swim-large 20s ease-in-out infinite;
+}
+
+.ocean-scene__whale--small {
+  width: clamp(100px, 14vw, 160px);
+  top: 48%;
+  left: 50%;
+  animation: swim-small 16s ease-in-out infinite;
+  animation-delay: -3s;
+}
+
+@keyframes swim-large {
+  0%, 100% {
+    transform: translateX(-15%) translateY(0) scaleX(1);
+  }
+  50% {
+    transform: translateX(20%) translateY(-8px) scaleX(1);
+  }
+}
+
+@keyframes swim-small {
+  0%, 100% {
+    transform: translateX(10%) translateY(0) scaleX(-1);
+  }
+  50% {
+    transform: translateX(-15%) translateY(6px) scaleX(-1);
+  }
+}
