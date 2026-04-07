@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import './index.css'
 import FishermanDashboard from './FishermanDashboard'
+import AdminDashboard from './AdminDashboard'
+import VendorDashboard from './VendorDashboard'
 
 // ── API ───────────────────────────────────────────────────────────────────────
 const API_BASE = '/api'
@@ -202,6 +204,14 @@ export default function App() {
 
   if (storedToken && storedUser?.role === 'FISHERMAN') {
     return <FishermanDashboard user={storedUser} token={storedToken} onLogout={logout} />
+  }
+
+  if (storedToken && storedUser?.role === 'ADMIN') {
+    return <AdminDashboard user={storedUser} token={storedToken} onLogout={logout} />
+  }
+
+  if (storedToken && storedUser?.role === 'VENDOR') {
+    return <VendorDashboard user={storedUser} token={storedToken} onLogout={logout} />
   }
 
   return (

@@ -10,7 +10,8 @@ import java.util.List;
 
 public interface AdvisoryRepository extends JpaRepository<Advisory, Long> {
 
-    List<Advisory> findAllByOrderByCreatedAtDesc();
+    @Query("SELECT a FROM Advisory a WHERE a.isActive = true ORDER BY a.createdAt DESC")
+    List<Advisory> findAllActiveOrderByCreatedAtDesc();
 
     @Query("SELECT a FROM Advisory a " +
            "WHERE a.isActive = true " +

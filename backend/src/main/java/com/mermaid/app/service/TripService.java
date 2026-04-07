@@ -51,6 +51,35 @@ public class TripService {
         if (req.getNotes() != null && req.getNotes().isPresent()) {
             trip.setNotes(req.getNotes().get());
         }
+        if (req.getStatus() != null) {
+            trip.setStatus(req.getStatus());
+        }
+        if (req.getStartedAt() != null && req.getStartedAt().isPresent()) {
+            trip.setStartedAt(req.getStartedAt().get());
+        }
+        Trip saved = tripRepo.save(trip);
+        return tripMapper.toModel(saved, resolveFishermanName(fishermanId));
+    }
+
+    @Transactional
+    public com.mermaid.app.model.Trip updateTrip(Long tripId, TripStartRequest req, Long fishermanId) {
+        Trip trip = tripRepo.findByIdAndFishermanId(tripId, fishermanId)
+            .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + tripId));
+            
+        trip.setDeparturePoint(req.getDeparturePoint());
+        trip.setTargetArea(req.getTargetArea());
+        if (req.getVesselName() != null && req.getVesselName().isPresent()) {
+            trip.setVesselName(req.getVesselName().get());
+        }
+        if (req.getNotes() != null && req.getNotes().isPresent()) {
+            trip.setNotes(req.getNotes().get());
+        }
+        if (req.getStatus() != null) {
+            trip.setStatus(req.getStatus());
+        }
+        if (req.getStartedAt() != null && req.getStartedAt().isPresent()) {
+            trip.setStartedAt(req.getStartedAt().get());
+        }
         Trip saved = tripRepo.save(trip);
         return tripMapper.toModel(saved, resolveFishermanName(fishermanId));
     }

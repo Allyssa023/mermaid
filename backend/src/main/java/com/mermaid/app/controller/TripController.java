@@ -37,6 +37,12 @@ public class TripController implements TripsApi {
     }
 
     @Override
+    public ResponseEntity<Trip> updateTrip(Long tripId, TripStartRequest tripStartRequest) {
+        return ResponseEntity.ok(
+            tripService.updateTrip(tripId, tripStartRequest, SecurityUtils.currentUserId()));
+    }
+
+    @Override
     public ResponseEntity<SafetyChecklist> saveTripChecklist(Long tripId,
                                                               SafetyChecklistRequest safetyChecklistRequest) {
         return ResponseEntity.ok(

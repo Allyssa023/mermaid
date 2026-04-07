@@ -8,6 +8,7 @@ import com.mermaid.app.service.MarketplaceService;
 import org.junit.jupiter.api.Test;
 import org.openapitools.jackson.nullable.JsonNullableModule;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.mermaid.app.config.JacksonConfig;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
@@ -21,15 +22,20 @@ import java.util.List;
 
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import org.springframework.http.MediaType;
+
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(MarketplaceController.class)
-@Import(MarketplaceControllerTest.TestConfig.class)
+@Import({MarketplaceControllerTest.TestConfig.class, JacksonConfig.class})
 class MarketplaceControllerTest {
 
     @TestConfiguration
@@ -48,6 +54,7 @@ class MarketplaceControllerTest {
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @MockitoBean MarketplaceService marketplaceService;
+    @MockitoBean com.mermaid.app.service.ListingInterestService interestService;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor asFisherman(long userId) {
@@ -123,6 +130,70 @@ class MarketplaceControllerTest {
                .andExpect(jsonPath("$.message").value("Required parameter 'speciesId' is missing"));
     }
 
+    // --- expressInterest ---
+
+    @Test
+    void expressInterest_validRequest_returns201() throws Exception {
+        when(interestService.express(eq(1L), eq(42L), eq("I can bring 40kg")))
+            .thenReturn(sampleInterest());
+
+        mockMvc.perform(post("/marketplace/listings/1/interest")
+               .with(asFisherman(42L))
+               .contentType(MediaType.APPLICATION_JSON)
+               .content("{\"message\":\"I can bring 40kg\"}"))
+               .andExpect(status().isCreated())
+               .andExpect(jsonPath("$.id").value(10));
+    }
+
+    @Test
+    void expressInterest_listingNotFound_returns404() throws Exception {
+        when(interestService.express(anyLong(), anyLong(), anyString()))
+            .thenThrow(new com.mermaid.app.exception.ResourceNotFoundException("not found"));
+
+        mockMvc.perform(post("/marketplace/listings/99/interest")
+               .with(asFisherman(1L))
+               .contentType(MediaType.APPLICATION_JSON)
+               .content("{\"message\":\"hello\"}"))
+               .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void expressInterest_duplicate_returns409WithCode() throws Exception {
+        when(interestService.express(anyLong(), anyLong(), anyString()))
+            .thenThrow(new com.mermaid.app.exception.DuplicateInterestException(1L));
+
+        mockMvc.perform(post("/marketplace/listings/1/interest")
+               .with(asFisherman(1L))
+               .contentType(MediaType.APPLICATION_JSON)
+               .content("{\"message\":\"hello\"}"))
+               .andExpect(status().isConflict())
+               .andExpect(jsonPath("$.code").value("DUPLICATE_INTEREST"));
+    }
+
+    @Test
+    void expressInterest_listingClosed_returns409WithCode() throws Exception {
+        when(interestService.express(anyLong(), anyLong(), anyString()))
+            .thenThrow(new com.mermaid.app.exception.ListingClosedException(1L));
+
+        mockMvc.perform(post("/marketplace/listings/1/interest")
+               .with(asFisherman(1L))
+               .contentType(MediaType.APPLICATION_JSON)
+               .content("{\"message\":\"hello\"}"))
+               .andExpect(status().isConflict())
+               .andExpect(jsonPath("$.code").value("LISTING_CLOSED"));
+    }
+
+    @Test
+    void getMyInterests_returns200() throws Exception {
+        when(interestService.myInterests(42L))
+            .thenReturn(List.of(sampleInterestDetail()));
+
+        mockMvc.perform(get("/marketplace/my-interests")
+               .with(asFisherman(42L)))
+               .andExpect(status().isOk())
+               .andExpect(jsonPath("$[0].id").value(10));
+    }
+
     // --- helpers ---
 
     private com.mermaid.app.model.DemandListing sampleListing() {
@@ -138,5 +209,24 @@ class MarketplaceControllerTest {
             1L, 1L, "Rosario",
             new com.mermaid.app.model.MarketLocation(3L, "Carbon Market", "Cebu City", true),
             150.0, 5.0);
+    }
+
+    private com.mermaid.app.model.ListingInterest sampleInterest() {
+        com.mermaid.app.model.ListingInterest i = new com.mermaid.app.model.ListingInterest();
+        i.setId(10L);
+        i.setListingId(1L);
+        i.setFishermanId(42L);
+        i.setMessage("I can bring 40kg");
+        i.setCreatedAt(OffsetDateTime.now());
+        return i;
+    }
+
+    private com.mermaid.app.model.ListingInterestDetail sampleInterestDetail() {
+        com.mermaid.app.model.ListingInterestDetail d = new com.mermaid.app.model.ListingInterestDetail();
+        d.setId(10L);
+        d.setMessage("I can bring 40kg");
+        d.setCreatedAt(OffsetDateTime.now());
+        d.setListing(sampleListing());
+        return d;
     }
 }

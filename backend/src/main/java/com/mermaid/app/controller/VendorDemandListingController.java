@@ -5,8 +5,10 @@ import com.mermaid.app.model.DemandListing;
 import com.mermaid.app.model.DemandListingCreateRequest;
 import com.mermaid.app.model.DemandListingStatus;
 import com.mermaid.app.model.DemandListingUpdateRequest;
+import com.mermaid.app.model.VendorInterestItem;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.DemandListingService;
+import com.mermaid.app.service.ListingInterestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,9 +20,12 @@ import java.util.List;
 public class VendorDemandListingController implements VendorDemandListingsApi {
 
     private final DemandListingService service;
+    private final ListingInterestService interestService;
 
-    public VendorDemandListingController(DemandListingService service) {
-        this.service = service;
+    public VendorDemandListingController(DemandListingService service,
+                                          ListingInterestService interestService) {
+        this.service         = service;
+        this.interestService = interestService;
     }
 
     @Override
@@ -53,5 +58,10 @@ public class VendorDemandListingController implements VendorDemandListingsApi {
     @Override
     public ResponseEntity<DemandListing> vendorCloseDemandListing(Long listingId) {
         return ResponseEntity.ok(service.close(listingId, SecurityUtils.currentUserId()));
+    }
+
+    @Override
+    public ResponseEntity<List<VendorInterestItem>> vendorGetListingInterests() {
+        return ResponseEntity.ok(interestService.getInterestsForVendor(SecurityUtils.currentUserId()));
     }
 }

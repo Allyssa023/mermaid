@@ -2,6 +2,7 @@ package com.mermaid.app.exception;
 
 import com.mermaid.app.model.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -78,7 +79,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ListingClosedException.class)
     public ResponseEntity<ErrorResponse> handleListingClosed(
             ListingClosedException ex, HttpServletRequest request) {
-        ErrorResponse body = errorResponse(request.getRequestURI(), HttpStatus.CONFLICT, ex.getMessage());
+        ErrorResponse body = errorResponse(request.getRequestURI(), HttpStatus.CONFLICT,
+                ex.getMessage(), "LISTING_CLOSED");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(DuplicateInterestException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateInterest(
+            DuplicateInterestException ex, HttpServletRequest request) {
+        ErrorResponse body = errorResponse(request.getRequestURI(), HttpStatus.CONFLICT,
+                ex.getMessage(), "DUPLICATE_INTEREST");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
@@ -99,12 +109,17 @@ public class GlobalExceptionHandler {
     }
 
     private static ErrorResponse errorResponse(String path, HttpStatus status, String message) {
+        return errorResponse(path, status, message, null);
+    }
+
+    private static ErrorResponse errorResponse(String path, HttpStatus status, String message, String code) {
         ErrorResponse r = new ErrorResponse();
         r.setTimestamp(OffsetDateTime.now());
         r.setStatus(status.value());
         r.setError(status.getReasonPhrase());
         r.setMessage(message);
         r.setPath(path);
+        if (code != null) r.setCode(JsonNullable.of(code));
         return r;
     }
 }

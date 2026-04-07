@@ -7,7 +7,7 @@ ThreadPoolExecutor(max_workers=2).
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
+import time
 from datetime import date, datetime, timezone
 
 import httpx
@@ -81,10 +81,12 @@ def _fetch_both(zone, client: httpx.Client, *, hourly: bool) -> tuple[dict, dict
         r.raise_for_status()
         return r.json()
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        marine_future = executor.submit(get_marine)
-        weather_future = executor.submit(get_weather)
-        return marine_future.result(), weather_future.result()
+    marine_data = get_marine()
+    time.sleep(0.25)  # Pause to respect Open-Meteo free tier burst limits
+    weather_data = get_weather()
+    time.sleep(0.25)
+
+    return marine_data, weather_data
 
 
 def _parse_marine_current(data: dict) -> MarineData:

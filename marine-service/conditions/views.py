@@ -89,9 +89,10 @@ class AllConditionsView(APIView):
         client = _get_http_client()
         zones = list(FishingZone.objects.filter(is_active=True))
 
-        with ThreadPoolExecutor(max_workers=max(len(zones), 1)) as executor:
-            futures = [executor.submit(_fetch_zone_safe, zone, client) for zone in zones]
-            results = [f.result() for f in futures]
+        # Fetch sequentially to avoid hitting Open-Meteo free tier burst rate limits
+        results = []
+        for zone in zones:
+            results.append(_fetch_zone_safe(zone, client))
 
         zones_data = [r for r in results if r is not None]
 
@@ -105,7 +106,10 @@ class AllConditionsView(APIView):
             "zones": zones_data,
             "generated_at": datetime.now(timezone.utc),
         })()
-        _cache.set("conditions:all", response_obj, settings.CONDITIONS_CACHE_TTL)
+        # Only cache the aggregate when every zone succeeded — a partial result
+        # would get frozen in cache and future requests would return fewer zones.
+        if len(zones_data) == len(zones):
+            _cache.set("conditions:all", response_obj, settings.CONDITIONS_CACHE_TTL)
         return Response(AllConditionsSerializer(response_obj).data)
 
 

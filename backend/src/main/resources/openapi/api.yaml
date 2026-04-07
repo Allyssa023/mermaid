@@ -665,6 +665,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/DemandListing'
 
+  /vendor/demand-listings/interests:
+    get:
+      tags: [Vendor Demand Listings]
+      summary: List all fisherman interests across vendor's own listings
+      operationId: vendorGetListingInterests
+      responses:
+        '200':
+          description: Interests expressed by fishermen on vendor's listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VendorInterestItem'
+
   /marketplace/listings:
     get:
       tags: [Marketplace]
@@ -729,6 +744,54 @@ paths:
                 items:
                   $ref: '#/components/schemas/OfferLookupItem'
 
+  /marketplace/listings/{listingId}/interest:
+    post:
+      tags: [Marketplace]
+      summary: Express interest in a demand listing
+      operationId: expressInterestInListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListingInterestRequest'
+      responses:
+        '201':
+          description: Interest expressed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingInterest'
+        '404':
+          description: Listing not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Already interested or listing is closed (check `code` field for DUPLICATE_INTEREST or LISTING_CLOSED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /marketplace/my-interests:
+    get:
+      tags: [Marketplace]
+      summary: List fisherman's expressed interests
+      operationId: getMyInterests
+      responses:
+        '200':
+          description: Expressed interests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ListingInterestDetail'
+
   /trips:
     get:
       tags: [Trips]
@@ -788,6 +851,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Trip'
+        '404':
+          description: Trip not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags: [Trips]
+      summary: Update a trip
+      operationId: updateTrip
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripStartRequest'
+      responses:
+        '200':
+          description: Trip updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Trip not found
           content:
@@ -954,6 +1049,38 @@ paths:
       responses:
         '204':
           description: Catch log deleted
+
+  /messages/users:
+    get:
+      tags: [Chat]
+      summary: Get users with whom the current user has active conversations
+      operationId: getChatUsers
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+
+  /messages/{userId}:
+    get:
+      tags: [Chat]
+      summary: Get conversation history with a specific user
+      operationId: getConversation
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: List of messages ordered by time ascending
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
 
 components:
   securitySchemes:
@@ -1124,6 +1251,27 @@ components:
         active:
           type: boolean
 
+    ChatMessage:
+      type: object
+      required: [id, senderId, recipientId, content, sentAt, read]
+      properties:
+        id:
+          type: integer
+          format: int64
+        senderId:
+          type: integer
+          format: int64
+        recipientId:
+          type: integer
+          format: int64
+        content:
+          type: string
+        sentAt:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+
     Role:
       type: string
       enum: [ADMIN, VENDOR, FISHERMAN]
@@ -1142,7 +1290,7 @@ components:
 
     TripStatus:
       type: string
-      enum: [ACTIVE, COMPLETED, CANCELLED]
+      enum: [PLANNED, ACTIVE, COMPLETED, CANCELLED]
 
     FishSpecies:
       type: object
@@ -1467,6 +1615,13 @@ components:
           type: string
           maxLength: 500
           nullable: true
+        status:
+          $ref: '#/components/schemas/TripStatus'
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
 
     TripEndRequest:
       type: object
@@ -1592,6 +1747,73 @@ components:
           maxLength: 500
           nullable: true
 
+    ListingInterestRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    ListingInterest:
+      type: object
+      required: [id, listingId, fishermanId, message, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        listingId:
+          type: integer
+          format: int64
+        fishermanId:
+          type: integer
+          format: int64
+        fishermanName:
+          type: string
+          nullable: true
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ListingInterestDetail:
+      type: object
+      required: [id, message, createdAt, listing]
+      properties:
+        id:
+          type: integer
+          format: int64
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        listing:
+          $ref: '#/components/schemas/DemandListing'
+
+    VendorInterestItem:
+      type: object
+      required: [id, listingId, speciesName, fishermanName, message, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        listingId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+        fishermanName:
+          type: string
+        message:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
     ErrorResponse:
       type: object
       required: [timestamp, status, error, message, path]
@@ -1608,6 +1830,9 @@ components:
           type: string
         path:
           type: string
+        code:
+          type: string
+          nullable: true
         fieldErrors:
           type: array
           nullable: true

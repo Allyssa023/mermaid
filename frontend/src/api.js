@@ -30,3 +30,14 @@ export async function apiPut(path, token, body) {
   if (!res.ok) throw new Error(data?.message || `Request failed (${res.status})`)
   return data
 }
+
+export async function apiDelete(path, token) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new Error(data?.message || `Request failed (${res.status})`)
+  }
+}

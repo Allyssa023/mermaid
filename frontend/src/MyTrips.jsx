@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiGet, apiPost, apiPut } from './api'
+import StartTripModal from './components/StartTripModal'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -22,12 +23,14 @@ function fmtDuration(startedAt) {
 function statusClass(status) {
   if (status === 'ACTIVE') return 'active'
   if (status === 'COMPLETED') return 'completed'
+  if (status === 'PLANNED') return 'planned'
   return 'cancelled'
 }
 
 function statusLabel(status) {
   if (status === 'ACTIVE') return '● Active'
   if (status === 'COMPLETED') return '✓ Completed'
+  if (status === 'PLANNED') return '🗓 Planned'
   return '✕ Cancelled'
 }
 
@@ -39,7 +42,7 @@ function Skeleton({ height = '120px', radius = '14px' }) {
 
 // ─── TripTabs ─────────────────────────────────────────────────────────────────
 
-function TripTabs({ active, onChange }) {
+function TripTabs({ active, onChange, hasActiveTrip }) {
   return (
     <div className="trips-tabs">
       <button
@@ -47,12 +50,13 @@ function TripTabs({ active, onChange }) {
         onClick={() => onChange('active')}
       >
         Active Trip
+        {hasActiveTrip && <span className="trips-tab__dot" />}
       </button>
       <button
         className={`trips-tab${active === 'history' ? ' trips-tab--on' : ''}`}
         onClick={() => onChange('history')}
       >
-        History
+        Past & Planned
       </button>
     </div>
   )
@@ -69,26 +73,30 @@ function TripHeaderCard({ trip }) {
   }, [trip.startedAt])
 
   return (
-    <div className="trip-header">
-      <div className="trip-header__top">
+    <div className="trip-header-v2">
+      <div className="trip-header-v2__top">
         <span className={`trip-status trip-status--${statusClass(trip.status)}`}>
           {statusLabel(trip.status)}
         </span>
-        <span className="trip-duration">{duration}</span>
       </div>
-      <div className="trip-header__meta">
-        <div className="trip-meta-row">
-          <span>From:</span>
-          <strong>{trip.departurePoint}</strong>
-          <span>→ To:</span>
-          <strong>{trip.targetArea}</strong>
-        </div>
+
+      <div>
+        <p className="trip-header-v2__route">
+          {trip.departurePoint}
+          <span className="trip-header-v2__arrow"> → </span>
+          {trip.targetArea}
+        </p>
         {trip.vesselName && (
-          <div className="trip-meta-row">
-            <span>Vessel:</span>
-            <strong>{trip.vesselName}</strong>
-          </div>
+          <p className="trip-header-v2__vessel">{trip.vesselName}</p>
         )}
+      </div>
+
+      <div className="trip-header-v2__duration-block">
+        <p className="trip-header-v2__duration-label">Trip Duration</p>
+        <p className="trip-duration-hero">{duration}</p>
+      </div>
+
+      <div className="trip-header-v2__meta">
         <div className="trip-meta-row">
           <span>Started:</span>
           <strong>{fmtDate(trip.startedAt)}</strong>
@@ -116,7 +124,6 @@ const CHECKLIST_FIELDS = [
 // ─── SafetyChecklistSection ───────────────────────────────────────────────────
 
 function SafetyChecklistSection({ trip, token, onSaved }) {
-  const [open, setOpen]           = useState(false)
   const [dirty, setDirty]         = useState(false)
   const [saving, setSaving]       = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -148,46 +155,50 @@ function SafetyChecklistSection({ trip, token, onSaved }) {
     }
   }
 
+  const checkedCount = Object.values(values).filter(Boolean).length
+
   return (
-    <div className={`trip-section${open ? ' trip-section--open' : ''}`}>
-      <button className="trip-section__head" onClick={() => setOpen(o => !o)}>
-        <span className="trip-section__title">🛡 Safety Checklist</span>
-        <span className="trip-section__chevron">▾</span>
-      </button>
-      {open && (
-        <div className="trip-section__body">
-          <div className="checklist-grid">
-            {CHECKLIST_FIELDS.map(({ key, label }) => (
-              <label
-                key={key}
-                className={`checklist-item${values[key] ? ' checklist-item--checked' : ''}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={values[key]}
-                  onChange={() => toggle(key)}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-          {saveError && (
-            <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{saveError}</p>
-          )}
-          {trip.checklist?.checklistCompletedAt && !dirty && (
-            <p className="checklist-saved">✓ Saved {fmtDate(trip.checklist.checklistCompletedAt)}</p>
-          )}
+    <div className="trips-card">
+      <div className="trips-card__header">
+        <span className="trips-card__title">🛡 Safety Checklist</span>
+        <span className={`checklist-progress${checkedCount === 6 ? ' checklist-progress--full' : ''}`}>
+          {checkedCount}/6
+        </span>
+      </div>
+      <div className="trips-card__body">
+        <div className="checklist-grid">
+          {CHECKLIST_FIELDS.map(({ key, label }) => (
+            <label
+              key={key}
+              className={`checklist-item${values[key] ? ' checklist-item--checked' : ''}`}
+            >
+              <input
+                type="checkbox"
+                checked={values[key]}
+                onChange={() => toggle(key)}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        {saveError && (
+          <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{saveError}</p>
+        )}
+        {trip.checklist?.checklistCompletedAt && !dirty && (
+          <p className="checklist-saved">✓ Saved {fmtDate(trip.checklist.checklistCompletedAt)}</p>
+        )}
+        {dirty && (
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button
               className="trip-btn trip-btn--primary"
-              disabled={!dirty || saving}
+              disabled={saving}
               onClick={save}
             >
               {saving ? 'Saving…' : 'Save Checklist'}
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -304,82 +315,71 @@ function AddCatchForm({ tripId, token, species, onAdded, onCancel }) {
 // ─── CatchLogsSection ─────────────────────────────────────────────────────────
 
 function CatchLogsSection({ trip, token, species, catches, loading, error, onAdded, onRetry }) {
-  const [open, setOpen]         = useState(false)
   const [showForm, setShowForm] = useState(false)
 
   return (
-    <div className={`trip-section${open ? ' trip-section--open' : ''}`}>
-      <button className="trip-section__head" onClick={() => setOpen(o => !o)}>
-        <span className="trip-section__title">
-          🐟 Catch Logs
-          {catches.length > 0 && (
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', fontWeight: 400 }}>
-              {' '}({catches.length})
-            </span>
-          )}
-        </span>
-        <span className="trip-section__chevron">▾</span>
-      </button>
-      {open && (
-        <div className="trip-section__body">
-          {loading && <div className="skeleton" style={{ height: '60px' }} />}
-          {error && (
-            <div style={{ color: '#FCA5A5', fontSize: '13px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {error}
-              <button
-                className="trip-btn trip-btn--ghost"
-                style={{ padding: '4px 10px', fontSize: '12px' }}
-                onClick={onRetry}
-              >
-                Retry
-              </button>
-            </div>
-          )}
-          {!loading && !error && catches.length === 0 && (
-            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '13.5px' }}>No catches logged yet.</p>
-          )}
-          {!loading && catches.length > 0 && (
-            <div className="catch-list">
-              {catches.map(c => (
-                <div key={c.id} className="catch-card">
-                  <div>
-                    <p className="catch-card__species">{c.species.commonName}</p>
-                    {c.notes && <p className="catch-card__detail">{c.notes}</p>}
-                  </div>
-                  <div className="catch-card__qty">
-                    <div>{c.quantityKg} kg</div>
-                    {c.estimatedPricePerKg && (
-                      <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
-                        ₱{c.estimatedPricePerKg}/kg
-                      </div>
-                    )}
-                  </div>
+    <div className="trips-card">
+      <div className="trips-card__header">
+        <span className="trips-card__title">🐟 Catch Logs</span>
+        {catches.length > 0 && (
+          <span className="trips-card__count">{catches.length}</span>
+        )}
+      </div>
+      <div className="trips-card__body">
+        {loading && <Skeleton height="60px" />}
+        {error && (
+          <div style={{ color: '#FCA5A5', fontSize: '13px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {error}
+            <button
+              className="trip-btn trip-btn--ghost"
+              style={{ padding: '4px 10px', fontSize: '12px' }}
+              onClick={onRetry}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {!loading && !error && catches.length === 0 && !showForm && (
+          <p className="trips-card__empty">No catches logged yet.</p>
+        )}
+        {!loading && catches.length > 0 && (
+          <div className="catch-list">
+            {catches.map(c => (
+              <div key={c.id} className="catch-card">
+                <div>
+                  <p className="catch-card__species">{c.species.commonName}</p>
+                  {c.notes && <p className="catch-card__detail">{c.notes}</p>}
                 </div>
-              ))}
-            </div>
-          )}
-          {!showForm && (
-            <div>
-              <button
-                className="trip-btn trip-btn--primary"
-                style={{ fontSize: '13px', padding: '8px 18px' }}
-                onClick={() => setShowForm(true)}
-              >
-                + Add Catch
-              </button>
-            </div>
-          )}
-          {showForm && (
-            <AddCatchForm
-              tripId={trip.id}
-              token={token}
-              species={species}
-              onAdded={() => { setShowForm(false); onAdded() }}
-              onCancel={() => setShowForm(false)}
-            />
-          )}
-        </div>
-      )}
+                <div className="catch-card__qty">
+                  <div>{c.quantityKg} kg</div>
+                  {c.estimatedPricePerKg && (
+                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
+                      ₱{c.estimatedPricePerKg}/kg
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {showForm ? (
+          <AddCatchForm
+            tripId={trip.id}
+            token={token}
+            species={species}
+            onAdded={() => { setShowForm(false); onAdded() }}
+            onCancel={() => setShowForm(false)}
+          />
+        ) : (
+          <button
+            className="trip-btn trip-btn--primary"
+            style={{ fontSize: '13px', padding: '8px 18px', alignSelf: 'flex-start' }}
+            onClick={() => setShowForm(true)}
+          >
+            + Add Catch
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -405,7 +405,7 @@ function EndTripButton({ tripId, token, onEnded }) {
   }
 
   return (
-    <div className="end-trip-wrap">
+    <div>
       <button
         className="trip-btn trip-btn--danger"
         style={{ width: '100%' }}
@@ -457,115 +457,11 @@ function EndTripButton({ tripId, token, onEnded }) {
   )
 }
 
-// ─── EmptyState ───────────────────────────────────────────────────────────────
-
-function EmptyState({ onStart }) {
-  return (
-    <div className="trip-empty">
-      <span className="trip-empty__icon">⚓</span>
-      <p className="trip-empty__msg">No active trip. Ready to set sail?</p>
-      <button className="trip-empty__btn" onClick={onStart}>Start Trip</button>
-    </div>
-  )
-}
-
 // ─── StartTripModal ───────────────────────────────────────────────────────────
 
-function StartTripModal({ token, onCreated, onClose }) {
-  const [departurePoint, setDeparturePoint] = useState('')
-  const [targetArea, setTargetArea]         = useState('')
-  const [vesselName, setVesselName]         = useState('')
-  const [notes, setNotes]                   = useState('')
-  const [error, setError]                   = useState(null)
-  const [submitting, setSubmitting]         = useState(false)
 
-  async function submit(e) {
-    e.preventDefault()
-    if (departurePoint.trim().length < 2) { setError('Departure point must be at least 2 characters'); return }
-    if (targetArea.trim().length < 2)     { setError('Target area must be at least 2 characters'); return }
-    setSubmitting(true)
-    setError(null)
-    try {
-      await apiPost('/trips', token, {
-        departurePoint: departurePoint.trim(),
-        targetArea:     targetArea.trim(),
-        vesselName:     vesselName.trim() || null,
-        notes:          notes.trim() || null,
-      })
-      onCreated()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
-  return (
-    <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="trip-modal">
-        <div className="trip-modal__header">
-          <h2 className="trip-modal__title">Start a Trip</h2>
-          <button className="trip-modal__close" onClick={onClose}>✕</button>
-        </div>
-        <form className="trip-form" onSubmit={submit}>
-          {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
-          <label className="trip-form__label">
-            Departure Point *
-            <input
-              className="trip-form__input"
-              placeholder="e.g. Navotas Fish Port"
-              value={departurePoint}
-              onChange={e => setDeparturePoint(e.target.value)}
-              maxLength={150}
-              required
-            />
-          </label>
-          <label className="trip-form__label">
-            Target Area *
-            <input
-              className="trip-form__input"
-              placeholder="e.g. Manila Bay Zone A"
-              value={targetArea}
-              onChange={e => setTargetArea(e.target.value)}
-              maxLength={150}
-              required
-            />
-          </label>
-          <label className="trip-form__label">
-            Vessel Name
-            <input
-              className="trip-form__input"
-              placeholder="e.g. M/B Ligaya"
-              value={vesselName}
-              onChange={e => setVesselName(e.target.value)}
-              maxLength={100}
-            />
-          </label>
-          <label className="trip-form__label">
-            Notes
-            <textarea
-              className="trip-form__textarea"
-              placeholder="Any notes for this trip…"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              maxLength={500}
-            />
-          </label>
-          <div className="trip-form__actions">
-            <button type="button" className="trip-btn trip-btn--ghost" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="trip-btn trip-btn--primary" disabled={submitting}>
-              {submitting ? 'Starting…' : 'Start Trip'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ─── Placeholders (replaced in later tasks) ──────────────────────────────────
+// ─── ActiveTripView ──────────────────────────────────────────────────────────
 
 function ActiveTripView({ trip, token, species, catches, catchesLoading, catchesError,
   onTripStarted, onTripEnded, onChecklistSaved, onCatchAdded, onCatchesRetry }) {
@@ -573,7 +469,13 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
 
   if (!trip) return (
     <>
-      <EmptyState onStart={() => setShowModal(true)} />
+      <div className="trip-empty">
+        <span className="trip-empty__icon">⚓</span>
+        <p className="trip-empty__msg">No active trip. Ready to set sail?</p>
+        <button className="trip-empty__btn" onClick={() => setShowModal(true)}>
+          Start New Trip
+        </button>
+      </div>
       {showModal && (
         <StartTripModal
           token={token}
@@ -585,20 +487,24 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <TripHeaderCard trip={trip} />
-      <SafetyChecklistSection trip={trip} token={token} onSaved={onChecklistSaved} />
-      <CatchLogsSection
-        trip={trip}
-        token={token}
-        species={species}
-        catches={catches}
-        loading={catchesLoading}
-        error={catchesError}
-        onAdded={onCatchAdded}
-        onRetry={onCatchesRetry}
-      />
-      <EndTripButton tripId={trip.id} token={token} onEnded={onTripEnded} />
+    <div className="trips-active-grid">
+      <div className="trips-active-col">
+        <TripHeaderCard trip={trip} />
+        <EndTripButton tripId={trip.id} token={token} onEnded={onTripEnded} />
+      </div>
+      <div className="trips-active-col">
+        <SafetyChecklistSection trip={trip} token={token} onSaved={onChecklistSaved} />
+        <CatchLogsSection
+          trip={trip}
+          token={token}
+          species={species}
+          catches={catches}
+          loading={catchesLoading}
+          error={catchesError}
+          onAdded={onCatchAdded}
+          onRetry={onCatchesRetry}
+        />
+      </div>
     </div>
   )
 }
@@ -637,7 +543,7 @@ function TripHistoryCard({ trip, token }) {
   return (
     <div className="history-card">
       <button className="history-card__summary" onClick={expand}>
-        <div className="history-card__left">
+        <div className="history-card__left" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', textAlign: 'left' }}>
           <span className="history-card__route">
             {trip.departurePoint} → {trip.targetArea}
           </span>
@@ -734,16 +640,35 @@ function TripHistoryCard({ trip, token }) {
 // ─── TripHistoryList ──────────────────────────────────────────────────────────
 
 function TripHistoryList({ trips, token }) {
-  if (trips.length === 0) {
-    return (
-      <div className="trips-empty-history">
-        <p>No past trips yet. Your history will appear here after you end a trip.</p>
-      </div>
-    )
-  }
+  const completed = trips.filter(t => t.status === 'COMPLETED').length
+  const cancelled = trips.filter(t => t.status === 'CANCELLED').length
+  const planned = trips.filter(t => t.status === 'PLANNED').length
+
   return (
-    <div className="history-list">
-      {trips.map(t => <TripHistoryCard key={t.id} trip={t} token={token} />)}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="history-stats">
+        <div className="history-stat">
+          <p className="history-stat__val">{trips.length}</p>
+          <p className="history-stat__label">Total</p>
+        </div>
+        <div className="history-stat history-stat--completed">
+          <p className="history-stat__val">{completed}</p>
+          <p className="history-stat__label">Completed</p>
+        </div>
+        <div className="history-stat history-stat--planned">
+          <p className="history-stat__val">{planned}</p>
+          <p className="history-stat__label">Planned</p>
+        </div>
+      </div>
+      {trips.length === 0 ? (
+        <div className="trips-empty-history">
+          <p>No trips yet. Plan a trip on the calendar or start one here.</p>
+        </div>
+      ) : (
+        <div className="history-list">
+          {trips.map(t => <TripHistoryCard key={t.id} trip={t} token={token} />)}
+        </div>
+      )}
     </div>
   )
 }
@@ -778,16 +703,17 @@ export default function MyTrips({ token }) {
     setLoading(true)
     setError(null)
     try {
-      const [activeList, completed, cancelled, species] = await Promise.all([
+      const [activeList, completed, cancelled, planned, species] = await Promise.all([
         apiGet('/trips?status=ACTIVE', token),
         apiGet('/trips?status=COMPLETED', token),
         apiGet('/trips?status=CANCELLED', token),
+        apiGet('/trips?status=PLANNED', token),
         apiGet('/lookups/fish-species', token),
       ])
       const trip = activeList[0] ?? null
       setActiveTrip(trip)
       setHistory(
-        [...completed, ...cancelled].sort((a, b) =>
+        [...completed, ...cancelled, ...planned].sort((a, b) =>
           new Date(b.startedAt) - new Date(a.startedAt)
         )
       )
@@ -830,7 +756,22 @@ export default function MyTrips({ token }) {
 
   return (
     <div className="trips-page">
-      <TripTabs active={activeTab} onChange={setActiveTab} />
+      <div className="trips-page-header">
+        <div>
+          <h2 className="trips-page-header__title">My Trips</h2>
+          <p className="trips-page-header__sub">
+            {history.length > 0
+              ? `${history.length} past trip${history.length !== 1 ? 's' : ''} logged`
+              : 'Track your fishing trips and catch logs'}
+          </p>
+        </div>
+        {activeTrip && (
+          <span className="trips-page-header__active-chip">● 1 trip active</span>
+        )}
+      </div>
+
+      <TripTabs active={activeTab} onChange={setActiveTab} hasActiveTrip={!!activeTrip} />
+
       {activeTab === 'active' ? (
         <ActiveTripView
           trip={activeTrip}
