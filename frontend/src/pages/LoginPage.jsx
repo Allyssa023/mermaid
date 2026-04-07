@@ -1,6 +1,19 @@
 import { useState } from 'react'
 import '../index.css'
-import { useAuth } from '../context/AuthContext'
+
+// ── API ───────────────────────────────────────────────────────────────────────
+const API_BASE = '/api'
+
+async function apiPost(path, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message || data?.error || `Request failed (${res.status})`)
+  return data
+}
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const EmailIcon = () => (
@@ -63,24 +76,20 @@ function Field({ type = 'text', value, onChange, placeholder, icon, required, mi
 
 // ── Login form ────────────────────────────────────────────────────────────────
 function LoginForm({ onSwitch }) {
-  const { login, clearError } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function submit(e) {
-    e.preventDefault()
-    setError('')
-    clearError()
-    setLoading(true)
+    e.preventDefault(); setError(''); setLoading(true)
     try {
-      await login(email, password)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+      const data = await apiPost('/auth/login', { email, password })
+      localStorage.setItem('accessToken', data.accessToken)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      window.location.reload()
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   return (
@@ -115,28 +124,25 @@ function LoginForm({ onSwitch }) {
 
 // ── Register form ─────────────────────────────────────────────────────────────
 function RegisterForm({ onSwitch }) {
-  const { register, clearError } = useAuth()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [role, setRole] = useState('FISHERMAN')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function submit(e) {
-    e.preventDefault()
-    setError('')
-    clearError()
+    e.preventDefault(); setError(''); setSuccess('')
     if (password !== confirm) { setError('Passwords do not match'); return }
     setLoading(true)
     try {
-      await register({ fullName: name, email, password, role })
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+      await apiPost('/auth/register', { fullName: name, email, password, role })
+      setSuccess('Account created! You can now sign in.')
+      setName(''); setEmail(''); setPassword(''); setConfirm('')
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   return (
@@ -147,6 +153,7 @@ function RegisterForm({ onSwitch }) {
       </div>
       <form onSubmit={submit} className="form-body">
         {error && <p className="alert alert--err">{error}</p>}
+        {success && <p className="alert alert--ok">{success}</p>}
         <Field type="text" value={name} onChange={e => setName(e.target.value)}
           placeholder="Full name" icon={<UserIcon />} required />
         <Field type="email" value={email} onChange={e => setEmail(e.target.value)}
@@ -159,12 +166,12 @@ function RegisterForm({ onSwitch }) {
           <button type="button"
             className={`role-chip${role === 'FISHERMAN' ? ' role-chip--on' : ''}`}
             onClick={() => setRole('FISHERMAN')}>
-            Fisherman
+            🎣 Fisherman
           </button>
           <button type="button"
             className={`role-chip${role === 'VENDOR' ? ' role-chip--on' : ''}`}
             onClick={() => setRole('VENDOR')}>
-            Vendor
+            🏪 Vendor
           </button>
         </div>
         <button type="submit" className="cta" disabled={loading}>
@@ -178,11 +185,14 @@ function RegisterForm({ onSwitch }) {
   )
 }
 
-// ── Hook & Fish animation ─────────────────────────────────────────────────────
+// ── Hook + Fish animation ─────────────────────────────────────────────────────
 function HookFish({ active }) {
   return (
     <div className={`hook-area${active ? ' hook-area--active' : ''}`}>
+      {/* Fishing line */}
       <div className="hook-line" />
+
+      {/* Hook SVG — metallic J-shape */}
       <svg className="hook-svg" viewBox="0 0 28 60" width="28" height="60" fill="none">
         <defs>
           <linearGradient id="hookGrad-hf" x1="0" y1="0" x2="1" y2="0">
@@ -196,6 +206,8 @@ function HookFish({ active }) {
         <path d="M14 38 Q14 55 5 55 Q1 55 1 50" stroke="url(#hookGrad-hf)" strokeWidth="3" strokeLinecap="round" />
         <path d="M1 50 L8 44" stroke="url(#hookGrad-hf)" strokeWidth="2" strokeLinecap="round" />
       </svg>
+
+      {/* Water splash group */}
       <div className="splash-group">
         <svg className="splash-svg splash-svg--left" viewBox="0 0 40 30" width="40" height="30" fill="none">
           <path d="M28 30 Q18 10 8 2" stroke="rgba(100,190,255,0.75)" strokeWidth="1.5" strokeLinecap="round"/>
@@ -213,12 +225,14 @@ function HookFish({ active }) {
           <circle cx="26" cy="9" r="1.5" fill="rgba(140,200,255,0.6)"/>
         </svg>
       </div>
+
+      {/* Fish — SVG leaping upward */}
       <img className="fish-img" src="/loginfish.png" alt="" aria-hidden="true" draggable={false} />
     </div>
   )
 }
 
-// ── LoginPage ─────────────────────────────────────────────────────────────────
+// ── App ───────────────────────────────────────────────────────────────────────
 export function LoginPage() {
   const [mode, setMode] = useState('login')
   const [animating, setAnimating] = useState(false)
@@ -226,7 +240,9 @@ export function LoginPage() {
   const handleTabClick = (newMode) => {
     if (newMode === mode || animating) return
     setAnimating(true)
+    // Switch form at hook-jerk peak (62% of 1100ms)
     setTimeout(() => setMode(newMode), 680)
+    // End animation after full sequence + buffer
     setTimeout(() => setAnimating(false), 1200)
   }
 
@@ -240,69 +256,60 @@ export function LoginPage() {
       </video>
       <div className="bg-overlay" />
 
-      {/* Decorative images */}
-      <img src="/rightside.png"      alt="" className="deco-right" aria-hidden="true" />
-      <img src="/bottomleftside.png" alt="" className="deco-bl"    aria-hidden="true" />
-
-      {/* Layout — left column holds the form, right is transparent */}
-      <div className="layout">
-        <div className="left-col">
-
-          {/* Logo */}
-          <div className="logo-bar">
-            <img src="/logo.png" alt="MERMAID" className="logo-img" />
-            <span className="brand-name">MERMAID</span>
-          </div>
-
-          {/* Hero tagline */}
-          <div className="hero-block">
-            <h1 className="hero-title">
-              Safer Seas.<br />
-              <em>Smarter Catch.</em>
-            </h1>
-            <p className="hero-sub">
-              Real-time marine conditions and market intelligence<br />
-              for Filipino fishermen and wet market vendors.
-            </p>
-          </div>
-
-          {/* Glass card */}
-          <div className="glass-card">
-            <div className="tabs">
-              <div className="tab-line" style={{
-                transform: mode === 'login' ? 'translateX(0%)' : 'translateX(100%)'
-              }} />
-              <button
-                className={`tab-btn${mode === 'login' ? ' tab-btn--on' : ''}`}
-                onClick={() => handleTabClick('login')}>
-                Login
-              </button>
-              <button
-                className={`tab-btn${mode === 'signup' ? ' tab-btn--on' : ''}`}
-                onClick={() => handleTabClick('signup')}>
-                Register
-              </button>
-            </div>
-            <div className="card-body">
-              {mode === 'login'
-                ? <LoginForm    key="login"  onSwitch={() => handleTabClick('signup')} />
-                : <RegisterForm key="signup" onSwitch={() => handleTabClick('login')} />}
-            </div>
-          </div>
-
-          {/* Terms */}
-          <p className="terms">
-            By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
-          </p>
-
-        </div>
-
-        {/* Right column — transparent, shows through to video + decorations */}
-        <div className="right-col">
-          <HookFish active={animating} />
-        </div>
+      {/* Logo — fixed top left */}
+      <div className="logo-bar">
+        <img src="/logo.png" alt="MERMAID" className="logo-img" />
+        <span className="brand-name">MERMAID</span>
       </div>
 
+      {/* Centered form */}
+      <div className="center-layout">
+
+        {/* Hero tagline */}
+        <div className="hero-block">
+          <h1 className="hero-title">
+            Safer Seas.<br />
+            <em>Smarter Catch.</em>
+          </h1>
+          <p className="hero-sub">
+            Real-time marine conditions and market intelligence<br />
+            for Filipino fishermen and wet market vendors.
+          </p>
+        </div>
+
+        {/* Glass card */}
+        <div className="glass-card">
+          <div className="tabs">
+            <div className="tab-line" style={{
+              transform: mode === 'login' ? 'translateX(0%)' : 'translateX(100%)'
+            }} />
+            <button
+              className={`tab-btn${mode === 'login' ? ' tab-btn--on' : ''}`}
+              onClick={() => handleTabClick('login')}>
+              Login
+            </button>
+            <button
+              className={`tab-btn${mode === 'signup' ? ' tab-btn--on' : ''}`}
+              onClick={() => handleTabClick('signup')}>
+              Register
+            </button>
+          </div>
+          <div className="card-body">
+            {mode === 'login'
+              ? <LoginForm    key="login"  onSwitch={() => handleTabClick('signup')} />
+              : <RegisterForm key="signup" onSwitch={() => handleTabClick('login')} />}
+          </div>
+        </div>
+
+        {/* Hook & Fish */}
+        <HookFish active={animating} />
+
+        {/* Terms */}
+        <p className="terms">
+          By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+        </p>
+
+      </div>
     </div>
   )
 }
