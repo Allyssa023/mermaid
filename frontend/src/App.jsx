@@ -185,85 +185,129 @@ function RegisterForm({ onSwitch }) {
   )
 }
 
+// ── Hook + Fish animation ─────────────────────────────────────────────────────
+function HookFish({ active }) {
+  return (
+    <div className={`hook-area${active ? ' hook-area--active' : ''}`}>
+      {/* Fishing line */}
+      <div className="hook-line" />
+
+      {/* Hook SVG — metallic J-shape */}
+      <svg className="hook-svg" viewBox="0 0 28 60" width="28" height="60" fill="none">
+        <defs>
+          <linearGradient id="hookGrad-hf" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stopColor="#E8E8F0" />
+            <stop offset="45%"  stopColor="#C0C0CE" />
+            <stop offset="100%" stopColor="#7878A0" />
+          </linearGradient>
+        </defs>
+        <circle cx="14" cy="5" r="4" stroke="url(#hookGrad-hf)" strokeWidth="2" />
+        <line x1="14" y1="9" x2="14" y2="38" stroke="url(#hookGrad-hf)" strokeWidth="3" strokeLinecap="round" />
+        <path d="M14 38 Q14 55 5 55 Q1 55 1 50" stroke="url(#hookGrad-hf)" strokeWidth="3" strokeLinecap="round" />
+        <path d="M1 50 L8 44" stroke="url(#hookGrad-hf)" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+
+      {/* Water splash group */}
+      <div className="splash-group">
+        <svg className="splash-svg splash-svg--left" viewBox="0 0 40 30" width="40" height="30" fill="none">
+          <path d="M28 30 Q18 10 8 2" stroke="rgba(100,190,255,0.75)" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="8"  cy="2" r="2.5" fill="rgba(160,220,255,0.8)"/>
+          <circle cx="14" cy="9" r="1.5" fill="rgba(140,200,255,0.6)"/>
+        </svg>
+        <svg className="splash-svg splash-svg--center" viewBox="0 0 40 30" width="40" height="30" fill="none">
+          <path d="M20 30 Q20 10 20 2" stroke="rgba(100,190,255,0.75)" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="20" cy="2" r="2.5" fill="rgba(160,220,255,0.8)"/>
+          <circle cx="20" cy="8" r="1.5" fill="rgba(140,200,255,0.6)"/>
+        </svg>
+        <svg className="splash-svg splash-svg--right" viewBox="0 0 40 30" width="40" height="30" fill="none">
+          <path d="M12 30 Q22 10 32 2" stroke="rgba(100,190,255,0.75)" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="32" cy="2" r="2.5" fill="rgba(160,220,255,0.8)"/>
+          <circle cx="26" cy="9" r="1.5" fill="rgba(140,200,255,0.6)"/>
+        </svg>
+      </div>
+
+      {/* Fish — SVG leaping upward */}
+      <img className="fish-img" src="/loginfish.png" alt="" aria-hidden="true" draggable={false} />
+    </div>
+  )
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [mode, setMode] = useState('login')
+  const [animating, setAnimating] = useState(false)
+
+  const handleTabClick = (newMode) => {
+    if (newMode === mode || animating) return
+    setAnimating(true)
+    // Switch form at hook-jerk peak (62% of 1100ms)
+    setTimeout(() => setMode(newMode), 680)
+    // End animation after full sequence + buffer
+    setTimeout(() => setAnimating(false), 1200)
+  }
 
   return (
     <div className="page">
 
-      {/* Background video — fix: file is mainbg.mov not mainbgvid.mov */}
+      {/* Background video */}
       <video className="bg-video" autoPlay muted loop playsInline>
         <source src="/mainbg.mov" type="video/mp4" />
         <source src="/mainbg.mov" type="video/quicktime" />
       </video>
       <div className="bg-overlay" />
 
-      {/* Decorative images */}
-      <img src="/rightside.png"       alt="" className="deco-right" aria-hidden="true" />
-      <img src="/bottomleftside.png"  alt="" className="deco-bl"    aria-hidden="true" />
+      {/* Logo — fixed top left */}
+      <div className="logo-bar">
+        <img src="/logo.png" alt="MERMAID" className="logo-img" />
+        <span className="brand-name">MERMAID</span>
+      </div>
 
-      {/* Layout */}
-      <div className="layout">
+      {/* Centered form */}
+      <div className="center-layout">
 
-        {/* ── Left column ── */}
-        <div className="left-col">
-
-          {/* Logo */}
-          <div className="logo-bar">
-            <img src="/logo.png" alt="MERMAID" className="logo-img" />
-            <span className="brand-name">MERMAID</span>
-          </div>
-
-          {/* Hero tagline */}
-          <div className="hero-block">
-            <h1 className="hero-title">
-              Safer Seas.<br />
-              <em>Smarter Catch.</em>
-            </h1>
-            <p className="hero-sub">
-              Real-time marine conditions and market intelligence<br />
-              for Filipino fishermen and wet market vendors.
-            </p>
-          </div>
-
-          {/* Glass card */}
-          <div className="glass-card">
-
-            {/* Tab switcher */}
-            <div className="tabs">
-              <div className="tab-line" style={{
-                transform: mode === 'login' ? 'translateX(0%)' : 'translateX(100%)'
-              }} />
-              <button
-                className={`tab-btn${mode === 'login' ? ' tab-btn--on' : ''}`}
-                onClick={() => setMode('login')}>
-                Login
-              </button>
-              <button
-                className={`tab-btn${mode === 'signup' ? ' tab-btn--on' : ''}`}
-                onClick={() => setMode('signup')}>
-                Register
-              </button>
-            </div>
-
-            {/* Form area */}
-            <div className="card-body">
-              {mode === 'login'
-                ? <LoginForm    key="login"  onSwitch={() => setMode('signup')} />
-                : <RegisterForm key="signup" onSwitch={() => setMode('login')} />}
-            </div>
-          </div>
-
-          {/* Terms */}
-          <p className="terms">
-            By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+        {/* Hero tagline */}
+        <div className="hero-block">
+          <h1 className="hero-title">
+            Safer Seas.<br />
+            <em>Smarter Catch.</em>
+          </h1>
+          <p className="hero-sub">
+            Real-time marine conditions and market intelligence<br />
+            for Filipino fishermen and wet market vendors.
           </p>
-
         </div>
 
-        {/* Right column — transparent, shows through to video + deco-right */}
-        <div className="right-col" />
+        {/* Glass card */}
+        <div className="glass-card">
+          <div className="tabs">
+            <div className="tab-line" style={{
+              transform: mode === 'login' ? 'translateX(0%)' : 'translateX(100%)'
+            }} />
+            <button
+              className={`tab-btn${mode === 'login' ? ' tab-btn--on' : ''}`}
+              onClick={() => handleTabClick('login')}>
+              Login
+            </button>
+            <button
+              className={`tab-btn${mode === 'signup' ? ' tab-btn--on' : ''}`}
+              onClick={() => handleTabClick('signup')}>
+              Register
+            </button>
+          </div>
+          <div className="card-body">
+            {mode === 'login'
+              ? <LoginForm    key="login"  onSwitch={() => handleTabClick('signup')} />
+              : <RegisterForm key="signup" onSwitch={() => handleTabClick('login')} />}
+          </div>
+        </div>
+
+        {/* Hook & Fish */}
+        <HookFish active={animating} />
+
+        {/* Terms */}
+        <p className="terms">
+          By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+        </p>
 
       </div>
     </div>
