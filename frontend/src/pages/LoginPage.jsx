@@ -233,60 +233,76 @@ export function LoginPage() {
   return (
     <div className="page">
 
+      {/* Background video */}
       <video className="bg-video" autoPlay muted loop playsInline>
         <source src="/mainbg.mov" type="video/mp4" />
         <source src="/mainbg.mov" type="video/quicktime" />
       </video>
       <div className="bg-overlay" />
 
-      <div className="logo-bar">
-        <img src="/logo.png" alt="MERMAID" className="logo-img" />
-        <span className="brand-name">MERMAID</span>
-      </div>
+      {/* Decorative images */}
+      <img src="/rightside.png"      alt="" className="deco-right" aria-hidden="true" />
+      <img src="/bottomleftside.png" alt="" className="deco-bl"    aria-hidden="true" />
 
-      <div className="center-layout">
+      {/* Layout — left column holds the form, right is transparent */}
+      <div className="layout">
+        <div className="left-col">
 
-        <div className="hero-block">
-          <h1 className="hero-title">
-            Safer Seas.<br />
-            <em>Smarter Catch.</em>
-          </h1>
-          <p className="hero-sub">
-            Real-time marine conditions and market intelligence<br />
-            for Filipino fishermen and wet market vendors.
+          {/* Logo */}
+          <div className="logo-bar">
+            <img src="/logo.png" alt="MERMAID" className="logo-img" />
+            <span className="brand-name">MERMAID</span>
+          </div>
+
+          {/* Hero tagline */}
+          <div className="hero-block">
+            <h1 className="hero-title">
+              Safer Seas.<br />
+              <em>Smarter Catch.</em>
+            </h1>
+            <p className="hero-sub">
+              Real-time marine conditions and market intelligence<br />
+              for Filipino fishermen and wet market vendors.
+            </p>
+          </div>
+
+          {/* Glass card */}
+          <div className="glass-card">
+            <div className="tabs">
+              <div className="tab-line" style={{
+                transform: mode === 'login' ? 'translateX(0%)' : 'translateX(100%)'
+              }} />
+              <button
+                className={`tab-btn${mode === 'login' ? ' tab-btn--on' : ''}`}
+                onClick={() => handleTabClick('login')}>
+                Login
+              </button>
+              <button
+                className={`tab-btn${mode === 'signup' ? ' tab-btn--on' : ''}`}
+                onClick={() => handleTabClick('signup')}>
+                Register
+              </button>
+            </div>
+            <div className="card-body">
+              {mode === 'login'
+                ? <LoginForm    key="login"  onSwitch={() => handleTabClick('signup')} />
+                : <RegisterForm key="signup" onSwitch={() => handleTabClick('login')} />}
+            </div>
+          </div>
+
+          {/* Terms */}
+          <p className="terms">
+            By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
           </p>
+
         </div>
 
-        <div className="glass-card">
-          <div className="tabs">
-            <div className="tab-line" style={{
-              transform: mode === 'login' ? 'translateX(0%)' : 'translateX(100%)'
-            }} />
-            <button
-              className={`tab-btn${mode === 'login' ? ' tab-btn--on' : ''}`}
-              onClick={() => handleTabClick('login')}>
-              Login
-            </button>
-            <button
-              className={`tab-btn${mode === 'signup' ? ' tab-btn--on' : ''}`}
-              onClick={() => handleTabClick('signup')}>
-              Register
-            </button>
-          </div>
-          <div className="card-body">
-            {mode === 'login'
-              ? <LoginForm    key="login"  onSwitch={() => handleTabClick('signup')} />
-              : <RegisterForm key="signup" onSwitch={() => handleTabClick('login')} />}
-          </div>
+        {/* Right column — transparent, shows through to video + decorations */}
+        <div className="right-col">
+          <HookFish active={animating} />
         </div>
-
-        <HookFish active={animating} />
-
-        <p className="terms">
-          By continuing you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
-        </p>
-
       </div>
+
     </div>
   )
 }
