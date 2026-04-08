@@ -1,0 +1,18 @@
+# ══════════════════════════════════════════════════════════
+#  MERMAID Frontend — React (Vite) on Node
+# ══════════════════════════════════════════════════════════
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files first (layer caching)
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy source
+COPY . .
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
