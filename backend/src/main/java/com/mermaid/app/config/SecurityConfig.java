@@ -1,6 +1,8 @@
 package com.mermaid.app.config;
 
 import com.mermaid.app.security.JwtAuthenticationConverter;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -15,6 +17,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -30,6 +33,7 @@ import java.util.List;
  * - No session (stateless); mitigates session hijacking.
  * - Password hashing with BCrypt (industry standard, adaptive cost).
  * - Defense in depth: chain validates JWT, then method security enforces roles.
+ * - JWT is read from HttpOnly cookie first, then falls back to Authorization header.
  */
 @Configuration
 @EnableWebSecurity
@@ -61,6 +65,34 @@ public class SecurityConfig {
         return NimbusJwtDecoder.withSecretKey(key).build();
     }
 
+    /**
+     * Custom BearerTokenResolver: checks the HttpOnly 'jwt' cookie first,
+     * then falls back to the standard Authorization: Bearer header.
+     */
+    @Bean
+    public BearerTokenResolver cookieBearerTokenResolver() {
+        return (HttpServletRequest request) -> {
+            // 1. Try cookie first
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("jwt".equals(cookie.getName())) {
+                        String value = cookie.getValue();
+                        if (value != null && !value.isBlank()) {
+                            return value;
+                        }
+                    }
+                }
+            }
+            // 2. Fallback to Authorization header
+            String header = request.getHeader("Authorization");
+            if (header != null && header.startsWith("Bearer ")) {
+                return header.substring(7);
+            }
+            return null;
+        };
+    }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -82,12 +114,13 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/register", "/ws-chat/**").permitAll()
+                .requestMatchers("/auth/login", "/auth/register", "/auth/logout", "/ws-chat/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(new JwtAuthenticationConverter()))
+                .bearerTokenResolver(cookieBearerTokenResolver())
             );
         return http.build();
     }

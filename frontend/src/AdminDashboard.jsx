@@ -9,12 +9,38 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
+const MOCK_AVATARS = [
+  '/avatars/1.jpg', '/avatars/2.jpg', '/avatars/3.jpg', '/avatars/4.jpg',
+]
+
+const LA_UNION_MUNICIPALITIES = [
+  'Agoo', 'Aringay', 'Bacnotan', 'Balaoan', 'Bangar', 'Bauang', 'Caba', 
+  'Luna', 'Rosario', 'San Fernando City', 'San Juan', 'Santo Tomas'
+]
+
+const ADVISORY_AREAS = [
+  'All La Union Coastal Waters',
+  'Northern La Union Coast (Bangar to San Juan)',
+  'Central La Union Coast (San Fernando to Bauang)',
+  'Southern La Union Coast (Caba to Rosario)',
+  'Lingayen Gulf Area',
+  'San Fernando Bay'
+]
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
 const OverviewIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/>
     <rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>
+  </svg>
+)
+const CalendarIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
+    <line x1="16" x2="16" y1="2" y2="6"/>
+    <line x1="8" x2="8" y1="2" y2="6"/>
+    <line x1="3" x2="21" y1="10" y2="10"/>
   </svg>
 )
 const UsersIcon = () => (
@@ -482,7 +508,7 @@ function AdminSidebar({ user, activeNav, onNav, onLogout }) {
   return (
     <aside className="sidebar">
       <div className="sidebar__header">
-        <div className="sidebar__logo-mark"><AnchorIcon /></div>
+        <img src="/logo.png" alt="MERMAID" className="sidebar__logo-img" style={{ width: 48, height: 48, objectFit: 'contain' }} />
         <span className="sidebar__brand">Mermaid</span>
       </div>
 
@@ -891,49 +917,64 @@ function AdvisoriesSection({ token }) {
         <AdminModal
           title={modal.mode === 'create' ? 'Create Advisory' : `Edit Advisory #${modal.data.id}`}
           onClose={closeModal} onSubmit={handleSubmit}
-          saving={saving} submitLabel={modal.mode === 'create' ? 'Create Advisory' : 'Save Changes'}
+          saving={saving} submitLabel={modal.mode === 'create' ? 'Post Advisory' : 'Save Changes'}
           formError={formError}
         >
           <div className="vd-form__group">
-            <label className="vd-form__label">Title</label>
-            <input className="vd-form__input" type="text" required placeholder="Advisory title"
+            <label className="vd-form__label">Advisory Title</label>
+            <input className="vd-form__input" type="text" required placeholder="e.g. Gale Warning Issued"
               value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
           </div>
-          <div className="vd-form__group">
-            <label className="vd-form__label">Message</label>
-            <textarea className="vd-form__textarea" required rows={4} placeholder="Detailed advisory message…"
-              value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
-          </div>
+          
           <div className="vd-form__row">
-            <div className="vd-form__group">
-              <label className="vd-form__label">Severity</label>
+            <div className="vd-form__group" style={{ flex: 1 }}>
+              <label className="vd-form__label">Severity Level</label>
               <select className="vd-form__select" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>
                 {SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <div className="vd-form__group">
+            <div className="vd-form__group" style={{ flex: 2 }}>
               <label className="vd-form__label">Affected Area</label>
-              <input className="vd-form__input" type="text" required placeholder="e.g. San Fernando Bay"
-                value={form.affectedArea} onChange={e => setForm(f => ({ ...f, affectedArea: e.target.value }))} />
+              <select className="vd-form__select" required value={form.affectedArea} onChange={e => setForm(f => ({ ...f, affectedArea: e.target.value }))}>
+                <option value="" disabled>Select affected area...</option>
+                <optgroup label="Broad Regions">
+                  {ADVISORY_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
+                </optgroup>
+                <optgroup label="Specific Municipalities">
+                  {LA_UNION_MUNICIPALITIES.map(m => <option key={m} value={m + ' Coastal Waters'}>{m} Coastal Waters</option>)}
+                </optgroup>
+              </select>
             </div>
           </div>
-          <div className="vd-form__row">
+
+          <div className="vd-form__group">
+            <label className="vd-form__label">Detailed Message</label>
+            <textarea className="vd-form__textarea" required rows={4} placeholder="Provide specific instructions or details about the advisory..."
+              value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--bg-card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', boxSizing: 'border-box' }}>
             <div className="vd-form__group">
-              <label className="vd-form__label">Active From</label>
+              <label className="vd-form__label" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <CalendarIcon /> Active From
+              </label>
               <input className="vd-form__input" type="datetime-local" required
                 value={form.activeFrom} onChange={e => setForm(f => ({ ...f, activeFrom: e.target.value }))} />
             </div>
             <div className="vd-form__group">
-              <label className="vd-form__label">Active To</label>
+              <label className="vd-form__label" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <CalendarIcon /> Active To
+              </label>
               <input className="vd-form__input" type="datetime-local" required
                 value={form.activeTo} onChange={e => setForm(f => ({ ...f, activeTo: e.target.value }))} />
             </div>
           </div>
+
           {modal.mode === 'edit' && (
-            <div className="vd-form__group" style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <label className="vd-form__label" style={{ margin: 0 }}>Active</label>
-              <input type="checkbox" className="adm-checkbox"
+            <div className="vd-form__group" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
+              <input type="checkbox" className="adm-checkbox" id="adv-active"
                 checked={!!form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
+              <label className="vd-form__label" htmlFor="adv-active" style={{ margin: 0, cursor: 'pointer' }}>Set as currently active</label>
             </div>
           )}
         </AdminModal>
@@ -1164,8 +1205,10 @@ function MarketLocationsSection({ token }) {
           </div>
           <div className="vd-form__group">
             <label className="vd-form__label">Municipality</label>
-            <input className="vd-form__input" type="text" required placeholder="e.g. San Fernando, La Union"
-              value={form.municipality} onChange={e => setForm(f => ({ ...f, municipality: e.target.value }))} />
+            <select className="vd-form__select" required value={form.municipality} onChange={e => setForm(f => ({ ...f, municipality: e.target.value }))}>
+              <option value="" disabled>Select municipality...</option>
+              {LA_UNION_MUNICIPALITIES.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
           </div>
         </AdminModal>
       )}

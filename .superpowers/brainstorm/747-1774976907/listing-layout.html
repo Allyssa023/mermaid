@@ -1,0 +1,90 @@
+<h2>How should demand listings be displayed?</h2>
+<p class="subtitle">Isidro is browsing to find where to sell his catch</p>
+
+<div class="cards">
+  <div class="card" data-choice="grid" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#0d1f35;border-radius:8px;margin-bottom:0">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:#0e2a3a;border:1px solid rgba(14,116,144,0.3);border-radius:10px;padding:14px">
+          <div style="font-size:11px;color:#7DD3FC;font-weight:700;margin-bottom:6px">BANGUS</div>
+          <div style="font-size:18px;font-weight:800;color:#fff">₱120<span style="font-size:12px;font-weight:400;color:rgba(255,255,255,0.4)">/kg</span></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Wants 50 kg</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px">📍 San Fernando Mkt</div>
+          <div style="margin-top:10px;background:#0e7490;border-radius:6px;padding:5px 0;text-align:center;font-size:11px;font-weight:600;color:#fff">I'm Interested</div>
+        </div>
+        <div style="background:#0e2a3a;border:1px solid rgba(14,116,144,0.3);border-radius:10px;padding:14px">
+          <div style="font-size:11px;color:#7DD3FC;font-weight:700;margin-bottom:6px">TILAPIA</div>
+          <div style="font-size:18px;font-weight:800;color:#fff">₱85<span style="font-size:12px;font-weight:400;color:rgba(255,255,255,0.4)">/kg</span></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Wants 30 kg</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px">📍 Agoo Market</div>
+          <div style="margin-top:10px;background:#0e7490;border-radius:6px;padding:5px 0;text-align:center;font-size:11px;font-weight:600;color:#fff">I'm Interested</div>
+        </div>
+        <div style="background:#0e2a3a;border:1px solid rgba(14,116,144,0.3);border-radius:10px;padding:14px">
+          <div style="font-size:11px;color:#7DD3FC;font-weight:700;margin-bottom:6px">MAYA-MAYA</div>
+          <div style="font-size:18px;font-weight:800;color:#fff">₱200<span style="font-size:12px;font-weight:400;color:rgba(255,255,255,0.4)">/kg</span></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Wants 20 kg</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px">📍 Bauang Market</div>
+          <div style="margin-top:10px;background:#0e7490;border-radius:6px;padding:5px 0;text-align:center;font-size:11px;font-weight:600;color:#fff">I'm Interested</div>
+        </div>
+        <div style="background:#0e2a3a;border:1px solid rgba(14,116,144,0.3);border-radius:10px;padding:14px">
+          <div style="font-size:11px;color:#7DD3FC;font-weight:700;margin-bottom:6px">GALUNGGONG</div>
+          <div style="font-size:18px;font-weight:800;color:#fff">₱95<span style="font-size:12px;font-weight:400;color:rgba(255,255,255,0.4)">/kg</span></div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px">Wants 80 kg</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px">📍 San Fernando Mkt</div>
+          <div style="margin-top:10px;background:#0e7490;border-radius:6px;padding:5px 0;text-align:center;font-size:11px;font-weight:600;color:#fff">I'm Interested</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Card Grid</h3>
+      <p>Compact cards in a 2-column grid. Species and price are large and scannable. Good for quick browsing on mobile.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="list" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#0d1f35;border-radius:8px;margin-bottom:0">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:10px 12px;background:#0e2a3a;border:1px solid rgba(14,116,144,0.25);border-radius:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff">Bangus</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Rosario Dela Cruz · San Fernando Mkt</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:14px;font-weight:800;color:#7DD3FC">₱120/kg</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4)">50 kg</div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);text-align:center">Needs by<br/><span style="color:rgba(255,255,255,0.6)">Apr 3</span></div>
+          <div style="background:#0e7490;border-radius:7px;padding:6px 8px;text-align:center;font-size:11px;font-weight:600;color:#fff">Interested</div>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:10px 12px;background:#0e2a3a;border:1px solid rgba(14,116,144,0.25);border-radius:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff">Tilapia</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Maria Santos · Agoo Market</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:14px;font-weight:800;color:#7DD3FC">₱85/kg</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4)">30 kg</div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);text-align:center">Needs by<br/><span style="color:rgba(255,255,255,0.6)">Apr 5</span></div>
+          <div style="background:#0e7490;border-radius:7px;padding:6px 8px;text-align:center;font-size:11px;font-weight:600;color:#fff">Interested</div>
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:10px 12px;background:#0e2a3a;border:1px solid rgba(14,116,144,0.25);border-radius:10px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff">Maya-Maya</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Jun Reyes · Bauang Market</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:14px;font-weight:800;color:#7DD3FC">₱200/kg</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4)">20 kg</div>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.35);text-align:center">Needs by<br/><span style="color:rgba(255,255,255,0.6)">Apr 4</span></div>
+          <div style="background:#0e7490;border-radius:7px;padding:6px 8px;text-align:center;font-size:11px;font-weight:600;color:#fff">Interested</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Row List</h3>
+      <p>Full-width rows with species, vendor, location, price, quantity, deadline, and action in one scan. More info-dense. Better on desktop.</p>
+    </div>
+  </div>
+</div>

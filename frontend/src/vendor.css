@@ -113,6 +113,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.22);
+  border: 1px solid transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   margin-bottom: 4px;
 }
@@ -438,6 +439,7 @@
 .vd-form__textarea::placeholder { color: rgba(255, 255, 255, 0.2); }
 
 .vd-form__select option { background: #0d1f33; color: #fff; }
+.vd-form__select optgroup { background: #0d1f33; color: rgba(255, 255, 255, 0.5); font-weight: 700; font-style: normal; }
 
 .vd-form__textarea { resize: vertical; min-height: 72px; }
 

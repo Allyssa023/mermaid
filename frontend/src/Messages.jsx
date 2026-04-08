@@ -101,13 +101,8 @@ export default function Messages({ token, userProfile, initialContact }) {
   }, [initialContact])
 
   useEffect(() => {
-    if (!token) return
-
     const client = new Client({
       brokerURL: `ws://localhost:8080/api/ws-chat`,
-      connectHeaders: {
-        Authorization: `Bearer ${token}`
-      },
       onConnect: () => {
         setConnected(true)
         client.subscribe('/user/queue/messages', (msg) => {
@@ -131,7 +126,7 @@ export default function Messages({ token, userProfile, initialContact }) {
     return () => {
       client.deactivate()
     }
-  }, [token, loadContacts])
+  }, [loadContacts])
 
   const loadConversation = useCallback(async (userId) => {
     try {
@@ -164,7 +159,6 @@ export default function Messages({ token, userProfile, initialContact }) {
 
     stompClientRef.current.publish({
       destination,
-      headers: { Authorization: `Bearer ${token}` },
       body: JSON.stringify(payload)
     })
     

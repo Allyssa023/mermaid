@@ -3,25 +3,16 @@ import * as authApi from '../api/auth';
 
 const AuthContext = createContext(null);
 
-const TOKEN_KEY = 'accessToken';
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadUser = useCallback(async () => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
     try {
       const profile = await authApi.getProfile();
       setUser(profile);
     } catch {
-      localStorage.removeItem(TOKEN_KEY);
       setUser(null);
     } finally {
       setLoading(false);
@@ -36,7 +27,6 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const data = await authApi.login(email, password);
-      localStorage.setItem(TOKEN_KEY, data.accessToken);
       setUser(data.user);
       return data.user;
     } catch (err) {
@@ -56,8 +46,12 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      // Ignore — clear client state regardless
+    }
     setUser(null);
     setError(null);
   };
@@ -72,3 +66,4 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
+

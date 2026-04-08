@@ -889,6 +889,7 @@
   align-items: center;
   padding: 0 16px;
   margin-bottom: 4px;
+  gap: 8px; /* Matches .vd-listing-row */
 }
 
 .adm-col-heads span {
@@ -901,22 +902,22 @@
 }
 
 /* ID / Full Name / Email / Role / Status / Actions */
-.adm-users-cols {
+.adm-col-heads.adm-users-cols, .vd-listing-row.adm-users-cols {
   grid-template-columns: 60px 1.4fr 1.8fr 100px 80px 90px;
 }
 
 /* ID / Title / Severity / Area / Status / Created / Actions */
-.adm-adv-cols {
+.adm-col-heads.adm-adv-cols, .vd-listing-row.adm-adv-cols {
   grid-template-columns: 60px 2fr 100px 1.2fr 80px 110px 90px;
 }
 
 /* ID / Common Name / Status / Actions */
-.adm-species-cols {
+.adm-col-heads.adm-species-cols, .vd-listing-row.adm-species-cols {
   grid-template-columns: 60px 2fr 80px 90px;
 }
 
 /* ID / Name / Municipality / Status / Actions */
-.adm-locations-cols {
+.adm-col-heads.adm-locations-cols, .vd-listing-row.adm-locations-cols {
   grid-template-columns: 60px 1.6fr 1.4fr 80px 90px;
 }
 

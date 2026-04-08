@@ -12,16 +12,14 @@ function AppInner() {
 
   if (!user) return <LoginPage />
 
-  const token = localStorage.getItem('accessToken')
-
   if (user.role === 'FISHERMAN') {
-    return <FishermanDashboard user={user} token={token} onLogout={logout} />
+    return <FishermanDashboard user={user} token={null} onLogout={logout} />
   }
   if (user.role === 'ADMIN') {
-    return <AdminDashboard user={user} token={token} onLogout={logout} />
+    return <AdminDashboard user={user} token={null} onLogout={logout} />
   }
   if (user.role === 'VENDOR') {
-    return <VendorDashboard user={user} token={token} onLogout={logout} />
+    return <VendorDashboard user={user} token={null} onLogout={logout} />
   }
 
   logout()

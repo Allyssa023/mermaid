@@ -1,0 +1,105 @@
+<h2>Expandable row — what shows inside?</h2>
+<p class="subtitle">Clicking a row expands it. Two options for what lives in the expanded section.</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#061220;border-radius:8px">
+
+      <!-- Collapsed row -->
+      <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr 130px;gap:8px;align-items:center;padding:12px 16px;background:rgba(14,116,144,0.1);border:1px solid rgba(14,116,144,0.3);border-radius:12px 12px 0 0;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="color:rgba(125,211,252,0.5);font-size:12px">▾</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff">Bangus</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4)">Rosario Dela Cruz</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5)">📍 San Fernando Mkt</div>
+        <div style="text-align:right;font-size:14px;font-weight:700;color:#7DD3FC">₱120</div>
+        <div style="text-align:right;font-size:12px;color:rgba(255,255,255,0.5)">50 kg</div>
+        <div style="text-align:center;font-size:12px;color:rgba(255,255,255,0.5)">Apr 3</div>
+        <div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:6px 0;text-align:center;font-size:11px;font-weight:600;color:#86efac">✓ Interested</div>
+      </div>
+
+      <!-- Expanded section -->
+      <div style="padding:16px;background:rgba(6,18,32,0.9);border:1px solid rgba(14,116,144,0.3);border-top:none;border-radius:0 0 12px 12px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <p style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.3);margin-bottom:6px">Vendor Note</p>
+            <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.5">"Preferably fresh catch, delivered before 6am. Call me at the stall."</p>
+          </div>
+          <div>
+            <p style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.3);margin-bottom:6px">Your Message</p>
+            <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.5;font-style:italic">"I can bring 40kg by tomorrow morning from Bauang."</p>
+            <p style="font-size:11px;color:rgba(125,211,252,0.5);margin-top:4px">Sent Apr 1 · Chat coming soon</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Another row collapsed -->
+      <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr 130px;gap:8px;align-items:center;padding:12px 16px;background:rgba(8,20,38,0.65);border:1px solid rgba(255,255,255,0.07);border-radius:12px;margin-top:6px;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="color:rgba(255,255,255,0.2);font-size:12px">▸</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff">Tilapia</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4)">Maria Santos</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5)">📍 Agoo Market</div>
+        <div style="text-align:right;font-size:14px;font-weight:700;color:#7DD3FC">₱85</div>
+        <div style="text-align:right;font-size:12px;color:rgba(255,255,255,0.5)">30 kg</div>
+        <div style="text-align:center;font-size:12px;color:rgba(255,255,255,0.5)">Apr 5</div>
+        <div style="background:#0e7490;border-radius:8px;padding:6px 0;text-align:center;font-size:11px;font-weight:600;color:#fff">I'm Interested</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Expand shows details + your sent message</h3>
+      <p>Row header keeps the "I'm Interested" button. Expanded section shows vendor notes and (if already interested) the message you sent. Clean and informational.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:16px;background:#061220;border-radius:8px">
+
+      <!-- Row collapsed -->
+      <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1fr 80px;gap:8px;align-items:center;padding:12px 16px;background:rgba(8,20,38,0.65);border:1px solid rgba(14,116,144,0.3);border-radius:12px 12px 0 0;cursor:pointer">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="color:rgba(125,211,252,0.5);font-size:12px">▾</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#fff">Tilapia</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4)">Maria Santos</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.5)">📍 Agoo Market</div>
+        <div style="text-align:right;font-size:14px;font-weight:700;color:#7DD3FC">₱85</div>
+        <div style="text-align:right;font-size:12px;color:rgba(255,255,255,0.5)">30 kg</div>
+        <div style="text-align:center;font-size:12px;color:rgba(255,255,255,0.5)">Apr 5</div>
+        <div style="font-size:11px;color:rgba(125,211,252,0.4);text-align:center">Details ▾</div>
+      </div>
+
+      <!-- Expanded section -->
+      <div style="padding:16px;background:rgba(6,18,32,0.9);border:1px solid rgba(14,116,144,0.3);border-top:none;border-radius:0 0 12px 12px;display:flex;flex-direction:column;gap:14px">
+        <div>
+          <p style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.3);margin-bottom:6px">Vendor Note</p>
+          <p style="font-size:13px;color:rgba(255,255,255,0.65);line-height:1.5">"Need fresh tilapia, minimum 25kg per delivery. Prefer morning."</p>
+        </div>
+        <div>
+          <p style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,0.3);margin-bottom:8px">Send your interest</p>
+          <textarea placeholder="I can bring 30kg by tomorrow morning…" style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:#fff;font-size:13px;padding:10px 12px;resize:none;height:64px;font-family:inherit;outline:none"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <div style="background:#0e7490;border-radius:9px;padding:8px 22px;font-size:13px;font-weight:600;color:#fff;cursor:pointer">Send Interest</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="card-body">
+      <h3>B — Interest form lives inside the expanded section</h3>
+      <p>No button on the collapsed row. Clicking the row opens it and reveals vendor notes + the interest form inline. Cleaner header row, slightly more friction.</p>
+    </div>
+  </div>
+
+</div>

@@ -1,17 +1,10 @@
 const API_BASE = '/api';
 
-function getAuthHeaders() {
-  const token = localStorage.getItem('accessToken');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
-
 export async function login(email, password) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) {
@@ -25,6 +18,7 @@ export async function register({ email, password, fullName, role }) {
   const res = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ email, password, fullName, role }),
   });
   if (!res.ok) {
@@ -36,7 +30,7 @@ export async function register({ email, password, fullName, role }) {
 
 export async function getProfile() {
   const res = await fetch(`${API_BASE}/auth/profile`, {
-    headers: getAuthHeaders(),
+    credentials: 'include',
   });
   if (!res.ok) {
     if (res.status === 401) return null;
@@ -44,3 +38,11 @@ export async function getProfile() {
   }
   return res.json();
 }
+
+export async function logout() {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+}
+

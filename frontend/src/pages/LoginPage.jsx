@@ -8,6 +8,7 @@ async function apiPost(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(body),
   })
   const data = await res.json().catch(() => null)
@@ -84,9 +85,7 @@ function LoginForm({ onSwitch }) {
   async function submit(e) {
     e.preventDefault(); setError(''); setLoading(true)
     try {
-      const data = await apiPost('/auth/login', { email, password })
-      localStorage.setItem('accessToken', data.accessToken)
-      localStorage.setItem('user', JSON.stringify(data.user))
+      await apiPost('/auth/login', { email, password })
       window.location.reload()
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }

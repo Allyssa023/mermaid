@@ -179,6 +179,7 @@ function ZoneBarTooltip({ active, payload }) {
 // ── Sidebar ────────────────────────────────────────────────────────────────────
 
 function Sidebar({ user, activeNav, onNav, onLogout }) {
+  const [collapsed, setCollapsed] = useState(false)
   const navItems = [
     { id: 'dashboard', icon: <DashIcon />,     label: 'Dashboard' },
     { id: 'planner',   icon: <CalendarIcon />, label: 'Trip Planner' },
@@ -191,10 +192,15 @@ function Sidebar({ user, activeNav, onNav, onLogout }) {
     : 'FI'
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar__header">
-        <div className="sidebar__logo-mark"><AnchorIcon /></div>
+        <img src="/logo.png" alt="MERMAID" className="sidebar__logo-img" style={{ width: 48, height: 48, objectFit: 'contain' }} />
         <span className="sidebar__brand">Mermaid</span>
+        <button className="sidebar__toggle" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand' : 'Collapse'}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
       </div>
 
       <nav className="sidebar__nav">
@@ -204,29 +210,31 @@ function Sidebar({ user, activeNav, onNav, onLogout }) {
             key={item.id}
             className={`sidebar__link${activeNav === item.id ? ' sidebar__link--on' : ''}`}
             onClick={() => onNav(item.id)}
+            title={collapsed ? item.label : undefined}
           >
             <span className="sidebar__link-icon">{item.icon}</span>
-            <span>{item.label}</span>
+            <span className="sidebar__link-text">{item.label}</span>
           </button>
         ))}
       </nav>
 
       <div className="sidebar__bottom">
-        <button className="sidebar__link" onClick={() => onNav('profile')}>
+        <button className="sidebar__link" onClick={() => onNav('profile')} title={collapsed ? 'Profile' : undefined}>
           <span className="sidebar__avatar">{initials}</span>
           <div className="sidebar__user-info">
             <span className="sidebar__user-name">{user?.fullName?.split(' ')[0] || 'Profile'}</span>
             <span className="sidebar__user-role">Fisherman</span>
           </div>
         </button>
-        <button className="sidebar__link sidebar__link--logout" onClick={onLogout}>
+        <button className="sidebar__link sidebar__link--logout" onClick={onLogout} title={collapsed ? 'Sign Out' : undefined}>
           <span className="sidebar__link-icon"><LogoutIcon /></span>
-          <span>Sign Out</span>
+          <span className="sidebar__link-text">Sign Out</span>
         </button>
       </div>
     </aside>
   )
 }
+
 
 // ── Hero Card ──────────────────────────────────────────────────────────────────
 
@@ -841,6 +849,124 @@ function ZoneModal({ zone, onClose }) {
   )
 }
 
+// ── Marketplace Status Widget ──────────────────────────────────────────────────
+
+function MarketplaceStatus({ token }) {
+  const [listings, setListings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
+  const pageSize = 4
+
+  useEffect(() => {
+    let active = true
+    apiGet('/marketplace/listings', token)
+      .then(data => {
+        if (active) {
+          setListings(data || [])
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        if (active) setLoading(false)
+      })
+    return () => { active = false }
+  }, [token])
+
+  const totalPages = Math.max(1, Math.ceil(listings.length / pageSize))
+  const paginated = listings.slice(page * pageSize, (page + 1) * pageSize)
+
+  return (
+    <div className="zone-swap-section" style={{ marginTop: 24 }}>
+      <div className="zone-grid-header" style={{ marginBottom: 12 }}>
+        <p className="section-label"><ShopIcon /> Marketplace Status</p>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button 
+            disabled={page === 0} 
+            onClick={() => setPage(p => p - 1)}
+            style={{ 
+              opacity: page === 0 ? 0.3 : 1, 
+              cursor: page === 0 ? 'default' : 'pointer', 
+              background: 'var(--bg-card-2)', 
+              border: '1px solid var(--border)', 
+              borderRadius: 4, 
+              width: 24, 
+              height: 24, 
+              color: 'var(--text-2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 14
+            }}
+          >
+            {'<'}
+          </button>
+          <button 
+            disabled={page >= totalPages - 1} 
+            onClick={() => setPage(p => p + 1)}
+            style={{ 
+              opacity: page >= totalPages - 1 ? 0.3 : 1, 
+              cursor: page >= totalPages - 1 ? 'default' : 'pointer', 
+              background: 'var(--bg-card-2)', 
+              border: '1px solid var(--border)', 
+              borderRadius: 4, 
+              width: 24, 
+              height: 24, 
+              color: 'var(--text-2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 14
+            }}
+          >
+            {'>'}
+          </button>
+        </div>
+      </div>
+      
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="skeleton" style={{ height: 60, borderRadius: 12 }} />
+          <div className="skeleton" style={{ height: 60, borderRadius: 12 }} />
+          <div className="skeleton" style={{ height: 60, borderRadius: 12 }} />
+        </div>
+      ) : listings.length === 0 ? (
+        <div className="empty-state" style={{ minHeight: 180 }}>
+           <div className="empty-state__icon" style={{ marginBottom: 12 }}><ShopIcon /></div>
+           <p className="empty-state__title">No Active Listings</p>
+           <p className="empty-state__sub">Market is currently quiet.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {paginated.map(l => (
+            <div key={l.id} style={{ 
+              background: 'var(--bg-card-2)', 
+              padding: '12px 14px', 
+              borderRadius: 12, 
+              border: '1px solid var(--border)', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center' 
+            }}>
+               <div style={{ minWidth: 0, paddingRight: 8 }}>
+                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                   {l.fishSpecies?.commonName || 'Unknown Fish'}
+                 </p>
+                 <p style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
+                   {l.vendorName || 'Vendor'} · {l.marketLocation?.name || 'Unknown Location'}
+                 </p>
+               </div>
+               <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>₱{l.offerPricePerKg}/kg</p>
+                 <p style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>Need {l.quantityNeeded}kg</p>
+               </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 
 export default function FishermanDashboard({ user, token, onLogout }) {
@@ -1052,6 +1178,8 @@ export default function FishermanDashboard({ user, token, onLogout }) {
                     </div>
                   )}
                 </div>
+
+                <MarketplaceStatus token={token} />
               </div>
             </div>
           </div>
