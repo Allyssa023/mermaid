@@ -388,11 +388,55 @@ function SeaConditionsChart({ forecast }) {
 
 // ── Zone Risk Bar Chart (Power BI style) ──────────────────────────────────────
 
+// ── Wave-tip bar shape ─────────────────────────────────────────────────────────
+
+function WaveBar(props) {
+  const { x, y, width, height, fill } = props
+  if (!height || height <= 0 || !width || width <= 0) return null
+
+  const wA = 7  // wave amplitude (peak-to-trough = 2×wA)
+  const w = width
+
+  // Wave runs along the top edge of the bar.
+  // Path: bottom-left → up left → 2 full sine waves (quadratic bézier) → down right → close
+  // Peaks sit at y - wA (above bar top), troughs at y + wA (dipping slightly in)
+  const path = [
+    `M ${x},${y + height}`,
+    `L ${x},${y}`,
+    `Q ${x + w * 0.125},${y - wA}   ${x + w * 0.25},${y}`,
+    `Q ${x + w * 0.375},${y + wA}   ${x + w * 0.5},${y}`,
+    `Q ${x + w * 0.625},${y - wA}   ${x + w * 0.75},${y}`,
+    `Q ${x + w * 0.875},${y + wA}   ${x + w},${y}`,
+    `L ${x + w},${y + height}`,
+    'Z',
+  ].join(' ')
+
+  // Gradient fill id unique per bar (use x position)
+  const gid = `wbg-${Math.round(x)}`
+
+  return (
+    <g>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={fill} stopOpacity="0.95" />
+          <stop offset="100%" stopColor={fill} stopOpacity="0.35" />
+        </linearGradient>
+      </defs>
+      {/* Glow layer */}
+      <path d={path} fill={fill} opacity={0.12} style={{ filter: 'blur(6px)' }} />
+      {/* Main bar */}
+      <path d={path} fill={`url(#${gid})`} />
+    </g>
+  )
+}
+
+// ── Zone Risk Bars (vertical columns) ─────────────────────────────────────────
+
 function ZoneRiskBars({ zones }) {
   const data = zones
     .filter(z => z.marine?.waveHeightM != null)
     .map(z => ({
-      name: z.zoneName,
+      name: z.zoneName.replace(/\s+Zone$/i, ''),  // trim trailing "Zone" for brevity
       wave: +z.marine.waveHeightM.toFixed(2),
       risk: z.risk.level,
       color: riskColor(z.risk.level),
@@ -400,6 +444,12 @@ function ZoneRiskBars({ zones }) {
     .sort((a, b) => b.wave - a.wave)
 
   if (!data.length) return null
+
+  // Attach color per entry so WaveBar can read it via Cell
+  const CustomBar = (props) => {
+    const entry = data[props.index]
+    return <WaveBar {...props} fill={entry?.color ?? 'var(--safe)'} />
+  }
 
   return (
     <div className="chart-card">
@@ -409,36 +459,26 @@ function ZoneRiskBars({ zones }) {
           <p className="chart-card__sub">Current wave height per fishing zone</p>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={Math.max(140, data.length * 44)}>
-        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 40, left: 8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={data} margin={{ top: 24, right: 16, left: 0, bottom: 8 }} barCategoryGap="28%">
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
           <XAxis
-            type="number"
+            dataKey="name"
+            tick={{ fill: 'rgba(238,244,255,0.45)', fontSize: 10.5, fontFamily: 'Outfit' }}
+            axisLine={false}
+            tickLine={false}
+            interval={0}
+            tickFormatter={v => v.length > 14 ? v.slice(0, 13) + '…' : v}
+          />
+          <YAxis
             tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
             axisLine={false}
             tickLine={false}
             unit="m"
+            width={34}
           />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fill: 'rgba(238,244,255,0.45)', fontSize: 11, fontFamily: 'Outfit' }}
-            axisLine={false}
-            tickLine={false}
-            width={110}
-          />
-          <Tooltip content={<ZoneBarTooltip />} />
-          <Bar
-            dataKey="wave"
-            radius={[0, 6, 6, 0]}
-            label={{ position: 'right', fill: 'rgba(238,244,255,0.35)', fontSize: 11, formatter: v => `${v}m` }}
-            isAnimationActive
-            animationDuration={1200}
-          >
-            {data.map((entry, i) => (
-              <Cell key={i} fill={entry.color} fillOpacity={0.85} />
-            ))}
-          </Bar>
+          <Tooltip content={<ZoneBarTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+          <Bar dataKey="wave" shape={<CustomBar />} isAnimationActive animationDuration={1000} label={{ position: 'top', fill: 'rgba(238,244,255,0.35)', fontSize: 10, fontFamily: 'Outfit', formatter: v => `${v}m` }} />
         </BarChart>
       </ResponsiveContainer>
     </div>

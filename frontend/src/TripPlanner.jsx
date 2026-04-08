@@ -508,31 +508,30 @@ export default function TripPlanner({ token }) {
   }, [trips])
 
   // ── Best day computation ───────────────────────────────────────────────────
+  // Best day = future day(s) with the lowest projected wave in the visible
+  // calendar period, with SAFE conditions and no HIGH/CRITICAL advisories.
 
   const bestDays = useMemo(() => {
     const set = new Set()
+    // Collect all eligible future days with their wave heights
+    const candidates = []
     calendarDays.forEach(d => {
       const diff = Math.round((d - today) / 86400000)
       if (diff < 0) return // past days can't be best
       const k = dateKey(d)
       const fc = forecastMap[k]
       if (!fc) return
-      const risk = riskFromWave(fc.wave)
-      if (risk !== 'SAFE') return
-      // No HIGH/CRITICAL advisories
+      if (riskFromWave(fc.wave) !== 'SAFE') return
       const dayAdvs = advisoryMap[k] || []
       if (dayAdvs.some(a => a.severity === 'HIGH' || a.severity === 'CRITICAL')) return
-      // Has at least one demand within 2 days
-      const hasDemand = listings.some(l => {
-        if (!l.neededBy) return false
-        const nb = new Date(l.neededBy)
-        const dayDiff = Math.round((nb - d) / 86400000)
-        return dayDiff >= 0 && dayDiff <= 2
-      })
-      if (hasDemand) set.add(k)
+      candidates.push({ k, wave: fc.wave })
     })
+    if (!candidates.length) return set
+    // Mark the day(s) with the minimum wave height as "best"
+    const minWave = Math.min(...candidates.map(c => c.wave))
+    candidates.forEach(c => { if (c.wave <= minWave + 0.1) set.add(c.k) })
     return set
-  }, [calendarDays, forecastMap, advisoryMap, listings, today])
+  }, [calendarDays, forecastMap, advisoryMap, today])
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 

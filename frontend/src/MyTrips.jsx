@@ -53,10 +53,16 @@ function TripTabs({ active, onChange, hasActiveTrip }) {
         {hasActiveTrip && <span className="trips-tab__dot" />}
       </button>
       <button
-        className={`trips-tab${active === 'history' ? ' trips-tab--on' : ''}`}
-        onClick={() => onChange('history')}
+        className={`trips-tab${active === 'past' ? ' trips-tab--on' : ''}`}
+        onClick={() => onChange('past')}
       >
-        Past & Planned
+        Past Trips
+      </button>
+      <button
+        className={`trips-tab${active === 'planned' ? ' trips-tab--on' : ''}`}
+        onClick={() => onChange('planned')}
+      >
+        Planned Trips
       </button>
     </div>
   )
@@ -639,30 +645,38 @@ function TripHistoryCard({ trip, token }) {
 
 // ─── TripHistoryList ──────────────────────────────────────────────────────────
 
-function TripHistoryList({ trips, token }) {
+function TripHistoryList({ trips, token, view }) {
   const completed = trips.filter(t => t.status === 'COMPLETED').length
   const cancelled = trips.filter(t => t.status === 'CANCELLED').length
-  const planned = trips.filter(t => t.status === 'PLANNED').length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <div className="history-stats">
-        <div className="history-stat">
-          <p className="history-stat__val">{trips.length}</p>
-          <p className="history-stat__label">Total</p>
+      {view === 'past' ? (
+        <div className="history-stats">
+          <div className="history-stat">
+            <p className="history-stat__val">{trips.length}</p>
+            <p className="history-stat__label">Total</p>
+          </div>
+          <div className="history-stat history-stat--completed">
+            <p className="history-stat__val">{completed}</p>
+            <p className="history-stat__label">Completed</p>
+          </div>
+          <div className="history-stat">
+            <p className="history-stat__val">{cancelled}</p>
+            <p className="history-stat__label">Cancelled</p>
+          </div>
         </div>
-        <div className="history-stat history-stat--completed">
-          <p className="history-stat__val">{completed}</p>
-          <p className="history-stat__label">Completed</p>
+      ) : (
+        <div className="history-stats">
+          <div className="history-stat history-stat--planned">
+            <p className="history-stat__val">{trips.length}</p>
+            <p className="history-stat__label">Planned</p>
+          </div>
         </div>
-        <div className="history-stat history-stat--planned">
-          <p className="history-stat__val">{planned}</p>
-          <p className="history-stat__label">Planned</p>
-        </div>
-      </div>
+      )}
       {trips.length === 0 ? (
         <div className="trips-empty-history">
-          <p>No trips yet. Plan a trip on the calendar or start one here.</p>
+          <p>{view === 'planned' ? 'No planned trips. Use the Trip Planner to schedule one.' : 'No past trips yet.'}</p>
         </div>
       ) : (
         <div className="history-list">
@@ -678,7 +692,8 @@ function TripHistoryList({ trips, token }) {
 export default function MyTrips({ token }) {
   const [activeTab, setActiveTab]           = useState('active')
   const [activeTrip, setActiveTrip]         = useState(null)
-  const [history, setHistory]               = useState([])
+  const [pastTrips, setPastTrips]           = useState([])
+  const [plannedTrips, setPlannedTrips]     = useState([])
   const [catches, setCatches]               = useState([])
   const [fishSpecies, setFishSpecies]       = useState([])
   const [loading, setLoading]               = useState(true)
@@ -712,10 +727,13 @@ export default function MyTrips({ token }) {
       ])
       const trip = activeList[0] ?? null
       setActiveTrip(trip)
-      setHistory(
-        [...completed, ...cancelled, ...planned].sort((a, b) =>
+      setPastTrips(
+        [...completed, ...cancelled].sort((a, b) =>
           new Date(b.startedAt) - new Date(a.startedAt)
         )
+      )
+      setPlannedTrips(
+        [...planned].sort((a, b) => b.id - a.id)
       )
       setFishSpecies(species)
       if (trip) loadCatches(trip.id)
@@ -760,8 +778,8 @@ export default function MyTrips({ token }) {
         <div>
           <h2 className="trips-page-header__title">My Trips</h2>
           <p className="trips-page-header__sub">
-            {history.length > 0
-              ? `${history.length} past trip${history.length !== 1 ? 's' : ''} logged`
+            {pastTrips.length > 0
+              ? `${pastTrips.length} past trip${pastTrips.length !== 1 ? 's' : ''} · ${plannedTrips.length} planned`
               : 'Track your fishing trips and catch logs'}
           </p>
         </div>
@@ -786,8 +804,10 @@ export default function MyTrips({ token }) {
           onCatchAdded={handleCatchAdded}
           onCatchesRetry={() => activeTrip && loadCatches(activeTrip.id)}
         />
+      ) : activeTab === 'past' ? (
+        <TripHistoryList trips={pastTrips} token={token} view="past" />
       ) : (
-        <TripHistoryList trips={history} token={token} />
+        <TripHistoryList trips={plannedTrips} token={token} view="planned" />
       )}
     </div>
   )

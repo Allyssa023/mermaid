@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { apiPost } from '../api'
+import { apiPost, apiPut } from '../api'
 
 // ── La Union Municipality → Departure Points → Target Areas reference data ──
 const LA_UNION_DATA = [
@@ -65,25 +65,44 @@ const LA_UNION_DATA = [
   },
 ]
 
+const CHECKLIST_FIELDS = [
+  { key: 'fuelChecked',         label: 'Fuel',          desc: 'Sufficient fuel for the entire trip' },
+  { key: 'engineChecked',       label: 'Engine',        desc: 'Engine checked and running properly' },
+  { key: 'radioChecked',        label: 'Radio / Comms', desc: 'Communication radio is operational' },
+  { key: 'lifeVestChecked',     label: 'Life Vests',    desc: 'Life vests available for all crew' },
+  { key: 'weatherReviewed',     label: 'Weather',       desc: 'Current weather forecast reviewed' },
+  { key: 'emergencyKitChecked', label: 'Emergency Kit', desc: 'Emergency kit and first-aid on board' },
+]
+
 export default function StartTripModal({ token, initialDate, initialStatus = 'ACTIVE', onCreated, onClose }) {
+  const isPlanned = initialStatus === 'PLANNED'
+
+  // Step 1 — trip details
   const [municipality, setMunicipality]     = useState('')
   const [departurePoint, setDeparturePoint] = useState('')
   const [targetArea, setTargetArea]         = useState('')
   const [vesselName, setVesselName]         = useState('')
   const [notes, setNotes]                   = useState('')
-  const [error, setError]                   = useState(null)
-  const [submitting, setSubmitting]         = useState(false)
 
-  const isPlanned = initialStatus === 'PLANNED'
+  // Step 2 — safety checklist (only for ACTIVE trips)
+  const [step, setStep] = useState(1)
+  const [checklist, setChecklist] = useState({
+    fuelChecked:         false,
+    engineChecked:       false,
+    radioChecked:        false,
+    lifeVestChecked:     false,
+    weatherReviewed:     false,
+    emergencyKitChecked: false,
+  })
 
-  // Derived options based on selected municipality
-  const selectedMuni = useMemo(
-    () => LA_UNION_DATA.find(m => m.municipality === municipality) || null,
-    [municipality]
-  )
+  const [error, setError]         = useState(null)
+  const [submitting, setSubmitting] = useState(false)
 
+  const selectedMuni     = useMemo(() => LA_UNION_DATA.find(m => m.municipality === municipality) || null, [municipality])
   const departureOptions = selectedMuni?.departurePoints ?? []
-  const targetOptions = selectedMuni?.targetAreas ?? []
+  const targetOptions    = selectedMuni?.targetAreas ?? []
+  const checkedCount     = Object.values(checklist).filter(Boolean).length
+  const allChecked       = checkedCount === CHECKLIST_FIELDS.length
 
   function handleMunicipalityChange(val) {
     setMunicipality(val)
@@ -91,127 +110,298 @@ export default function StartTripModal({ token, initialDate, initialStatus = 'AC
     setTargetArea('')
   }
 
+  function toggleCheck(key) {
+    setChecklist(c => ({ ...c, [key]: !c[key] }))
+  }
+
+  // Validate step 1 and advance to checklist step
+  function handleNext(e) {
+    e.preventDefault()
+    setError(null)
+    if (!municipality)   { setError('Please select a municipality'); return }
+    if (!departurePoint) { setError('Please select a departure point'); return }
+    if (!targetArea)     { setError('Please select a target area'); return }
+    setStep(2)
+  }
+
   async function submit(e) {
     e.preventDefault()
-    if (!municipality)     { setError('Please select a municipality'); return }
-    if (!departurePoint)   { setError('Please select a departure point'); return }
-    if (!targetArea)       { setError('Please select a target area'); return }
+    if (!isPlanned && !allChecked) {
+      setError('Please complete the entire safety checklist before starting.')
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
       const payload = {
         departurePoint: `${departurePoint}, ${municipality}`,
-        targetArea:     targetArea,
-        vesselName:     vesselName.trim() || null,
-        notes:          notes.trim() || null,
-        status:         initialStatus,
+        targetArea,
+        vesselName: vesselName.trim() || null,
+        notes:      notes.trim() || null,
+        status:     initialStatus,
       }
-      if (initialDate) {
-        payload.startedAt = initialDate.toISOString()
+      if (initialDate) payload.startedAt = initialDate.toISOString()
+
+      const trip = await apiPost('/trips', token, payload)
+
+      // Save checklist immediately for active trips
+      if (!isPlanned && trip?.id) {
+        await apiPut(`/trips/${trip.id}/checklist`, token, checklist)
       }
-      
-      await apiPost('/trips', token, payload)
+
       onCreated()
     } catch (err) {
       setError(err.message)
+      // If error happened on step 2, stay on step 2
     } finally {
       setSubmitting(false)
     }
   }
 
+  const totalSteps = isPlanned ? 1 : 2
+
   return (
     <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="trip-modal">
+
+        {/* Header */}
         <div className="trip-modal__header">
-          <h2 className="trip-modal__title">{isPlanned ? 'Schedule Trip' : 'Start a Trip'}</h2>
+          <div>
+            <h2 className="trip-modal__title">
+              {isPlanned ? 'Schedule Trip' : 'Start a Trip'}
+            </h2>
+            {!isPlanned && (
+              <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 2, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                Step {step} of {totalSteps} — {step === 1 ? 'Trip Details' : 'Safety Checklist'}
+              </p>
+            )}
+          </div>
           <button className="trip-modal__close" onClick={onClose}>✕</button>
         </div>
-        {isPlanned && initialDate && (
-          <div style={{ marginBottom: 12 }}>
-            <p style={{ fontSize: 13, color: 'var(--accent)' }}>
-              Scheduling for <strong>{initialDate.toLocaleDateString('en-PH', { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
-            </p>
+
+        {/* Step indicator (active trips only) */}
+        {!isPlanned && (
+          <div style={{ display: 'flex', gap: 0, margin: '0 0 20px', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-2)' }}>
+            {['Trip Details', 'Safety Check'].map((label, i) => {
+              const s = i + 1
+              const done = step > s
+              const active = step === s
+              return (
+                <div
+                  key={s}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    background: active ? 'var(--accent-dim)' : done ? 'rgba(0,229,160,0.08)' : 'transparent',
+                    borderRight: i === 0 ? '1px solid var(--border-2)' : 'none',
+                    transition: 'background 0.2s',
+                  }}
+                >
+                  <span style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '10px', fontWeight: 700,
+                    background: active ? 'var(--accent)' : done ? 'var(--safe)' : 'var(--border-2)',
+                    color: active || done ? '#fff' : 'var(--text-3)',
+                  }}>
+                    {done ? '✓' : s}
+                  </span>
+                  <span style={{
+                    fontSize: '12px', fontWeight: 600,
+                    color: active ? 'var(--accent)' : done ? 'var(--safe)' : 'var(--text-3)',
+                  }}>
+                    {label}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
-        <form className="trip-form" onSubmit={submit}>
-          {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
 
-          <label className="trip-form__label">
-            Municipality *
-            <select
-              className="trip-form__input"
-              value={municipality}
-              onChange={e => handleMunicipalityChange(e.target.value)}
-              required
-            >
-              <option value="">Select municipality…</option>
-              {LA_UNION_DATA.map(m => (
-                <option key={m.municipality} value={m.municipality}>{m.municipality}</option>
+        {isPlanned && initialDate && (
+          <p style={{ fontSize: 13, color: 'var(--accent)', marginBottom: 12 }}>
+            Scheduling for <strong>{initialDate.toLocaleDateString('en-PH', { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
+          </p>
+        )}
+
+        {/* ── Step 1: Trip Details ── */}
+        {step === 1 && (
+          <form className="trip-form" onSubmit={isPlanned ? submit : handleNext}>
+            {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+
+            <label className="trip-form__label">
+              Municipality *
+              <select
+                className="trip-form__input"
+                value={municipality}
+                onChange={e => handleMunicipalityChange(e.target.value)}
+                required
+              >
+                <option value="">Select municipality…</option>
+                {LA_UNION_DATA.map(m => (
+                  <option key={m.municipality} value={m.municipality}>{m.municipality}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="trip-form__label">
+              Departure Point *
+              <select
+                className="trip-form__input"
+                value={departurePoint}
+                onChange={e => setDeparturePoint(e.target.value)}
+                disabled={!municipality}
+                required
+              >
+                <option value="">{municipality ? 'Select departure point…' : 'Select municipality first'}</option>
+                {departureOptions.map(dp => (
+                  <option key={dp} value={dp}>{dp}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="trip-form__label">
+              Target Area *
+              <select
+                className="trip-form__input"
+                value={targetArea}
+                onChange={e => setTargetArea(e.target.value)}
+                disabled={!municipality}
+                required
+              >
+                <option value="">{municipality ? 'Select target area…' : 'Select municipality first'}</option>
+                {targetOptions.map(ta => (
+                  <option key={ta} value={ta}>{ta}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="trip-form__label">
+              Vessel Name
+              <input
+                className="trip-form__input"
+                placeholder="e.g. M/B Ligaya"
+                value={vesselName}
+                onChange={e => setVesselName(e.target.value)}
+                maxLength={100}
+              />
+            </label>
+
+            <label className="trip-form__label">
+              Notes
+              <textarea
+                className="trip-form__textarea"
+                placeholder="Any notes for this trip…"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                maxLength={500}
+              />
+            </label>
+
+            <div className="trip-form__actions">
+              <button type="button" className="trip-btn trip-btn--ghost" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="trip-btn trip-btn--primary" disabled={submitting}>
+                {isPlanned
+                  ? (submitting ? 'Scheduling…' : 'Schedule Trip')
+                  : 'Next: Safety Check →'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* ── Step 2: Safety Checklist ── */}
+        {step === 2 && (
+          <form className="trip-form" onSubmit={submit}>
+            {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 4px', lineHeight: 1.5 }}>
+              Confirm all safety items are in order before departing. All items must be checked.
+            </p>
+
+            {/* Progress bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'var(--border-2)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${(checkedCount / CHECKLIST_FIELDS.length) * 100}%`,
+                  background: allChecked ? 'var(--safe)' : 'var(--accent)',
+                  borderRadius: 99,
+                  transition: 'width 0.3s ease, background 0.3s ease',
+                }} />
+              </div>
+              <span style={{
+                fontSize: '12px', fontWeight: 700, flexShrink: 0,
+                color: allChecked ? 'var(--safe)' : 'var(--text-3)',
+              }}>
+                {checkedCount}/{CHECKLIST_FIELDS.length}
+              </span>
+            </div>
+
+            <div className="checklist-grid" style={{ marginTop: 8 }}>
+              {CHECKLIST_FIELDS.map(({ key, label, desc }) => (
+                <label
+                  key={key}
+                  className={`checklist-item${checklist[key] ? ' checklist-item--checked' : ''}`}
+                  style={{ cursor: 'pointer', userSelect: 'none' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checklist[key]}
+                    onChange={() => toggleCheck(key)}
+                    style={{ display: 'none' }}
+                  />
+                  <span style={{
+                    width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                    border: `2px solid ${checklist[key] ? 'var(--safe)' : 'var(--border-2)'}`,
+                    background: checklist[key] ? 'var(--safe)' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#061220', fontSize: '11px', fontWeight: 900,
+                    transition: 'all 0.15s ease',
+                  }}>
+                    {checklist[key] && '✓'}
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: checklist[key] ? 'var(--text-1)' : 'var(--text-2)' }}>
+                      {label}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 1 }}>{desc}</div>
+                  </div>
+                </label>
               ))}
-            </select>
-          </label>
+            </div>
 
-          <label className="trip-form__label">
-            Departure Point *
-            <select
-              className="trip-form__input"
-              value={departurePoint}
-              onChange={e => setDeparturePoint(e.target.value)}
-              disabled={!municipality}
-              required
-            >
-              <option value="">{municipality ? 'Select departure point…' : 'Select municipality first'}</option>
-              {departureOptions.map(dp => (
-                <option key={dp} value={dp}>{dp}</option>
-              ))}
-            </select>
-          </label>
+            {!allChecked && (
+              <p style={{ fontSize: '12px', color: 'rgba(255,183,39,0.85)', background: 'rgba(255,183,39,0.08)', border: '1px solid rgba(255,183,39,0.2)', borderRadius: 8, padding: '8px 12px', margin: 0 }}>
+                ⚠ Complete all {CHECKLIST_FIELDS.length} safety checks to enable departure.
+              </p>
+            )}
 
-          <label className="trip-form__label">
-            Target Area *
-            <select
-              className="trip-form__input"
-              value={targetArea}
-              onChange={e => setTargetArea(e.target.value)}
-              disabled={!municipality}
-              required
-            >
-              <option value="">{municipality ? 'Select target area…' : 'Select municipality first'}</option>
-              {targetOptions.map(ta => (
-                <option key={ta} value={ta}>{ta}</option>
-              ))}
-            </select>
-          </label>
+            <div className="trip-form__actions">
+              <button
+                type="button"
+                className="trip-btn trip-btn--ghost"
+                onClick={() => { setStep(1); setError(null) }}
+                disabled={submitting}
+              >
+                ← Back
+              </button>
+              <button
+                type="submit"
+                className="trip-btn trip-btn--primary"
+                disabled={submitting || !allChecked}
+                style={{ opacity: allChecked ? 1 : 0.45 }}
+              >
+                {submitting ? 'Starting…' : 'Start Trip'}
+              </button>
+            </div>
+          </form>
+        )}
 
-          <label className="trip-form__label">
-            Vessel Name
-            <input
-              className="trip-form__input"
-              placeholder="e.g. M/B Ligaya"
-              value={vesselName}
-              onChange={e => setVesselName(e.target.value)}
-              maxLength={100}
-            />
-          </label>
-          <label className="trip-form__label">
-            Notes
-            <textarea
-              className="trip-form__textarea"
-              placeholder="Any notes for this trip…"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              maxLength={500}
-            />
-          </label>
-          <div className="trip-form__actions">
-            <button type="button" className="trip-btn trip-btn--ghost" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="trip-btn trip-btn--primary" disabled={submitting}>
-              {submitting ? (isPlanned ? 'Scheduling…' : 'Starting…') : (isPlanned ? 'Schedule Trip' : 'Start Trip')}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   )

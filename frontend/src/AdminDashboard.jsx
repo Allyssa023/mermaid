@@ -123,6 +123,11 @@ const XIcon = () => (
     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
   </svg>
 )
+const ChevronLeftIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6"/>
+  </svg>
+)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -501,15 +506,20 @@ const NAV_ITEMS = [
 ]
 
 function AdminSidebar({ user, activeNav, onNav, onLogout }) {
+  const [collapsed, setCollapsed] = useState(false)
+
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     : 'AD'
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
       <div className="sidebar__header">
-        <img src="/logo.png" alt="MERMAID" className="sidebar__logo-img" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+        <img src="/logo.png" alt="MERMAID" className="sidebar__logo-img" style={{ width: 34, height: 34, objectFit: 'contain' }} />
         <span className="sidebar__brand">Mermaid</span>
+        <button className="sidebar__toggle" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <ChevronLeftIcon />
+        </button>
       </div>
 
       <nav className="sidebar__nav">
@@ -519,24 +529,25 @@ function AdminSidebar({ user, activeNav, onNav, onLogout }) {
             key={item.id}
             className={`sidebar__link${activeNav === item.id ? ' sidebar__link--on' : ''}`}
             onClick={() => onNav(item.id)}
+            title={collapsed ? item.label : undefined}
           >
             <span className="sidebar__link-icon">{item.icon}</span>
-            <span>{item.label}</span>
+            <span className="sidebar__link-text">{item.label}</span>
           </button>
         ))}
       </nav>
 
       <div className="sidebar__bottom">
-        <button className="sidebar__link">
+        <button className="sidebar__link" title={collapsed ? (user?.fullName || 'Admin') : undefined}>
           <span className="sidebar__avatar">{initials}</span>
           <div className="sidebar__user-info">
             <span className="sidebar__user-name">{user?.fullName?.split(' ')[0] || 'Admin'}</span>
             <span className="sidebar__user-role">Administrator</span>
           </div>
         </button>
-        <button className="sidebar__link sidebar__link--logout" onClick={onLogout}>
+        <button className="sidebar__link sidebar__link--logout" onClick={onLogout} title={collapsed ? 'Sign Out' : undefined}>
           <span className="sidebar__link-icon"><LogoutIcon /></span>
-          <span>Sign Out</span>
+          <span className="sidebar__link-text">Sign Out</span>
         </button>
       </div>
     </aside>

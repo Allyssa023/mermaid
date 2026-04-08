@@ -1039,9 +1039,6 @@ function ListingsView({
           <h2 className="vd-page-header__title">My Listings</h2>
           <p className="vd-page-header__sub">Manage your demand listings for La Union fishermen</p>
         </div>
-        <button className="vd-create-btn" onClick={onAdd}>
-          <PlusIcon /> New Listing
-        </button>
       </div>
 
       <div className="vd-filter-row">
@@ -1210,7 +1207,7 @@ export default function VendorDashboard({ user, token, onLogout }) {
 
   function handleMessageFisherman(interest) {
     setJumpContact({
-      id: interest.fishermanId,
+      id: Number(interest.fishermanId),
       fullName: interest.fishermanName,
       role: 'Fisherman'
     })

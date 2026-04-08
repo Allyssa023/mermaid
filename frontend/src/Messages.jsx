@@ -49,7 +49,6 @@ export default function Messages({ token, userProfile, initialContact }) {
   const [connected, setConnected] = useState(false)
   const stompClientRef = useRef(null)
   const messagesEndRef = useRef(null)
-  const initialContactIdRef = useRef(null)
 
   const loadContacts = useCallback(async () => {
     try {
@@ -62,43 +61,28 @@ export default function Messages({ token, userProfile, initialContact }) {
     }
   }, [token])
 
-  // On mount: load contacts, then resolve initialContact
+  // On mount: load contacts, then select initialContact if provided
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       const data = await loadContacts()
       if (cancelled) return
       if (initialContact) {
-        // Find the existing contact by ID to avoid duplicates
-        const existing = data.find(c => c.id === initialContact.id)
+        const existing = data.find(c => Number(c.id) === Number(initialContact.id))
         if (existing) {
           setActiveContact(existing)
         } else {
-          // New conversation target — add to list
-          setContacts(prev => [initialContact, ...prev])
+          // Contact not in server list yet (no prior conversation) — add once
+          setContacts(prev => {
+            if (prev.some(c => Number(c.id) === Number(initialContact.id))) return prev
+            return [initialContact, ...prev]
+          })
           setActiveContact(initialContact)
         }
-        initialContactIdRef.current = initialContact.id
       }
     })()
     return () => { cancelled = true }
-  }, []) // only on mount
-
-  // When initialContact prop changes (user clicks Message on a different fisherman)
-  useEffect(() => {
-    if (!initialContact) return
-    // Skip if it's the same contact we already handled
-    if (initialContact.id === initialContactIdRef.current) return
-    initialContactIdRef.current = initialContact.id
-
-    // Check current contacts list
-    setContacts(prev => {
-      const exists = prev.some(c => c.id === initialContact.id)
-      if (exists) return prev
-      return [initialContact, ...prev]
-    })
-    setActiveContact(initialContact)
-  }, [initialContact])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const client = new Client({

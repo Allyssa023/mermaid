@@ -235,9 +235,11 @@ function HookFish({ active }) {
 export function LoginPage() {
   const [mode, setMode] = useState('login')
   const [animating, setAnimating] = useState(false)
+  const [animKey, setAnimKey] = useState(0)
 
   const handleTabClick = (newMode) => {
     if (newMode === mode || animating) return
+    setAnimKey(k => k + 1)
     setAnimating(true)
     // Switch form at hook-jerk peak (62% of 1100ms)
     setTimeout(() => setMode(newMode), 680)
@@ -301,7 +303,7 @@ export function LoginPage() {
         </div>
 
         {/* Hook & Fish */}
-        <HookFish active={animating} />
+        <HookFish key={animKey} active={animating} />
 
         {/* Terms */}
         <p className="terms">

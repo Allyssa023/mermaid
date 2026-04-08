@@ -216,7 +216,7 @@
 }
 
 .adm-topbar__title {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 700;
   color: #fff;
@@ -345,7 +345,7 @@
 }
 
 .adm-section__title {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
   color: #fff;
@@ -353,7 +353,7 @@
 }
 
 .adm-section__subtitle {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.70);
@@ -540,7 +540,7 @@
   gap: 6px;
   padding: 9px 18px;
   border-radius: 8px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-body);
   font-size: 13.5px;
   font-weight: 600;
   transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, opacity 0.15s ease;
@@ -641,7 +641,7 @@
 }
 
 .adm-modal__title {
-  font-family: 'Playfair Display', serif;
+  font-family: var(--font-display);
   font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
@@ -705,7 +705,7 @@
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 8px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-body);
   font-size: 13.5px;
   color: #fff;
   transition: border-color 0.18s ease, background 0.18s ease;
