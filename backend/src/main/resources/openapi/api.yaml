@@ -1050,6 +1050,34 @@ paths:
         '204':
           description: Catch log deleted
 
+  /trips/{tripId}/catches/{catchId}/settle:
+    put:
+      tags: [Catch Logs]
+      summary: Settle a catch log at market
+      operationId: settleCatchLog
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/CatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatchLogSettleRequest'
+      responses:
+        '200':
+          description: Catch log settled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatchLog'
+        '404':
+          description: Trip or catch log not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /messages/users:
     get:
       tags: [Chat]
@@ -1672,7 +1700,7 @@ components:
 
     CatchLog:
       type: object
-      required: [id, tripId, species, quantityKg, loggedAt]
+      required: [id, tripId, species, loggedAt, isSettled]
       properties:
         id:
           type: integer
@@ -1682,9 +1710,13 @@ components:
           format: int64
         species:
           $ref: '#/components/schemas/FishSpecies'
+        quantityEstimate:
+          type: string
+          nullable: true
         quantityKg:
           type: number
           format: double
+          nullable: true
         estimatedPricePerKg:
           type: number
           format: double
@@ -1696,21 +1728,44 @@ components:
         notes:
           type: string
           nullable: true
+        isSettled:
+          type: boolean
+        settledKg:
+          type: number
+          format: double
+          nullable: true
+        settledPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        settledAt:
+          type: string
+          format: date-time
+          nullable: true
+        settledWithVendorId:
+          type: integer
+          format: int64
+          nullable: true
         loggedAt:
           type: string
           format: date-time
 
     CatchLogCreateRequest:
       type: object
-      required: [speciesId, quantityKg]
+      required: [speciesId]
       properties:
         speciesId:
           type: integer
           format: int64
+        quantityEstimate:
+          type: string
+          maxLength: 200
+          nullable: true
         quantityKg:
           type: number
           format: double
           minimum: 0.1
+          nullable: true
         estimatedPricePerKg:
           type: number
           format: double
@@ -1730,10 +1785,15 @@ components:
         speciesId:
           type: integer
           format: int64
+        quantityEstimate:
+          type: string
+          maxLength: 200
+          nullable: true
         quantityKg:
           type: number
           format: double
           minimum: 0.1
+          nullable: true
         estimatedPricePerKg:
           type: number
           format: double
@@ -1745,6 +1805,23 @@ components:
         notes:
           type: string
           maxLength: 500
+          nullable: true
+
+    CatchLogSettleRequest:
+      type: object
+      required: [settledKg, settledPricePerKg]
+      properties:
+        settledKg:
+          type: number
+          format: double
+          minimum: 0.01
+        settledPricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        settledWithVendorId:
+          type: integer
+          format: int64
           nullable: true
 
     ListingInterestRequest:

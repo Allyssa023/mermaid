@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service
@@ -39,7 +40,7 @@ public class CatchLogService {
         this.listingRepo = listingRepo;
     }
 
-    /** Ownership + ACTIVE guard combined — used by all mutation methods. */
+    /** Ownership + ACTIVE guard — used by create/update/delete (at-sea operations). */
     private Trip getOwnedActiveTrip(Long tripId, Long fishermanId) {
         Trip trip = tripRepo.findByIdAndFishermanId(tripId, fishermanId)
             .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + tripId));
@@ -49,11 +50,15 @@ public class CatchLogService {
         return trip;
     }
 
-    @Transactional(readOnly = true)
-    public List<com.mermaid.app.model.CatchLog> listByTrip(Long tripId, Long fishermanId) {
-        // Ownership check only — completed trips are readable
+    /** Ownership check only — used by settle (happens at market, trip may be ENDED). */
+    private void verifyTripOwnership(Long tripId, Long fishermanId) {
         tripRepo.findByIdAndFishermanId(tripId, fishermanId)
             .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + tripId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.mermaid.app.model.CatchLog> listByTrip(Long tripId, Long fishermanId) {
+        verifyTripOwnership(tripId, fishermanId);
         return catchLogRepo.findAllByTripIdOrderByLoggedAtDesc(tripId)
             .stream().map(catchLogMapper::toModel).toList();
     }
@@ -65,7 +70,6 @@ public class CatchLogService {
         FishSpecies species = speciesRepo.findById(req.getSpeciesId())
             .orElseThrow(() -> new ResourceNotFoundException("FishSpecies not found: " + req.getSpeciesId()));
 
-        // Validate matchedListingId only if explicitly provided and non-null
         Long listingId = unwrap(req.getMatchedListingId());
         if (listingId != null) {
             listingRepo.findById(listingId)
@@ -75,9 +79,11 @@ public class CatchLogService {
         CatchLog log = new CatchLog();
         log.setTripId(tripId);
         log.setSpecies(species);
-        log.setQuantityKg(BigDecimal.valueOf(req.getQuantityKg()));
-        log.setEstimatedPricePerKg(req.getEstimatedPricePerKg() != null && req.getEstimatedPricePerKg().isPresent()
-            ? BigDecimal.valueOf(req.getEstimatedPricePerKg().get()) : null);
+        log.setQuantityEstimate(unwrap(req.getQuantityEstimate()));
+        Double qKg = unwrap(req.getQuantityKg());
+        log.setQuantityKg(qKg == null ? null : BigDecimal.valueOf(qKg));
+        Double price = unwrap(req.getEstimatedPricePerKg());
+        log.setEstimatedPricePerKg(price == null ? null : BigDecimal.valueOf(price));
         log.setMatchedListingId(listingId);
         log.setNotes(unwrap(req.getNotes()));
 
@@ -97,14 +103,17 @@ public class CatchLogService {
                 .orElseThrow(() -> new ResourceNotFoundException("FishSpecies not found: " + req.getSpeciesId()));
             log.setSpecies(species);
         }
-        if (req.getQuantityKg() != null) {
-            log.setQuantityKg(BigDecimal.valueOf(req.getQuantityKg()));
+        if (req.getQuantityEstimate() != null && req.getQuantityEstimate().isPresent()) {
+            log.setQuantityEstimate(req.getQuantityEstimate().get());
+        }
+        if (req.getQuantityKg() != null && req.getQuantityKg().isPresent()) {
+            Double qKg = req.getQuantityKg().get();
+            log.setQuantityKg(qKg == null ? null : BigDecimal.valueOf(qKg));
         }
         if (req.getEstimatedPricePerKg() != null && req.getEstimatedPricePerKg().isPresent()) {
-            Double price = req.getEstimatedPricePerKg().get();
-            log.setEstimatedPricePerKg(price == null ? null : BigDecimal.valueOf(price));
+            Double p = req.getEstimatedPricePerKg().get();
+            log.setEstimatedPricePerKg(p == null ? null : BigDecimal.valueOf(p));
         }
-        // matchedListingId: JsonNullable.of(null) = clear; JsonNullable.of(id) = validate + set; undefined = leave
         if (req.getMatchedListingId() != null && req.getMatchedListingId().isPresent()) {
             Long newListingId = req.getMatchedListingId().get();
             if (newListingId != null) {
@@ -126,6 +135,24 @@ public class CatchLogService {
         CatchLog log = catchLogRepo.findByIdAndTripId(catchId, tripId)
             .orElseThrow(() -> new ResourceNotFoundException("CatchLog not found: " + catchId));
         catchLogRepo.deleteById(log.getId());
+    }
+
+    @Transactional
+    public com.mermaid.app.model.CatchLog settle(Long tripId, Long catchId,
+                                                   CatchLogSettleRequest req, Long fishermanId) {
+        verifyTripOwnership(tripId, fishermanId);
+
+        CatchLog log = catchLogRepo.findByIdAndTripId(catchId, tripId)
+            .orElseThrow(() -> new ResourceNotFoundException("CatchLog not found: " + catchId));
+
+        log.setSettled(true);
+        log.setSettledKg(BigDecimal.valueOf(req.getSettledKg()));
+        log.setSettledPricePerKg(BigDecimal.valueOf(req.getSettledPricePerKg()));
+        log.setSettledAt(OffsetDateTime.now());
+        Long vendorId = unwrap(req.getSettledWithVendorId());
+        log.setSettledWithVendorId(vendorId);
+
+        return catchLogMapper.toModel(catchLogRepo.save(log));
     }
 
     private static <T> T unwrap(JsonNullable<T> jn) {
