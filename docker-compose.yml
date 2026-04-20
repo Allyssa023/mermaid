@@ -1,0 +1,122 @@
+services:
+
+  # ── Service Registry (Eureka Server) ───────────────────────────────────────
+  eureka-server:
+    image: eclipse-temurin:17-jdk-alpine
+    container_name: mermaid_eureka
+    ports:
+      - "8761:8761"
+    volumes:
+      - ./eureka-server:/app
+      - ~/.m2:/root/.m2
+    working_dir: /app
+    command: ./mvnw spring-boot:run
+
+  # ── API Gateway (Spring Cloud Gateway) ────────────────────────────────────
+  api-gateway:
+    image: eclipse-temurin:17-jdk-alpine
+    container_name: mermaid_gateway
+    depends_on:
+      - eureka-server
+      - backend
+    ports:
+      - "8090:8090"
+    environment:
+      - JWT_SECRET=your-256-bit-secret-change-in-production-use-env-var
+      - EUREKA_ENABLED=true
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    volumes:
+      - ./api-gateway:/app
+      - ~/.m2:/root/.m2
+    working_dir: /app
+    command: ./mvnw spring-boot:run
+
+  # ── Database ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: mermaid_postgres
+    environment:
+      POSTGRES_DB: mermaid_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mermaid_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # ── Backend (Spring Boot) ──────────────────────────────────────────────────
+  backend:
+    image: eclipse-temurin:17-jdk-alpine
+    container_name: mermaid_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mermaid_db
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=1234
+      - JWT_SECRET=your-256-bit-secret-change-in-production-use-env-var
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8090
+      - MARINE_SERVICE_URL=http://marine-service:8081
+      - MARINE_API_KEY=dev-marine-key-change-in-prod
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+      - EUREKA_ENABLED=true
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    volumes:
+      - ./backend:/app
+      - ~/.m2:/root/.m2
+    working_dir: /app
+    command: ./mvnw spring-boot:run
+
+  # ── Marine Service (Django/DRF) ────────────────────────────────────────────
+  marine-service:
+    build:
+      context: ./marine-service
+      dockerfile: Dockerfile
+    container_name: mermaid_marine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # No public ports — only reachable by backend via Docker network
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=1234
+      - DB_NAME=mermaid_db
+      - MARINE_API_KEY=dev-marine-key-change-in-prod
+      - ALLOWED_ORIGINS=http://backend:8080
+      - DEBUG=True
+    volumes:
+      - ./marine-service:/app
+    command: >
+      sh -c "python manage.py migrate && gunicorn marine_project.wsgi:application --bind 0.0.0.0:8081 --workers 2"
+
+  # ── Frontend (React/Vite) ──────────────────────────────────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: mermaid_frontend
+    depends_on:
+      - api-gateway
+    ports:
+      - "3000:5173"
+    environment:
+      - API_PROXY_TARGET=http://api-gateway:8090
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+
+volumes:
+  postgres_data:
