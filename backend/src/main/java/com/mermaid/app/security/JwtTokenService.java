@@ -33,7 +33,7 @@ public class JwtTokenService {
         long now = System.currentTimeMillis();
         return Jwts.builder()
             .subject(String.valueOf(user.getId()))
-            .claim("role", user.getRole().getValue())
+            .claim("role", user.getRole() != null ? user.getRole().getValue() : null)
             .claim("email", user.getEmail())
             .claim("fullName", user.getFullName())
             .issuer(props.getIssuer())

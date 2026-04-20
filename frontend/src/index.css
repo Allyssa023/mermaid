@@ -112,13 +112,14 @@ a { text-decoration: none; }
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 100px 24px 40px;
+  padding: 80px 24px 40px;
   gap: 20px;
 }
 
 .center-layout .glass-card {
   width: 100%;
   max-width: 480px;
+  min-height: 380px;
 }
 
 .center-layout .hero-block {
@@ -358,6 +359,72 @@ a { text-decoration: none; }
 
 .field-inp::placeholder { color: var(--muted); opacity: 1; }
 
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-inp--err {
+  border-color: rgba(248,113,113,0.7) !important;
+  box-shadow: 0 0 0 3px rgba(248,113,113,0.15) !important;
+}
+
+.field-err {
+  margin: 0;
+  padding: 0;
+  font-size: 0.72rem;
+  color: #f87171;
+  letter-spacing: 0.01em;
+}
+
+/* ── Strength meter ─────────────────────────────────────────────────────────── */
+.strength-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.strength-seg {
+  flex: 1;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.12);
+  transition: background 0.25s ease;
+}
+
+.strength-seg--weak   { background: #f87171; }
+.strength-seg--fair   { background: #FBBF24; }
+.strength-seg--good   { background: #38BDF8; }
+.strength-seg--strong { background: #34D399; }
+
+.strength-label {
+  font-size: 0.68rem;
+  width: 42px;
+  text-align: right;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+.strength-label--weak   { color: #f87171; }
+.strength-label--fair   { color: #FBBF24; }
+.strength-label--good   { color: #38BDF8; }
+.strength-label--strong { color: #34D399; }
+
+/* ── Caps Lock warning ──────────────────────────────────────────────────────── */
+.caps-warn {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #FBBF24;
+  letter-spacing: 0.01em;
+}
+
+/* ── Terms row ──────────────────────────────────────────────────────────────── */
+.terms-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .field-eye {
   position: absolute; right: 12px;
   color: var(--muted);
@@ -466,6 +533,125 @@ a { text-decoration: none; }
 }
 .terms a { color: rgba(125,211,252,0.6); font-weight: 500; transition: color 0.2s; }
 .terms a:hover { color: var(--sky); }
+
+/* ── OTP input ─────────────────────────────────────────────────────────────── */
+.otp-inp {
+  width: 100%;
+  height: 56px;
+  border-radius: 12px;
+  border: 2px solid var(--inp-border);
+  background: var(--inp-bg);
+  color: var(--text);
+  font-family: 'DM Sans', monospace;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.55em;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.otp-inp:focus {
+  border-color: rgba(14,165,233,0.55);
+  background: rgba(255,255,255,0.10);
+  box-shadow: 0 0 0 3px var(--inp-focus);
+}
+.otp-inp::placeholder {
+  color: var(--muted);
+  letter-spacing: 0.55em;
+  opacity: 0.4;
+}
+
+/* ── Social login ───────────────────────────────────────────────────────────── */
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  border: 1.5px solid var(--inp-border);
+  background: var(--inp-bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+.social-btn:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(255,255,255,0.28);
+}
+.social-btn--facebook {
+  background: #1877F2;
+  border-color: #1877F2;
+  color: #fff;
+}
+.social-btn--facebook:hover {
+  background: #1565d8;
+  border-color: #1565d8;
+}
+.social-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.social-divider::before,
+.social-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--inp-border);
+}
+
+/* ── Back button ───────────────────────────────────────────────────────────── */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: color 0.2s ease;
+}
+.back-btn:hover { color: var(--dim); }
+
+/* ── Inbox message (post-register / verify) ────────────────────────────────── */
+.inbox-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 10px 0 4px;
+  color: var(--sky);
+}
+.inbox-msg .form-title { color: var(--text); }
+.inbox-msg .form-desc { color: var(--dim); }
+
+/* ── Divider ───────────────────────────────────────────────────────────────── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 4px 0;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--inp-border);
+}
 
 /* ══════════════════════════════════════════
    HOOK & FISH ANIMATION

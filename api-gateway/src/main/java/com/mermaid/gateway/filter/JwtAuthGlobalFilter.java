@@ -44,7 +44,14 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/login",
             "/api/auth/register",
-            "/api/auth/logout"
+            "/api/auth/register-message",
+            "/api/auth/logout",
+            "/api/auth/verify-email",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
+            "/api/auth/otp/verify",
+            "/api/oauth2/",
+            "/api/login/oauth2/"
     );
 
     private final SecretKey key;

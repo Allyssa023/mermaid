@@ -1,8 +1,10 @@
 package com.mermaid.app.config;
 
 import com.mermaid.app.security.JwtAuthenticationConverter;
+import com.mermaid.app.security.OAuth2AuthenticationSuccessHandler;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -42,12 +44,15 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtProperties jwtProperties;
+    private final OAuth2AuthenticationSuccessHandler oAuth2SuccessHandler;
 
     @Value("${cors.allowed-origins:http://localhost:5173}")
     private String allowedOrigins;
 
-    public SecurityConfig(JwtProperties jwtProperties) {
-        this.jwtProperties = jwtProperties;
+    public SecurityConfig(JwtProperties jwtProperties,
+                          OAuth2AuthenticationSuccessHandler oAuth2SuccessHandler) {
+        this.jwtProperties      = jwtProperties;
+        this.oAuth2SuccessHandler = oAuth2SuccessHandler;
     }
 
     @Bean
@@ -112,11 +117,21 @@ public class SecurityConfig {
             .securityMatcher("/**")
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
-            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/login", "/auth/register", "/auth/logout", "/ws-chat/**").permitAll()
+                .requestMatchers(
+                    "/auth/login", "/auth/register", "/auth/register-message", "/auth/logout",
+                    "/auth/verify-email", "/auth/forgot-password", "/auth/reset-password",
+                    "/auth/otp/verify", "/oauth2/**", "/login/oauth2/**", "/ws-chat/**"
+                ).permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .successHandler(oAuth2SuccessHandler)
+                .failureHandler((req, res, ex) -> {
+                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "OAuth2 login failed: " + ex.getMessage());
+                })
             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(new JwtAuthenticationConverter()))

@@ -1,6 +1,6 @@
 import './index.css'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { LoginPage } from './pages/LoginPage'
+import { LoginPage, RoleSetupPage } from './pages/LoginPage'
 import FishermanDashboard from './FishermanDashboard'
 import AdminDashboard from './AdminDashboard'
 import VendorDashboard from './VendorDashboard'
@@ -21,6 +21,8 @@ function AppInner() {
   if (user.role === 'VENDOR') {
     return <VendorDashboard user={user} token={null} onLogout={logout} />
   }
+
+  if (!user.role) return <RoleSetupPage />
 
   logout()
   return null

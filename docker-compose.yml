@@ -71,6 +71,18 @@ services:
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - EUREKA_ENABLED=true
       - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - MAILTRAP_API_TOKEN=${MAILTRAP_API_TOKEN}
+      - MAILTRAP_INBOX_ID=${MAILTRAP_INBOX_ID}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=http://localhost:8090/api/login/oauth2/code/google
+      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
+      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+      - FACEBOOK_REDIRECT_URI=http://localhost:8090/api/login/oauth2/code/facebook
+      - FRONTEND_URL=http://localhost:3000
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       - ./backend:/app
       - ~/.m2:/root/.m2

@@ -2,12 +2,10 @@ package com.mermaid.app.service;
 
 import com.mermaid.app.domain.User;
 import com.mermaid.app.exception.EmailAlreadyExistsException;
+import com.mermaid.app.exception.EmailNotVerifiedException;
 import com.mermaid.app.exception.InvalidCredentialsException;
 import com.mermaid.app.exception.ResourceNotFoundException;
-import com.mermaid.app.model.LoginRequest;
-import com.mermaid.app.model.LoginResponse;
-import com.mermaid.app.model.RegisterRequest;
-import com.mermaid.app.model.UserProfile;
+import com.mermaid.app.model.*;
 import com.mermaid.app.repository.UserRepository;
 import com.mermaid.app.security.JwtTokenService;
 import org.springframework.security.core.Authentication;
@@ -15,6 +13,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.security.SecureRandom;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * Authentication and current-user operations. Validates input, enforces email uniqueness,
@@ -26,23 +28,28 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
+    private final EmailService emailService;
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtTokenService jwtTokenService) {
+                       JwtTokenService jwtTokenService,
+                       EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
+        this.emailService = emailService;
     }
 
     /**
-     * Authenticate and issue JWT. Fails with InvalidCredentialsException if user not found,
-     * inactive, or password mismatch. Uses PasswordEncoder.matches (BCrypt) to avoid timing leaks
-     * in the hash comparison.
+     * Step 1 of 2-step login. Validates credentials, checks email verification,
+     * then generates OTP and sends it via email. Returns otpRequired=true (no JWT yet).
+     *
+     * @return LoginResponse with otpRequired=true and rememberMe flag for the controller
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail().trim())
+        User user = userRepository.findByEmail(request.getEmail().trim().toLowerCase())
             .orElseThrow(InvalidCredentialsException::new);
         if (!user.isActive()) {
             throw new InvalidCredentialsException();
@@ -50,6 +57,46 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
+        if (!user.isEmailVerified()) {
+            throw new EmailNotVerifiedException();
+        }
+
+        // Generate 6-digit OTP
+        String otp = generateOtp();
+        user.setOtpCode(otp);
+        user.setOtpCodeExp(OffsetDateTime.now().plusMinutes(5));
+        userRepository.save(user);
+
+        // Send OTP email
+        emailService.sendOtpEmail(user.getEmail(), otp);
+
+        // Return response indicating OTP step is needed (no token yet)
+        LoginResponse response = new LoginResponse("", "Bearer", null);
+        response.setOtpRequired(true);
+        return response;
+    }
+
+    /**
+     * Verify OTP code (Step 2 of login). If valid, issues JWT.
+     */
+    @Transactional
+    public LoginResponse verifyOtp(String email, String code) {
+        User user = userRepository.findByEmail(email.trim().toLowerCase())
+            .orElseThrow(InvalidCredentialsException::new);
+
+        if (user.getOtpCode() == null || !user.getOtpCode().equals(code)) {
+            throw new InvalidCredentialsException("Invalid or expired code.");
+        }
+        if (user.getOtpCodeExp() == null || OffsetDateTime.now().isAfter(user.getOtpCodeExp())) {
+            throw new InvalidCredentialsException("Invalid or expired code.");
+        }
+
+        // Clear OTP
+        user.setOtpCode(null);
+        user.setOtpCodeExp(null);
+        userRepository.save(user);
+
+        // Issue JWT
         String token = jwtTokenService.issueToken(user);
         UserProfile profile = toUserProfile(user);
         LoginResponse response = new LoginResponse(token, "Bearer", profile);
@@ -58,12 +105,107 @@ public class AuthService {
     }
 
     /**
-     * Register a new user. Only VENDOR and FISHERMAN allowed (enforced by API schema).
-     * Throws EmailAlreadyExistsException on duplicate email (409).
+     * Verify email with token from verification link. Auto-login on success.
+     */
+    @Transactional
+    public LoginResponse verifyEmail(String token) {
+        User user = userRepository.findByVerificationToken(token)
+            .orElseThrow(() -> new ResourceNotFoundException("Verification token not found."));
+
+        if (user.getVerificationTokenExp() == null ||
+            OffsetDateTime.now().isAfter(user.getVerificationTokenExp())) {
+            throw new IllegalArgumentException("Verification link has expired.");
+        }
+
+        user.setEmailVerified(true);
+        user.setVerificationToken(null);
+        user.setVerificationTokenExp(null);
+        userRepository.save(user);
+
+        // Issue JWT (auto-login after verification)
+        String jwt = jwtTokenService.issueToken(user);
+        UserProfile profile = toUserProfile(user);
+        LoginResponse response = new LoginResponse(jwt, "Bearer", profile);
+        response.setExpiresIn(jwtTokenService.getExpirySeconds());
+        return response;
+    }
+
+    /**
+     * Send password reset email. Silently ignores unknown emails to prevent enumeration.
+     */
+    @Transactional
+    public MessageResponse forgotPassword(String email) {
+        userRepository.findByEmail(email.trim().toLowerCase()).ifPresent(user -> {
+            String token = UUID.randomUUID().toString();
+            user.setResetToken(token);
+            user.setResetTokenExp(OffsetDateTime.now().plusHours(1));
+            userRepository.save(user);
+            emailService.sendPasswordResetEmail(user.getEmail(), token);
+        });
+
+        // Always return the same message to prevent email enumeration
+        MessageResponse response = new MessageResponse("If that email exists, a reset link has been sent.");
+        return response;
+    }
+
+    /**
+     * Reset password using token from reset email link.
+     */
+    @Transactional
+    public MessageResponse resetPassword(String token, String newPassword) {
+        User user = userRepository.findByResetToken(token)
+            .orElseThrow(() -> new ResourceNotFoundException("Reset token not found."));
+
+        if (user.getResetTokenExp() == null ||
+            OffsetDateTime.now().isAfter(user.getResetTokenExp())) {
+            throw new IllegalArgumentException("Reset link has expired.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setResetToken(null);
+        user.setResetTokenExp(null);
+        userRepository.save(user);
+
+        return new MessageResponse("Password updated successfully.");
+    }
+
+    /**
+     * Register a new user with email verification. No auto-login.
+     * Returns a message instructing user to check their inbox.
+     */
+    @Transactional
+    public MessageResponse registerWithVerification(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
+            throw new EmailAlreadyExistsException(request.getEmail());
+        }
+
+        User user = new User();
+        user.setEmail(request.getEmail().trim().toLowerCase());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setFullName(request.getFullName().trim());
+        user.setRole(com.mermaid.app.model.Role.fromValue(request.getRole().getValue()));
+        user.setActive(true);
+        user.setEmailVerified(false);
+
+        // Generate verification token
+        String token = UUID.randomUUID().toString();
+        user.setVerificationToken(token);
+        user.setVerificationTokenExp(OffsetDateTime.now().plusHours(24));
+
+        user = userRepository.save(user);
+
+        // Send verification email
+        emailService.sendVerificationEmail(user.getEmail(), token);
+
+        return new MessageResponse("Check your email to verify your account.");
+    }
+
+    /**
+     * Legacy register (kept for backward compatibility with old API).
      */
     @Transactional
     public UserProfile register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail().trim())) {
+        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
             throw new EmailAlreadyExistsException(request.getEmail());
         }
         User user = new User();
@@ -72,7 +214,35 @@ public class AuthService {
         user.setFullName(request.getFullName().trim());
         user.setRole(com.mermaid.app.model.Role.fromValue(request.getRole().getValue()));
         user.setActive(true);
+        user.setEmailVerified(false);
+
+        // Generate verification token
+        String token = UUID.randomUUID().toString();
+        user.setVerificationToken(token);
+        user.setVerificationTokenExp(OffsetDateTime.now().plusHours(24));
+
         user = userRepository.save(user);
+
+        // Send verification email
+        emailService.sendVerificationEmail(user.getEmail(), token);
+
+        return toUserProfile(user);
+    }
+
+    /**
+     * Set role for a new OAuth2 user who hasn't completed their profile yet.
+     */
+    @Transactional
+    public UserProfile completeProfile(Role role) {
+        Long userId = currentUserId();
+        if (userId == null) throw new InvalidCredentialsException();
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getRole() != null) {
+            throw new IllegalArgumentException("Profile already complete.");
+        }
+        user.setRole(role);
+        userRepository.save(user);
         return toUserProfile(user);
     }
 
@@ -92,6 +262,13 @@ public class AuthService {
             throw new InvalidCredentialsException();
         }
         return toUserProfile(user);
+    }
+
+    // ── Private helpers ─────────────────────────────────────────────────────────
+
+    private String generateOtp() {
+        int otp = 100000 + secureRandom.nextInt(900000); // 100000-999999
+        return String.valueOf(otp);
     }
 
     private Long currentUserId() {

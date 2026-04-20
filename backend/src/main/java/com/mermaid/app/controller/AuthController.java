@@ -1,10 +1,7 @@
 package com.mermaid.app.controller;
 
 import com.mermaid.app.api.AuthApi;
-import com.mermaid.app.model.LoginRequest;
-import com.mermaid.app.model.LoginResponse;
-import com.mermaid.app.model.RegisterRequest;
-import com.mermaid.app.model.UserProfile;
+import com.mermaid.app.model.*;
 import com.mermaid.app.service.AuthService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -24,15 +21,24 @@ public class AuthController implements AuthApi {
     @Override
     public ResponseEntity<LoginResponse> login(LoginRequest loginRequest) {
         LoginResponse response = authService.login(loginRequest);
-        
+
+        // If OTP is required, don't set a cookie yet — just return the response
+        if (Boolean.TRUE.equals(response.getOtpRequired())) {
+            return ResponseEntity.ok(response);
+        }
+
+        // Normal login — set JWT cookie
+        boolean rememberMe = Boolean.TRUE.equals(loginRequest.getRememberMe());
+        long maxAge = rememberMe ? 2592000L : -1L; // 30 days or session
+
         ResponseCookie jwtCookie = ResponseCookie.from("jwt", response.getAccessToken())
                 .httpOnly(true)
-                .secure(false) // Assuming false for local dev
+                .secure(false)
                 .path("/")
-                .maxAge(response.getExpiresIn())
+                .maxAge(maxAge)
                 .sameSite("Lax")
                 .build();
-                
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .body(response);
@@ -45,9 +51,73 @@ public class AuthController implements AuthApi {
     }
 
     @Override
+    public ResponseEntity<MessageResponse> registerWithMessage(RegisterRequest registerRequest) {
+        MessageResponse response = authService.registerWithVerification(registerRequest);
+        return ResponseEntity.status(201).body(response);
+    }
+
+    @Override
+    public ResponseEntity<UserProfile> completeProfile(com.mermaid.app.model.CompleteProfileRequest request) {
+        UserProfile profile = authService.completeProfile(request.getRole());
+        return ResponseEntity.ok(profile);
+    }
+
+    @Override
     public ResponseEntity<UserProfile> getCurrentUser() {
         UserProfile profile = authService.getCurrentUser();
         return ResponseEntity.ok(profile);
+    }
+
+    @Override
+    public ResponseEntity<LoginResponse> verifyEmail(VerifyEmailRequest verifyEmailRequest) {
+        LoginResponse response = authService.verifyEmail(verifyEmailRequest.getToken());
+
+        ResponseCookie jwtCookie = ResponseCookie.from("jwt", response.getAccessToken())
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(response.getExpiresIn())
+                .sameSite("Lax")
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .body(response);
+    }
+
+    @Override
+    public ResponseEntity<MessageResponse> forgotPassword(ForgotPasswordRequest forgotPasswordRequest) {
+        MessageResponse response = authService.forgotPassword(forgotPasswordRequest.getEmail());
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<MessageResponse> resetPassword(ResetPasswordRequest resetPasswordRequest) {
+        MessageResponse response = authService.resetPassword(
+                resetPasswordRequest.getToken(),
+                resetPasswordRequest.getNewPassword()
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @Override
+    public ResponseEntity<LoginResponse> verifyOtp(VerifyOtpRequest verifyOtpRequest) {
+        LoginResponse response = authService.verifyOtp(
+                verifyOtpRequest.getEmail(),
+                verifyOtpRequest.getCode()
+        );
+
+        ResponseCookie jwtCookie = ResponseCookie.from("jwt", response.getAccessToken())
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(response.getExpiresIn())
+                .sameSite("Lax")
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .body(response);
     }
 
     @PostMapping("/auth/logout")
@@ -59,7 +129,7 @@ public class AuthController implements AuthApi {
                 .maxAge(0)
                 .sameSite("Lax")
                 .build();
-                
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .build();

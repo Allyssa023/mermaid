@@ -30,8 +30,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    @NotNull
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
     @NotNull
@@ -39,9 +38,8 @@ public class User {
     @Column(name = "full_name", nullable = false, length = 200)
     private String fullName;
 
-    @NotNull
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column(length = 50)
     private Role role;
 
     @NotNull
@@ -56,6 +54,39 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    // ── Auth verification fields (Phase 3) ──────────────────────────────────────
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
+    @Column(name = "verification_token", length = 128)
+    private String verificationToken;
+
+    @Column(name = "verification_token_exp")
+    private OffsetDateTime verificationTokenExp;
+
+    @Column(name = "reset_token", length = 128)
+    private String resetToken;
+
+    @Column(name = "reset_token_exp")
+    private OffsetDateTime resetTokenExp;
+
+    @Column(name = "otp_code", length = 6)
+    private String otpCode;
+
+    @Column(name = "otp_code_exp")
+    private OffsetDateTime otpCodeExp;
+
+    // ── Social OAuth fields (Phase 5+6) ─────────────────────────────────────────
+
+    @Column(name = "google_id", length = 255, unique = true)
+    private String googleId;
+
+    @Column(name = "facebook_id", length = 255, unique = true)
+    private String facebookId;
+
+    // ── Lifecycle callbacks ──────────────────────────────────────────────────────
+
     @PrePersist
     protected void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -67,6 +98,8 @@ public class User {
     protected void onUpdate() {
         updatedAt = OffsetDateTime.now();
     }
+
+    // ── Getters and setters ─────────────────────────────────────────────────────
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -92,6 +125,33 @@ public class User {
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public boolean isEmailVerified() { return emailVerified; }
+    public void setEmailVerified(boolean emailVerified) { this.emailVerified = emailVerified; }
+
+    public String getVerificationToken() { return verificationToken; }
+    public void setVerificationToken(String verificationToken) { this.verificationToken = verificationToken; }
+
+    public OffsetDateTime getVerificationTokenExp() { return verificationTokenExp; }
+    public void setVerificationTokenExp(OffsetDateTime verificationTokenExp) { this.verificationTokenExp = verificationTokenExp; }
+
+    public String getResetToken() { return resetToken; }
+    public void setResetToken(String resetToken) { this.resetToken = resetToken; }
+
+    public OffsetDateTime getResetTokenExp() { return resetTokenExp; }
+    public void setResetTokenExp(OffsetDateTime resetTokenExp) { this.resetTokenExp = resetTokenExp; }
+
+    public String getOtpCode() { return otpCode; }
+    public void setOtpCode(String otpCode) { this.otpCode = otpCode; }
+
+    public OffsetDateTime getOtpCodeExp() { return otpCodeExp; }
+    public void setOtpCodeExp(OffsetDateTime otpCodeExp) { this.otpCodeExp = otpCodeExp; }
+
+    public String getGoogleId() { return googleId; }
+    public void setGoogleId(String googleId) { this.googleId = googleId; }
+
+    public String getFacebookId() { return facebookId; }
+    public void setFacebookId(String facebookId) { this.facebookId = facebookId; }
 
     @Override
     public boolean equals(Object o) {
