@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiGet, apiPost, apiPut } from './api'
+import './orders.css'
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,39 @@ const XIcon = () => (
     <line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/>
   </svg>
 )
+const CheckIcon = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+)
+const ChevronDownIcon = ({ open }) => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+    style={{ transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+    <polyline points="6 9 12 15 18 9"/>
+  </svg>
+)
+const RefreshIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 4 23 10 17 10"/>
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+  </svg>
+)
+const ShieldIcon = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+)
+const EmptyBoxIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
+  </svg>
+)
+const CreditCardIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
+  </svg>
+)
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -23,20 +57,71 @@ function fmt(dt) {
   return new Date(dt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+// Map order status → step index (0-based)
+function statusToStep(status) {
+  switch (status) {
+    case 'PENDING':   return 0
+    case 'CONFIRMED': return 1
+    case 'COMPLETED': return 2
+    case 'CANCELLED': return -1
+    case 'DISPUTED':  return -1
+    default:          return 0
+  }
+}
+
+// ── Step Tracker ───────────────────────────────────────────────────────────────
+
+const STEPS = ['Order Placed', 'Confirmed', 'Handoff', 'Payment']
+
+function StepTracker({ order }) {
+  const current = statusToStep(order.status)
+  const isFailed = order.status === 'CANCELLED' || order.status === 'DISPUTED'
+
+  // Determine logical step: handoff and payment advance the step index further
+  let logicalStep = current
+  if (order.status === 'CONFIRMED') {
+    if (order.handoff?.status === 'CONFIRMED') logicalStep = 2
+    if (order.payment) logicalStep = 3
+    if (order.payment?.status === 'CONFIRMED') logicalStep = 3
+  }
+  if (order.status === 'COMPLETED') logicalStep = 3
+
+  return (
+    <div className="ord-step-track">
+      {STEPS.map((label, i) => {
+        const done    = !isFailed && logicalStep > i
+        const current = !isFailed && logicalStep === i
+        const cls = done ? 'ord-step--done' : current ? 'ord-step--current' : ''
+        return (
+          <div key={label} style={{ display: 'flex', alignItems: 'flex-start', flex: 1 }}>
+            <div className={`ord-step ${cls}`}>
+              <div className="ord-step__dot">
+                {done ? <CheckIcon size={12} /> : i + 1}
+              </div>
+              <div className="ord-step__label">{label}</div>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className={`ord-step__connector${done ? ' ord-step__connector--done' : ''}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Status Chip ────────────────────────────────────────────────────────────────
+
 function StatusChip({ status }) {
   const map = {
-    PENDING:   { bg: '#fef3c7', color: '#92400e' },
-    CONFIRMED: { bg: '#dbeafe', color: '#1e40af' },
-    COMPLETED: { bg: '#d1fae5', color: '#065f46' },
-    CANCELLED: { bg: '#fee2e2', color: '#991b1b' },
-    DISPUTED:  { bg: '#fce7f3', color: '#9d174d' },
+    PENDING:   'ord-chip--pending',
+    CONFIRMED: 'ord-chip--confirmed',
+    COMPLETED: 'ord-chip--completed',
+    CANCELLED: 'ord-chip--cancelled',
+    DISPUTED:  'ord-chip--disputed',
   }
-  const s = map[status] || { bg: '#f3f4f6', color: '#6b7280' }
   return (
-    <span style={{
-      display: 'inline-block', padding: '2px 10px', borderRadius: 99,
-      fontSize: 11, fontWeight: 600, background: s.bg, color: s.color,
-    }}>
+    <span className={`ord-chip ${map[status] ?? 'ord-chip--pending'}`}>
       {status}
     </span>
   )
@@ -45,10 +130,10 @@ function StatusChip({ status }) {
 // ── Handoff Modal ──────────────────────────────────────────────────────────────
 
 function HandoffModal({ order, token, onSuccess, onClose }) {
-  const [actualKg, setActualKg] = useState('')
-  const [finalPrice, setFinalPrice] = useState(order.agreedPricePerKg ?? '')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(null)
+  const [actualKg,    setActualKg]    = useState('')
+  const [finalPrice,  setFinalPrice]  = useState(order.agreedPricePerKg ?? '')
+  const [submitting,  setSubmitting]  = useState(false)
+  const [error,       setError]       = useState(null)
 
   async function submit(e) {
     e.preventDefault()
@@ -68,6 +153,8 @@ function HandoffModal({ order, token, onSuccess, onClose }) {
     }
   }
 
+  const total = actualKg && finalPrice ? (Number(actualKg) * Number(finalPrice)).toFixed(2) : null
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
@@ -79,17 +166,17 @@ function HandoffModal({ order, token, onSuccess, onClose }) {
           {error && <div className="trip-err">{error}</div>}
           <div className="trip-form__group">
             <label className="trip-form__label">Actual Weight (kg) *</label>
-            <input className="trip-form__input" type="number" min="0.1" step="0.01" required
+            <input className="trip-form__input" type="number" min="0.1" step="0.01" required inputMode="decimal"
               value={actualKg} onChange={e => setActualKg(e.target.value)} />
           </div>
           <div className="trip-form__group">
             <label className="trip-form__label">Final Price (₱/kg) *</label>
-            <input className="trip-form__input" type="number" min="0" step="0.01" required
+            <input className="trip-form__input" type="number" min="0" step="0.01" required inputMode="decimal"
               value={finalPrice} onChange={e => setFinalPrice(e.target.value)} />
           </div>
-          {actualKg && finalPrice && (
-            <div style={{ fontSize: 13, color: '#334155', background: '#f8fafc', borderRadius: 8, padding: '8px 12px' }}>
-              Total: <strong>₱{(Number(actualKg) * Number(finalPrice)).toFixed(2)}</strong>
+          {total && (
+            <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '10px 14px', fontSize: 13, color: 'var(--text-2)' }}>
+              Total: <strong style={{ color: 'var(--safe)', fontSize: 16 }}>₱{total}</strong>
             </div>
           )}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
@@ -136,12 +223,12 @@ function ConfirmWeightModal({ order, role, token, onSuccess, onClose }) {
         </div>
         <div className="modal__body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {error && <div className="trip-err">{error}</div>}
-          <div style={{ fontSize: 13, color: '#334155', background: '#f8fafc', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div>Actual weight: <strong>{h?.actualQtyKg} kg</strong></div>
-            <div>Final price: <strong>₱{h?.finalPricePerKg}/kg</strong></div>
-            <div>Total: <strong>₱{h?.totalAmount?.toFixed(2)}</strong></div>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--text-2)' }}>
+            <div>Actual weight: <strong style={{ color: 'var(--text-1)' }}>{h?.actualQtyKg} kg</strong></div>
+            <div>Final price: <strong style={{ color: 'var(--text-1)' }}>₱{h?.finalPricePerKg}/kg</strong></div>
+            <div>Total: <strong style={{ color: 'var(--safe)', fontSize: 16 }}>₱{h?.totalAmount?.toFixed(2)}</strong></div>
           </div>
-          <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>
             By confirming, you acknowledge that the weight and price above are correct.
           </p>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -160,11 +247,11 @@ function ConfirmWeightModal({ order, role, token, onSuccess, onClose }) {
 
 function PaymentModal({ order, token, onSuccess, onClose }) {
   const total = order.handoff?.totalAmount
-  const [amount, setAmount] = useState(total != null ? String(total.toFixed(2)) : '')
-  const [method, setMethod] = useState('CASH')
-  const [proof, setProof] = useState('')
+  const [amount,     setAmount]     = useState(total != null ? String(total.toFixed(2)) : '')
+  const [method,     setMethod]     = useState('CASH')
+  const [proof,      setProof]      = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState(null)
+  const [error,      setError]      = useState(null)
 
   async function submit(e) {
     e.preventDefault()
@@ -194,7 +281,7 @@ function PaymentModal({ order, token, onSuccess, onClose }) {
           {error && <div className="trip-err">{error}</div>}
           <div className="trip-form__group">
             <label className="trip-form__label">Amount (₱) *</label>
-            <input className="trip-form__input" type="number" min="0" step="0.01" required
+            <input className="trip-form__input" type="number" min="0" step="0.01" required inputMode="decimal"
               value={amount} onChange={e => setAmount(e.target.value)} />
           </div>
           <div className="trip-form__group">
@@ -203,12 +290,12 @@ function PaymentModal({ order, token, onSuccess, onClose }) {
               {['CASH', 'GCASH', 'MAYA', 'COD', 'BANK_TRANSFER'].map(m => (
                 <label key={m} style={{
                   display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                  background: method === m ? '#eff6ff' : '#f8fafc',
-                  border: `1.5px solid ${method === m ? '#3b82f6' : '#e2e8f0'}`,
-                  borderRadius: 8, padding: '6px 12px', fontSize: 13,
+                  background: method === m ? 'var(--accent-dim)' : 'var(--bg-elevated)',
+                  border: `1.5px solid ${method === m ? 'var(--accent)' : 'var(--border-2)'}`,
+                  borderRadius: 'var(--r-sm)', padding: '6px 12px', fontSize: 13, color: 'var(--text-1)',
                 }}>
                   <input type="radio" name="method" value={m} checked={method === m}
-                    onChange={() => setMethod(m)} style={{ accentColor: '#3b82f6' }} />
+                    onChange={() => setMethod(m)} style={{ accentColor: 'var(--accent)' }} />
                   {m}
                 </label>
               ))}
@@ -233,14 +320,15 @@ function PaymentModal({ order, token, onSuccess, onClose }) {
 // ── Order Card ─────────────────────────────────────────────────────────────────
 
 function OrderCard({ order, role, token, onReload }) {
-  const [modal, setModal] = useState(null) // 'handoff' | 'confirm-weight' | 'payment' | null
-  const [acting, setActing] = useState(null)
+  const [modal,        setModal]       = useState(null)
+  const [acting,       setActing]      = useState(null)
+  const [handoffOpen,  setHandoffOpen] = useState(false)
 
   async function act(action) {
     setActing(action)
     try {
-      if (action === 'accept')          await apiPut(`/orders/${order.id}/confirm`, token)
-      else if (action === 'cancel')     await apiPut(`/orders/${order.id}/cancel`, token)
+      if (action === 'accept')           await apiPut(`/orders/${order.id}/confirm`, token)
+      else if (action === 'cancel')      await apiPut(`/orders/${order.id}/cancel`, token)
       else if (action === 'confirm-payment') await apiPut(`/orders/${order.id}/payment/confirm`, token)
       onReload()
     } catch (err) {
@@ -256,118 +344,169 @@ function OrderCard({ order, role, token, onReload }) {
   const isSeller = role === 'FISHERMAN'
   const isBuyer  = role === 'VENDOR'
 
-  const handoffPending = h && h.status !== 'CONFIRMED'
+  const handoffPending     = h && h.status !== 'CONFIRMED'
   const sellerNeedsConfirm = isSeller && handoffPending && !h.confirmedBySeller
   const buyerNeedsConfirm  = isBuyer  && handoffPending && !h.confirmedByBuyer
 
+  const buyerInitials  = (order.buyer?.name  ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+  const sellerInitials = (order.seller?.name ?? '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+
   return (
-    <div style={{
-      background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12,
-      padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12,
-    }}>
+    <div className="ord-card">
+      {/* Step tracker */}
+      <StepTracker order={order} />
+
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+      <div className="ord-card__header">
         <div>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{speciesName}</div>
-          <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{fmt(order.createdAt)}</div>
+          <div className="ord-card__species">{speciesName}</div>
+          <div className="ord-card__date">{fmt(order.createdAt)}</div>
         </div>
         <StatusChip status={order.status} />
       </div>
 
-      {/* Parties */}
-      <div style={{ fontSize: 13, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <div>Buyer: <strong>{order.buyer?.name ?? '—'}</strong></div>
-        <div>Seller: <strong>{order.seller?.name ?? '—'}</strong></div>
-        <div>Agreed price: <strong>₱{order.agreedPricePerKg}/kg</strong></div>
-        {order.orderedQtyEstimate && <div>Estimated qty: {order.orderedQtyEstimate}</div>}
-        {order.orderedQtyKg != null && <div>Ordered: {order.orderedQtyKg} kg</div>}
-        {order.dispatchMode && <div>Dispatch: {order.dispatchMode}</div>}
+      {/* Parties row */}
+      <div className="ord-card__parties">
+        <div className="ord-party">
+          <div className="ord-party__avatar ord-party__avatar--buyer">{buyerInitials}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="ord-party__label">Buyer</div>
+            <div className="ord-party__name">{order.buyer?.name ?? '—'}</div>
+          </div>
+        </div>
+        <div className="ord-party__sep">→</div>
+        <div className="ord-party">
+          <div className="ord-party__avatar ord-party__avatar--seller">{sellerInitials}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="ord-party__label">Seller</div>
+            <div className="ord-party__name">{order.seller?.name ?? '—'}</div>
+          </div>
+        </div>
       </div>
 
-      {/* Handoff section */}
+      {/* Price row */}
+      <div className="ord-card__price-row">
+        <span className="ord-price-main">₱{order.agreedPricePerKg}/kg</span>
+        {order.orderedQtyKg != null && (
+          <span className="ord-price-sub">{order.orderedQtyKg} kg ordered</span>
+        )}
+        {order.orderedQtyEstimate && (
+          <span className="ord-price-sub">~{order.orderedQtyEstimate}</span>
+        )}
+        <span className="ord-badge-bfar">
+          <ShieldIcon />
+          BFAR ref: {order.bfarReferencePrice ? `₱${order.bfarReferencePrice}/kg` : '—'}
+        </span>
+        {order.dispatchMode && (
+          <span className="ord-dispatch-chip">{order.dispatchMode}</span>
+        )}
+      </div>
+
+      {/* Handoff section (collapsible) */}
       {h && (
-        <div style={{ background: '#f8fafc', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
-          <div style={{ fontWeight: 600, marginBottom: 4, color: '#334155' }}>Handoff</div>
-          <div style={{ color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div>Actual weight: {h.actualQtyKg} kg · Price: ₱{h.finalPricePerKg}/kg · Total: ₱{h.totalAmount?.toFixed(2)}</div>
-            <div>
-              Seller confirmed: {h.confirmedBySeller ? '✓' : '…'} &nbsp;
-              Buyer confirmed: {h.confirmedByBuyer ? '✓' : '…'} &nbsp;
-              <StatusChip status={h.status} />
+        <div className="ord-handoff">
+          <button className="ord-handoff__toggle" onClick={() => setHandoffOpen(o => !o)}>
+            <span className="ord-handoff__toggle-label">Handoff Details</span>
+            <ChevronDownIcon open={handoffOpen} />
+          </button>
+          {handoffOpen && (
+            <div className="ord-handoff__body">
+              <div className="ord-handoff__row">
+                <span>Actual weight</span>
+                <strong>{h.actualQtyKg} kg</strong>
+              </div>
+              <div className="ord-handoff__row">
+                <span>Final price</span>
+                <strong>₱{h.finalPricePerKg}/kg</strong>
+              </div>
+              <div className="ord-handoff__row">
+                <span>Total</span>
+                <strong className="ord-handoff__total">₱{h.totalAmount?.toFixed(2)}</strong>
+              </div>
+              <div className="ord-handoff__confirms">
+                <span className={`ord-confirm-badge ${h.confirmedBySeller ? 'ord-confirm-badge--yes' : 'ord-confirm-badge--no'}`}>
+                  {h.confirmedBySeller ? <CheckIcon size={11} /> : null}
+                  Seller {h.confirmedBySeller ? 'confirmed' : 'pending'}
+                </span>
+                <span className={`ord-confirm-badge ${h.confirmedByBuyer ? 'ord-confirm-badge--yes' : 'ord-confirm-badge--no'}`}>
+                  {h.confirmedByBuyer ? <CheckIcon size={11} /> : null}
+                  Buyer {h.confirmedByBuyer ? 'confirmed' : 'pending'}
+                </span>
+                <StatusChip status={h.status} />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* Payment section */}
+      {/* Payment receipt */}
       {p && (
-        <div style={{ background: '#f0fdf4', borderRadius: 8, padding: '10px 14px', fontSize: 13 }}>
-          <div style={{ fontWeight: 600, marginBottom: 4, color: '#166534' }}>Payment</div>
-          <div style={{ color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div>₱{p.amount?.toFixed(2)} · {p.method} · <StatusChip status={p.status} /></div>
-            {p.proofReference && <div>Ref: {p.proofReference}</div>}
-            {p.paidAt && <div>Confirmed: {fmt(p.paidAt)}</div>}
+        <div className={`ord-payment${p.status === 'PENDING' ? ' ord-payment--pending' : ''}`}>
+          <div className="ord-payment__label">
+            <CreditCardIcon />
+            {p.status === 'PENDING' ? 'Payment Pending' : 'Payment Confirmed'}
+          </div>
+          <div className="ord-payment__amount">₱{p.amount?.toFixed(2)}</div>
+          <div className="ord-payment__row">
+            <span className="ord-method-chip">{p.method}</span>
+            {p.proofReference && <span>Ref: {p.proofReference}</span>}
+            {p.paidAt && <span>{fmt(p.paidAt)}</span>}
           </div>
         </div>
       )}
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {/* FISHERMAN on PENDING → accept or decline */}
+      <div className="ord-actions">
         {isSeller && order.status === 'PENDING' && (
           <>
-            <button className="trip-btn trip-btn--primary" style={{ fontSize: 12, padding: '5px 14px' }}
+            <button className="trip-btn trip-btn--primary" style={{ fontSize: 13 }}
               onClick={() => act('accept')} disabled={acting === 'accept'}>
               {acting === 'accept' ? 'Accepting…' : 'Accept Order'}
             </button>
-            <button className="trip-btn trip-btn--ghost" style={{ fontSize: 12, padding: '5px 14px', color: '#dc2626' }}
+            <button className="trip-btn trip-btn--ghost" style={{ fontSize: 13, color: 'var(--unsafe)' }}
               onClick={() => act('cancel')} disabled={acting === 'cancel'}>
               {acting === 'cancel' ? 'Declining…' : 'Decline'}
             </button>
           </>
         )}
 
-        {/* VENDOR on PENDING → cancel */}
         {isBuyer && order.status === 'PENDING' && (
-          <button className="trip-btn trip-btn--ghost" style={{ fontSize: 12, padding: '5px 14px', color: '#dc2626' }}
+          <button className="trip-btn trip-btn--ghost" style={{ fontSize: 13, color: 'var(--unsafe)' }}
             onClick={() => act('cancel')} disabled={acting === 'cancel'}>
             {acting === 'cancel' ? 'Cancelling…' : 'Cancel Order'}
           </button>
         )}
 
-        {/* CONFIRMED + no handoff yet → either party can record handoff */}
         {order.status === 'CONFIRMED' && !h && (
-          <button className="trip-btn trip-btn--primary" style={{ fontSize: 12, padding: '5px 14px' }}
+          <button className="trip-btn trip-btn--primary" style={{ fontSize: 13 }}
             onClick={() => setModal('handoff')}>
             Record Handoff
           </button>
         )}
 
-        {/* Handoff exists + PENDING + this party hasn't confirmed */}
         {sellerNeedsConfirm && (
-          <button className="trip-btn trip-btn--primary" style={{ fontSize: 12, padding: '5px 14px' }}
-            onClick={() => setModal('confirm-weight')}>
-            Confirm Weight
-          </button>
-        )}
-        {buyerNeedsConfirm && (
-          <button className="trip-btn trip-btn--primary" style={{ fontSize: 12, padding: '5px 14px' }}
+          <button className="trip-btn trip-btn--primary" style={{ fontSize: 13 }}
             onClick={() => setModal('confirm-weight')}>
             Confirm Weight
           </button>
         )}
 
-        {/* VENDOR: handoff confirmed, no payment yet → record payment */}
+        {buyerNeedsConfirm && (
+          <button className="trip-btn trip-btn--primary" style={{ fontSize: 13 }}
+            onClick={() => setModal('confirm-weight')}>
+            Confirm Weight
+          </button>
+        )}
+
         {isBuyer && h?.status === 'CONFIRMED' && !p && (
-          <button className="trip-btn trip-btn--primary" style={{ fontSize: 12, padding: '5px 14px' }}
+          <button className="trip-btn trip-btn--primary" style={{ fontSize: 13 }}
             onClick={() => setModal('payment')}>
             Record Payment
           </button>
         )}
 
-        {/* FISHERMAN: payment exists + PENDING → confirm receipt */}
         {isSeller && p?.status === 'PENDING' && (
-          <button className="trip-btn trip-btn--primary" style={{ fontSize: 12, padding: '5px 14px' }}
+          <button className="trip-btn trip-btn--primary" style={{ fontSize: 13 }}
             onClick={() => act('confirm-payment')} disabled={acting === 'confirm-payment'}>
             {acting === 'confirm-payment' ? 'Confirming…' : 'Confirm Receipt'}
           </button>
@@ -394,14 +533,102 @@ function OrderCard({ order, role, token, onReload }) {
   )
 }
 
+// ── Skeleton ───────────────────────────────────────────────────────────────────
+
+function Skeleton() {
+  return (
+    <div className="ord-list">
+      {[1, 2, 3].map(i => (
+        <div key={i} className="ord-card" style={{ gap: 16 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {[0, 1, 2, 3].map(j => (
+              <div key={j} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                <div className="skeleton" style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0 }} />
+                {j < 3 && <div className="skeleton" style={{ flex: 1, height: 2, marginLeft: 0 }} />}
+              </div>
+            ))}
+          </div>
+          <div className="skeleton" style={{ height: 20, width: '45%', borderRadius: 6 }} />
+          <div className="skeleton" style={{ height: 14, width: '65%', borderRadius: 6 }} />
+          <div className="skeleton" style={{ height: 44, borderRadius: 8 }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Orders Right Panel ─────────────────────────────────────────────────────────
+
+function OrdersPanel({ orders, role }) {
+  const counts = { PENDING: 0, CONFIRMED: 0, COMPLETED: 0, CANCELLED: 0, DISPUTED: 0 }
+  let totalValue = 0
+  orders.forEach(o => {
+    counts[o.status] = (counts[o.status] || 0) + 1
+    if (o.status === 'COMPLETED' && o.handoff?.totalAmount) {
+      totalValue += o.handoff.totalAmount
+    }
+  })
+
+  const pipeline = [
+    { label: 'Pending',   count: counts.PENDING,   color: 'var(--caution)', dot: '#F59E0B' },
+    { label: 'Confirmed', count: counts.CONFIRMED, color: 'var(--accent)',  dot: '#00C9D4' },
+    { label: 'Completed', count: counts.COMPLETED, color: 'var(--safe)',    dot: '#00E5A0' },
+    { label: 'Cancelled', count: counts.CANCELLED, color: 'var(--unsafe)',  dot: '#FF3D5A' },
+    { label: 'Disputed',  count: counts.DISPUTED,  color: 'var(--amber)',   dot: '#FF7B3A' },
+  ].filter(p => p.count > 0 || p.label === 'Pending' || p.label === 'Confirmed')
+
+  return (
+    <aside className="ord-panel">
+      <div className="ord-panel-card">
+        <div className="ord-panel-card__title">Order Pipeline</div>
+        {pipeline.map(p => (
+          <div key={p.label} className="ord-pipeline-row">
+            <div className="ord-pipeline-label">
+              <span className="ord-pipeline-dot" style={{ background: p.dot }} />
+              {p.label}
+            </div>
+            <span className="ord-pipeline-count" style={{ color: p.count > 0 ? p.color : 'var(--text-3)' }}>{p.count}</span>
+          </div>
+        ))}
+      </div>
+
+      {totalValue > 0 && (
+        <div className="ord-panel-card">
+          <div className="ord-panel-card__title">Completed Value</div>
+          <div className="ord-panel-total">₱{totalValue.toFixed(2)}</div>
+          <div className="ord-panel-sub">
+            From {counts.COMPLETED} completed order{counts.COMPLETED !== 1 ? 's' : ''}
+          </div>
+        </div>
+      )}
+
+      {counts.PENDING > 0 && role === 'FISHERMAN' && (
+        <div className="ord-panel-card" style={{ borderColor: 'var(--caution-border)', background: 'var(--caution-dim)' }}>
+          <div className="ord-panel-card__title" style={{ color: 'var(--caution)' }}>Action Needed</div>
+          <p className="ord-panel-tip" style={{ color: 'var(--caution)' }}>
+            You have {counts.PENDING} pending order{counts.PENDING !== 1 ? 's' : ''} waiting for your acceptance.
+          </p>
+        </div>
+      )}
+
+      <div className="ord-panel-card">
+        <div className="ord-panel-card__title">Order Flow</div>
+        <p className="ord-panel-tip">
+          Vendor makes offer → Fisherman accepts → Both confirm handoff weight & price → Vendor records payment → Fisherman confirms receipt.
+        </p>
+      </div>
+    </aside>
+  )
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-const STATUS_FILTERS = ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
+const STATUS_FILTERS = ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'DISPUTED']
 
 export default function Orders({ token, role }) {
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [orders,       setOrders]      = useState([])
+  const [loading,      setLoading]     = useState(false)
+  const [error,        setError]       = useState(null)
   const [statusFilter, setStatusFilter] = useState('ALL')
 
   const load = useCallback(async () => {
@@ -421,56 +648,69 @@ export default function Orders({ token, role }) {
   useEffect(() => { load() }, [load])
 
   return (
-    <div style={{ padding: '32px 36px', maxWidth: 760 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <ClipboardIcon />
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>My Orders</h2>
-        </div>
-        <button className="trip-btn trip-btn--ghost" style={{ fontSize: 13 }} onClick={load} disabled={loading}>
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
-      </div>
-
-      {/* Status filter tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-        {STATUS_FILTERS.map(s => (
-          <button key={s}
-            style={{
-              padding: '5px 14px', borderRadius: 99, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
-              background: statusFilter === s ? '#2563eb' : '#f1f5f9',
-              color: statusFilter === s ? '#fff' : '#64748b',
-            }}
-            onClick={() => setStatusFilter(s)}>
-            {s}
+    <div className="ord-page">
+      <div className="ord-main">
+        {/* Header */}
+        <div className="ord-header">
+          <div className="ord-header__left">
+            <div className="ord-header__icon"><ClipboardIcon /></div>
+            <div>
+              <div className="ord-header__title">My Orders</div>
+              <div className="ord-header__sub">Track your fish trade transactions</div>
+            </div>
+          </div>
+          <button className="ca-refresh-btn" onClick={load} disabled={loading}>
+            <RefreshIcon />
+            {loading ? 'Refreshing…' : 'Refresh'}
           </button>
-        ))}
-      </div>
-
-      {error && (
-        <div className="trip-err" style={{ marginBottom: 16 }}>
-          {error} <button className="trip-btn trip-btn--ghost" style={{ marginLeft: 8, fontSize: 12 }} onClick={load}>Retry</button>
         </div>
-      )}
 
-      {loading ? (
-        <div style={{ color: '#94a3b8', textAlign: 'center', padding: 40 }}>Loading…</div>
-      ) : orders.length === 0 ? (
-        <div style={{
-          background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 12,
-          padding: '40px 20px', textAlign: 'center', color: '#94a3b8',
-        }}>
-          {statusFilter === 'ALL'
-            ? 'No orders yet.'
-            : `No ${statusFilter.toLowerCase()} orders.`}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {orders.map(o => (
-            <OrderCard key={o.id} order={o} role={role} token={token} onReload={load} />
+        {/* Filter tabs */}
+        <div className="ord-filter-tabs">
+          {STATUS_FILTERS.map(s => (
+            <button
+              key={s}
+              className={`ord-filter-tab${statusFilter === s ? ' ord-filter-tab--active' : ''}`}
+              onClick={() => setStatusFilter(s)}
+            >
+              {s}
+            </button>
           ))}
         </div>
-      )}
+
+        {/* Error */}
+        {error && (
+          <div className="ord-error">
+            {error}
+            <button className="trip-btn trip-btn--ghost" style={{ marginLeft: 8, fontSize: 12 }} onClick={load}>Retry</button>
+          </div>
+        )}
+
+        {/* Content */}
+        {loading && orders.length === 0 ? (
+          <Skeleton />
+        ) : orders.length === 0 ? (
+          <div className="ord-empty">
+            <div className="ord-empty__icon"><EmptyBoxIcon /></div>
+            <div className="ord-empty__msg">
+              {statusFilter === 'ALL' ? 'No orders yet' : `No ${statusFilter.toLowerCase()} orders`}
+            </div>
+            <div className="ord-empty__sub">
+              {statusFilter === 'ALL'
+                ? 'Orders appear here when vendors make offers on catch alerts.'
+                : 'Try a different filter to see other orders.'}
+            </div>
+          </div>
+        ) : (
+          <div className="ord-list">
+            {orders.map(o => (
+              <OrderCard key={o.id} order={o} role={role} token={token} onReload={load} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <OrdersPanel orders={orders} role={role} />
     </div>
   )
 }

@@ -1,0 +1,568 @@
+/* ══════════════════════════════════════════════════════════
+   MERMAID — Catch Alerts Page
+   Uses shared CSS tokens from dashboard.css
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Page — two-column grid ── */
+.ca-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 0 24px;
+  padding: 28px 28px;
+  align-items: start;
+  min-height: 100%;
+}
+
+.ca-main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* ── Right Panel ── */
+.ca-panel {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ca-panel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s;
+}
+
+.ca-panel-card--live {
+  background: var(--safe-dim);
+  border-color: var(--safe-border);
+}
+
+.ca-panel-card__title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.ca-panel-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.ca-panel-stat:last-of-type { border-bottom: none; }
+
+.ca-panel-stat__val {
+  font-weight: 700;
+  font-size: 18px;
+  font-family: var(--font-display);
+  color: var(--text-1);
+}
+
+.ca-panel-stat__val--accent  { color: var(--accent); }
+.ca-panel-stat__val--safe    { color: var(--safe); }
+.ca-panel-stat__val--caution { color: var(--caution); }
+.ca-panel-stat__val--amber   { color: var(--amber); }
+
+.ca-panel-tip {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.65;
+}
+
+/* ── Header ── */
+.ca-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ca-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ca-header__icon {
+  width: 42px; height: 42px;
+  border-radius: var(--r-md);
+  background: var(--accent-dim);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.ca-header__title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: 0.02em;
+}
+
+.ca-header__sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+.ca-header__controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ca-filter-select {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  min-height: 44px;
+}
+
+.ca-filter-select:focus {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ca-refresh-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: 13px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  display: flex; align-items: center; gap: 6px;
+}
+
+.ca-refresh-btn:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text-1);
+}
+
+.ca-refresh-btn:active { transform: scale(0.97); }
+.ca-refresh-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Trip banner (fisherman quick-alert) ── */
+.ca-trip-banner {
+  background: var(--accent-dim);
+  border: 1px solid rgba(0, 201, 212, 0.2);
+  border-radius: var(--r-lg);
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: background 0.2s;
+}
+
+.ca-trip-banner--sent {
+  background: var(--safe-dim);
+  border-color: var(--safe-border);
+}
+
+.ca-trip-banner__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.ca-trip-banner__heading {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.ca-trip-banner--sent .ca-trip-banner__heading { color: var(--safe); }
+
+.ca-trip-banner__sub {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 3px;
+}
+
+.ca-trip-banner__catch-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ca-trip-banner__catch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  gap: 8px;
+}
+
+.ca-trip-banner__catch-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ca-trip-banner__catch-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.ca-trip-banner__catch-qty {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-left: 4px;
+}
+
+.ca-alerted-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--safe);
+}
+
+/* ── Section label ── */
+.ca-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  padding: 2px 0;
+}
+
+/* ── Feed ── */
+.ca-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Alert card ── */
+.ca-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s;
+}
+
+.ca-card:hover { border-color: var(--border-2); }
+
+.ca-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ca-card__species {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-1);
+}
+
+.ca-card__species-icon { color: var(--accent); flex-shrink: 0; }
+
+.ca-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.ca-card__meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ca-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ca-card__expiry {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.ca-card__expiry--urgent { color: var(--caution); }
+.ca-card__expiry--expired { color: var(--unsafe); }
+
+.ca-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ca-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Badges ── */
+.ca-badge-bfar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid rgba(255, 123, 58, 0.2);
+  white-space: nowrap;
+}
+
+.ca-badge-match {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(0, 201, 212, 0.2);
+  white-space: nowrap;
+}
+
+/* ── Status chips ── */
+.ca-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.ca-chip--active   { background: var(--safe-dim);   color: var(--safe);   border: 1px solid var(--safe-border); }
+.ca-chip--matched  { background: var(--accent-dim);  color: var(--accent);  border: 1px solid rgba(0,201,212,0.2); }
+.ca-chip--expired  { background: var(--border);      color: var(--text-3);  border: 1px solid var(--border); }
+.ca-chip--cancelled { background: var(--unsafe-dim); color: var(--unsafe);  border: 1px solid var(--unsafe-border); }
+
+/* ── Vendor grouped view ── */
+.ca-group-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ca-fisherman-group {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: border-color 0.15s;
+}
+
+.ca-fisherman-group:hover { border-color: var(--border-2); }
+
+.ca-fisherman-group__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ca-fisherman-group__avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 201, 212, 0.2);
+}
+
+.ca-fisherman-group__name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-1);
+}
+
+.ca-fisherman-group__sub {
+  font-size: 12px;
+  color: var(--text-2);
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 2px;
+}
+
+.ca-catches-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+.ca-catch-rows { display: flex; flex-direction: column; gap: 6px; }
+
+.ca-catch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  gap: 10px;
+  transition: border-color 0.12s;
+}
+
+.ca-catch-row:hover { border-color: var(--border-2); }
+
+.ca-catch-row__left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ca-catch-row__species { font-weight: 600; font-size: 13px; color: var(--text-1); }
+.ca-catch-row__qty { font-size: 12px; color: var(--text-2); margin-left: 6px; }
+.ca-catch-row__right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+.ca-catch-row__price { font-size: 13px; font-weight: 600; color: var(--text-1); }
+
+/* ── Empty state ── */
+.ca-empty {
+  background: var(--bg-card);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--r-lg);
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.ca-empty__icon { color: var(--text-3); }
+.ca-empty__msg { font-size: 14px; color: var(--text-2); }
+.ca-empty__sub { font-size: 12px; color: var(--text-3); }
+
+/* ── Error ── */
+.ca-error {
+  background: var(--unsafe-dim);
+  border: 1px solid var(--unsafe-border);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--unsafe);
+  display: flex; align-items: center; gap: 10px;
+}
+
+/* ══════════════════════════════════════════════════════════
+   LIGHT MODE
+   ══════════════════════════════════════════════════════════ */
+[data-theme="light"] .ca-trip-banner {
+  background: rgba(0, 122, 130, 0.06);
+  border-color: rgba(0, 122, 130, 0.18);
+}
+
+[data-theme="light"] .ca-trip-banner--sent {
+  background: rgba(5, 150, 105, 0.06);
+  border-color: rgba(5, 150, 105, 0.18);
+}
+
+[data-theme="light"] .ca-trip-banner__catch-row {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.10);
+}
+
+[data-theme="light"] .ca-fisherman-group {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .ca-catch-row { background: #F7FAFC; }
+[data-theme="light"] .ca-catch-row:hover { background: #FFFFFF; }
+[data-theme="light"] .ca-empty { background: #F7FAFC; border-color: rgba(0,0,0,0.10); }
+[data-theme="light"] .ca-filter-select { background: #FFFFFF; }
+
+/* ── Panel light mode ── */
+[data-theme="light"] .ca-panel-card { box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+[data-theme="light"] .ca-panel-card--live { background: rgba(5,150,105,0.06); }
+
+/* ══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .ca-page { grid-template-columns: minmax(0, 1fr) 260px; }
+}
+
+@media (max-width: 860px) {
+  .ca-page {
+    grid-template-columns: 1fr;
+  }
+  .ca-panel {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .ca-panel-card { flex: 1; min-width: 220px; }
+}
+
+@media (max-width: 640px) {
+  .ca-page { padding: 16px; gap: 0 16px; }
+  .ca-header { flex-direction: column; align-items: flex-start; }
+  .ca-fisherman-group { padding: 14px 16px; }
+  .ca-catch-row { flex-wrap: wrap; }
+  .ca-catch-row__right { width: 100%; justify-content: flex-end; }
+  .ca-card__footer { flex-direction: column; align-items: flex-start; }
+  .ca-panel { flex-direction: column; }
+  .ca-panel-card { min-width: unset; }
+}
