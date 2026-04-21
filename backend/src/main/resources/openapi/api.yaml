@@ -20,6 +20,8 @@ tags:
   - name: Marketplace
   - name: Trips
   - name: Catch Logs
+  - name: Catch Alerts
+  - name: Orders
   - name: Lookups
 
 security:
@@ -1247,6 +1249,361 @@ paths:
         '204':
           description: Catch log deleted
 
+  /trips/{tripId}/catches/{catchId}/settle:
+    put:
+      tags: [Catch Logs]
+      summary: Settle a catch log
+      operationId: settleCatchLog
+      parameters:
+        - $ref: '#/components/parameters/TripId'
+        - $ref: '#/components/parameters/CatchId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatchLogSettleRequest'
+      responses:
+        '200':
+          description: Catch log settled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatchLog'
+        '404':
+          description: Trip or catch log not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /fisherman/catch-alerts:
+    post:
+      tags: [Catch Alerts]
+      summary: Post a catch alert (Fisherman)
+      operationId: postCatchAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatchAlertCreateRequest'
+      responses:
+        '201':
+          description: Catch alert posted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatchAlert'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Species or catch log not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      tags: [Catch Alerts]
+      summary: List own catch alerts (Fisherman)
+      operationId: listMyCatchAlerts
+      responses:
+        '200':
+          description: Fisherman's catch alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatchAlert'
+
+  /fisherman/catch-alerts/{alertId}/cancel:
+    put:
+      tags: [Catch Alerts]
+      summary: Cancel a catch alert (Fisherman)
+      operationId: cancelCatchAlert
+      parameters:
+        - $ref: '#/components/parameters/AlertId'
+      responses:
+        '200':
+          description: Catch alert cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatchAlert'
+        '404':
+          description: Alert not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /marketplace/catch-alerts:
+    get:
+      tags: [Catch Alerts]
+      summary: Browse active catch alerts (Vendor)
+      operationId: browseCatchAlerts
+      parameters:
+        - in: query
+          name: speciesId
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Active catch alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CatchAlert'
+
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create an order / make an offer on a catch alert (Vendor)
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreateRequest'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Catch alert or demand listing not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/mine:
+    get:
+      tags: [Orders]
+      summary: List orders where current user is buyer or seller
+      operationId: listMyOrders
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, DISPUTED]
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+
+  /orders/{orderId}/confirm:
+    put:
+      tags: [Orders]
+      summary: Confirm (accept) an order (Fisherman / seller)
+      operationId: confirmOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Order not in PENDING state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/cancel:
+    put:
+      tags: [Orders]
+      summary: Cancel an order (buyer or seller)
+      operationId: cancelOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/handoff:
+    post:
+      tags: [Orders]
+      summary: Create handoff confirmation record (either party)
+      operationId: createHandoff
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandoffCreateRequest'
+      responses:
+        '201':
+          description: Handoff created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffConfirmation'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Order not in CONFIRMED state or handoff already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/handoff/confirm-seller:
+    put:
+      tags: [Orders]
+      summary: Seller (fisherman) confirms handoff weight
+      operationId: confirmHandoffSeller
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Seller confirmation recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffConfirmation'
+        '404':
+          description: Order or handoff not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/handoff/confirm-buyer:
+    put:
+      tags: [Orders]
+      summary: Buyer (vendor) confirms handoff weight
+      operationId: confirmHandoffBuyer
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Buyer confirmation recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandoffConfirmation'
+        '404':
+          description: Order or handoff not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/payment:
+    post:
+      tags: [Orders]
+      summary: Record payment (Vendor / buyer)
+      operationId: recordPayment
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCreateRequest'
+      responses:
+        '201':
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRecord'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Payment already exists or handoff not confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/payment/confirm:
+    put:
+      tags: [Orders]
+      summary: Confirm payment receipt (Fisherman / seller)
+      operationId: confirmPayment
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Payment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRecord'
+        '404':
+          description: Order or payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /messages/users:
     get:
       tags: [Chat]
@@ -1332,6 +1689,20 @@ components:
     CatchId:
       in: path
       name: catchId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    AlertId:
+      in: path
+      name: alertId
+      required: true
+      schema:
+        type: integer
+        format: int64
+    OrderId:
+      in: path
+      name: orderId
       required: true
       schema:
         type: integer
@@ -1882,7 +2253,7 @@ components:
 
     CatchLog:
       type: object
-      required: [id, tripId, species, quantityKg, loggedAt]
+      required: [id, tripId, species, loggedAt]
       properties:
         id:
           type: integer
@@ -1892,9 +2263,34 @@ components:
           format: int64
         species:
           $ref: '#/components/schemas/FishSpecies'
+        quantityEstimate:
+          type: string
+          nullable: true
         quantityKg:
           type: number
           format: double
+          nullable: true
+        isSettled:
+          type: boolean
+        settledKg:
+          type: number
+          format: double
+          nullable: true
+        settledPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        settledAt:
+          type: string
+          format: date-time
+          nullable: true
+        settledWithVendorId:
+          type: integer
+          format: int64
+          nullable: true
+        buyerName:
+          type: string
+          nullable: true
         estimatedPricePerKg:
           type: number
           format: double
@@ -1912,15 +2308,19 @@ components:
 
     CatchLogCreateRequest:
       type: object
-      required: [speciesId, quantityKg]
+      required: [speciesId, quantityEstimate]
       properties:
         speciesId:
           type: integer
           format: int64
+        quantityEstimate:
+          type: string
+          maxLength: 100
         quantityKg:
           type: number
           format: double
           minimum: 0.1
+          nullable: true
         estimatedPricePerKg:
           type: number
           format: double
@@ -1940,10 +2340,15 @@ components:
         speciesId:
           type: integer
           format: int64
+        quantityEstimate:
+          type: string
+          maxLength: 100
+          nullable: true
         quantityKg:
           type: number
           format: double
           minimum: 0.1
+          nullable: true
         estimatedPricePerKg:
           type: number
           format: double
@@ -1955,6 +2360,27 @@ components:
         notes:
           type: string
           maxLength: 500
+          nullable: true
+
+    CatchLogSettleRequest:
+      type: object
+      required: [settledKg, settledPricePerKg]
+      properties:
+        settledKg:
+          type: number
+          format: double
+          minimum: 0.1
+        settledPricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        vendorId:
+          type: integer
+          format: int64
+          nullable: true
+        buyerName:
+          type: string
+          maxLength: 150
           nullable: true
 
     ListingInterestRequest:
@@ -2019,6 +2445,291 @@ components:
           type: string
         message:
           type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    UserRef:
+      type: object
+      required: [id, fullName]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+
+    CatchAlertCreateRequest:
+      type: object
+      required: [speciesId, expiresInHours]
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        catchLogId:
+          type: integer
+          format: int64
+          nullable: true
+        quantityEstimate:
+          type: string
+          maxLength: 100
+          nullable: true
+        quantityKg:
+          type: number
+          format: double
+          minimum: 0.1
+          nullable: true
+        landingSite:
+          type: string
+          maxLength: 200
+          nullable: true
+        askingPricePerKg:
+          type: number
+          format: double
+          minimum: 0
+          nullable: true
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+        expiresInHours:
+          type: integer
+          minimum: 1
+          maximum: 48
+          default: 4
+
+    CatchAlert:
+      type: object
+      required: [id, fisherman, species, status, expiresAt, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fisherman:
+          $ref: '#/components/schemas/UserRef'
+        species:
+          $ref: '#/components/schemas/FishSpecies'
+        catchLogId:
+          type: integer
+          format: int64
+          nullable: true
+        quantityEstimate:
+          type: string
+          nullable: true
+        quantityKg:
+          type: number
+          format: double
+          nullable: true
+        landingSite:
+          type: string
+          nullable: true
+        askingPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, MATCHED, EXPIRED, CANCELLED]
+        matchedListingIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    OrderCreateRequest:
+      type: object
+      required: [speciesId, agreedPricePerKg]
+      properties:
+        catchAlertId:
+          type: integer
+          format: int64
+          nullable: true
+        demandListingId:
+          type: integer
+          format: int64
+          nullable: true
+        speciesId:
+          type: integer
+          format: int64
+        agreedPricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        orderedQtyEstimate:
+          type: string
+          maxLength: 100
+          nullable: true
+        orderedQtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+          nullable: true
+        dispatchMode:
+          type: string
+          enum: [PICKUP, DELIVERY]
+          nullable: true
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    Order:
+      type: object
+      required: [id, buyer, seller, species, agreedPricePerKg, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        buyer:
+          $ref: '#/components/schemas/UserRef'
+        seller:
+          $ref: '#/components/schemas/UserRef'
+        species:
+          $ref: '#/components/schemas/FishSpecies'
+        catchAlertId:
+          type: integer
+          format: int64
+          nullable: true
+        demandListingId:
+          type: integer
+          format: int64
+          nullable: true
+        agreedPricePerKg:
+          type: number
+          format: double
+        orderedQtyEstimate:
+          type: string
+          nullable: true
+        orderedQtyKg:
+          type: number
+          format: double
+          nullable: true
+        dispatchMode:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, DISPUTED]
+        notes:
+          type: string
+          nullable: true
+        handoff:
+          $ref: '#/components/schemas/HandoffConfirmation'
+          nullable: true
+        payment:
+          $ref: '#/components/schemas/PaymentRecord'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    HandoffCreateRequest:
+      type: object
+      required: [actualQtyKg, finalPricePerKg]
+      properties:
+        actualQtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+        finalPricePerKg:
+          type: number
+          format: double
+          minimum: 0
+
+    HandoffConfirmation:
+      type: object
+      required: [id, orderId, actualQtyKg, finalPricePerKg, totalAmount, confirmedByBuyer, confirmedBySeller, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        actualQtyKg:
+          type: number
+          format: double
+        finalPricePerKg:
+          type: number
+          format: double
+        totalAmount:
+          type: number
+          format: double
+        confirmedByBuyer:
+          type: boolean
+        confirmedBySeller:
+          type: boolean
+        disputeReason:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, DISPUTED]
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    PaymentCreateRequest:
+      type: object
+      required: [amount, method]
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0
+        method:
+          type: string
+          enum: [CASH, GCASH, MAYA, COD, CREDIT, BANK_TRANSFER]
+        proofReference:
+          type: string
+          maxLength: 200
+          nullable: true
+
+    PaymentRecord:
+      type: object
+      required: [id, orderId, amount, method, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        handoffId:
+          type: integer
+          format: int64
+          nullable: true
+        amount:
+          type: number
+          format: double
+        method:
+          type: string
+        proofReference:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, DISPUTED]
+        paidAt:
+          type: string
+          format: date-time
           nullable: true
         createdAt:
           type: string

@@ -701,3 +701,119 @@
   margin-top: 1px;
   opacity: 0.5;
 }
+
+/* ══════════════════════════════════════════════════════════
+   LIGHT MODE — Vendor Dashboard
+   ══════════════════════════════════════════════════════════ */
+[data-theme="light"] .vd-page-header__title { color: #1A202C; }
+[data-theme="light"] .vd-page-header__sub   { color: rgba(26, 32, 44, 0.40); }
+
+[data-theme="light"] .vd-filter-chip {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 32, 44, 0.50);
+}
+[data-theme="light"] .vd-filter-chip:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(26, 32, 44, 0.80);
+}
+[data-theme="light"] .vd-filter-count { color: rgba(26, 32, 44, 0.35); }
+
+[data-theme="light"] .vd-col-heads {
+  color: rgba(26, 32, 44, 0.28);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .vd-listing-row {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(0, 0, 0, 0.07);
+}
+[data-theme="light"] .vd-listing-row:hover {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .vd-listing-row__species  { color: #1A202C; }
+[data-theme="light"] .vd-listing-row__notes    { color: rgba(26, 32, 44, 0.38); }
+[data-theme="light"] .vd-listing-row__location { color: rgba(26, 32, 44, 0.60); }
+[data-theme="light"] .vd-listing-row__qty      { color: rgba(26, 32, 44, 0.80); }
+[data-theme="light"] .vd-listing-row__deadline { color: rgba(26, 32, 44, 0.45); }
+
+[data-theme="light"] .vd-recent-card {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(0, 0, 0, 0.07);
+}
+[data-theme="light"] .vd-recent-card:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .vd-recent-card--open { border-color: rgba(5, 150, 105, 0.18); }
+[data-theme="light"] .vd-recent-card__species  { color: #1A202C; }
+[data-theme="light"] .vd-recent-card__location { color: rgba(26, 32, 44, 0.38); }
+[data-theme="light"] .vd-metric__label  { color: rgba(26, 32, 44, 0.30); }
+[data-theme="light"] .vd-metric__value  { color: #1A202C; }
+[data-theme="light"] .vd-recent-card__deadline {
+  color: rgba(26, 32, 44, 0.35);
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .vd-modal-overlay { background: rgba(200, 210, 225, 0.65); }
+[data-theme="light"] .vd-modal {
+  background: rgba(255, 255, 255, 0.99);
+  border-color: rgba(0, 0, 0, 0.10);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.14);
+}
+[data-theme="light"] .vd-modal__title { color: #1A202C; }
+[data-theme="light"] .vd-modal__close {
+  border-color: rgba(0, 0, 0, 0.10);
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(26, 32, 44, 0.50);
+}
+[data-theme="light"] .vd-modal__close:hover { background: rgba(0, 0, 0, 0.07); color: rgba(26, 32, 44, 0.85); }
+
+[data-theme="light"] .vd-form__label { color: rgba(26, 32, 44, 0.45); }
+[data-theme="light"] .vd-form__input,
+[data-theme="light"] .vd-form__select,
+[data-theme="light"] .vd-form__textarea {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1A202C;
+}
+[data-theme="light"] .vd-form__input::placeholder,
+[data-theme="light"] .vd-form__textarea::placeholder { color: rgba(26, 32, 44, 0.28); }
+[data-theme="light"] .vd-form__select option,
+[data-theme="light"] .vd-form__select optgroup { background: #fff; color: #1A202C; }
+[data-theme="light"] .vd-form__cancel {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.10);
+  color: rgba(26, 32, 44, 0.55);
+}
+[data-theme="light"] .vd-form__cancel:hover { background: rgba(0, 0, 0, 0.07); color: rgba(26, 32, 44, 0.80); }
+
+[data-theme="light"] .vd-confirm__body { color: rgba(26, 32, 44, 0.60); }
+[data-theme="light"] .vd-confirm__body strong { color: #1A202C; }
+[data-theme="light"] .vd-empty { color: rgba(26, 32, 44, 0.30); }
+
+[data-theme="light"] .vd-hero-stat {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .vd-zone-chip {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.07);
+}
+[data-theme="light"] .vd-zone-chip:hover { background: rgba(0, 0, 0, 0.06); }
+
+[data-theme="light"] .vd-interest-item { border-bottom-color: rgba(0, 0, 0, 0.05); }
+[data-theme="light"] .vd-interest-item:hover { background: rgba(0, 0, 0, 0.02); }
+
+[data-theme="light"] .vd-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: rgba(26, 32, 44, 0.45);
+}
+[data-theme="light"] .vd-btn:hover {
+  background: rgba(0, 0, 0, 0.07);
+  color: rgba(26, 32, 44, 0.85);
+  border-color: rgba(0, 0, 0, 0.14);
+}
+

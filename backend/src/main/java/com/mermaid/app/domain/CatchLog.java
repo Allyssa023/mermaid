@@ -19,11 +19,32 @@ public class CatchLog {
     @JoinColumn(name = "species_id", nullable = false)
     private FishSpecies species;
 
-    @Column(name = "quantity_kg", nullable = false, precision = 10, scale = 2)
+    @Column(name = "quantity_estimate", length = 100)
+    private String quantityEstimate;
+
+    @Column(name = "quantity_kg", precision = 10, scale = 2)
     private BigDecimal quantityKg;
 
     @Column(name = "estimated_price_per_kg", precision = 10, scale = 2)
     private BigDecimal estimatedPricePerKg;
+
+    @Column(name = "is_settled", nullable = false)
+    private Boolean isSettled = false;
+
+    @Column(name = "settled_kg", precision = 10, scale = 2)
+    private BigDecimal settledKg;
+
+    @Column(name = "settled_price_per_kg", precision = 10, scale = 2)
+    private BigDecimal settledPricePerKg;
+
+    @Column(name = "settled_at")
+    private OffsetDateTime settledAt;
+
+    @Column(name = "settled_with_vendor_id")
+    private Long settledWithVendorId;
+
+    @Column(name = "buyer_name", length = 150)
+    private String buyerName;
 
     @Column(name = "matched_listing_id")
     private Long matchedListingId;
@@ -37,6 +58,7 @@ public class CatchLog {
     @PrePersist
     protected void onCreate() {
         if (loggedAt == null) loggedAt = OffsetDateTime.now();
+        if (isSettled == null) isSettled = false;
     }
 
     public Long getId() { return id; }
@@ -45,10 +67,24 @@ public class CatchLog {
     public void setTripId(Long tripId) { this.tripId = tripId; }
     public FishSpecies getSpecies() { return species; }
     public void setSpecies(FishSpecies species) { this.species = species; }
+    public String getQuantityEstimate() { return quantityEstimate; }
+    public void setQuantityEstimate(String quantityEstimate) { this.quantityEstimate = quantityEstimate; }
     public BigDecimal getQuantityKg() { return quantityKg; }
     public void setQuantityKg(BigDecimal quantityKg) { this.quantityKg = quantityKg; }
     public BigDecimal getEstimatedPricePerKg() { return estimatedPricePerKg; }
     public void setEstimatedPricePerKg(BigDecimal v) { this.estimatedPricePerKg = v; }
+    public Boolean getIsSettled() { return isSettled; }
+    public void setIsSettled(Boolean isSettled) { this.isSettled = isSettled; }
+    public BigDecimal getSettledKg() { return settledKg; }
+    public void setSettledKg(BigDecimal settledKg) { this.settledKg = settledKg; }
+    public BigDecimal getSettledPricePerKg() { return settledPricePerKg; }
+    public void setSettledPricePerKg(BigDecimal settledPricePerKg) { this.settledPricePerKg = settledPricePerKg; }
+    public OffsetDateTime getSettledAt() { return settledAt; }
+    public void setSettledAt(OffsetDateTime settledAt) { this.settledAt = settledAt; }
+    public Long getSettledWithVendorId() { return settledWithVendorId; }
+    public void setSettledWithVendorId(Long settledWithVendorId) { this.settledWithVendorId = settledWithVendorId; }
+    public String getBuyerName() { return buyerName; }
+    public void setBuyerName(String buyerName) { this.buyerName = buyerName; }
     public Long getMatchedListingId() { return matchedListingId; }
     public void setMatchedListingId(Long matchedListingId) { this.matchedListingId = matchedListingId; }
     public String getNotes() { return notes; }

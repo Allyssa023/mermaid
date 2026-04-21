@@ -43,4 +43,9 @@ public class CatchLogController implements CatchLogsApi {
         catchLogService.delete(tripId, catchId, SecurityUtils.currentUserId());
         return ResponseEntity.noContent().build();
     }
+
+    @Override
+    public ResponseEntity<CatchLog> settleCatchLog(Long tripId, Long catchId, CatchLogSettleRequest request) {
+        return ResponseEntity.ok(catchLogService.settle(tripId, catchId, request, SecurityUtils.currentUserId()));
+    }
 }

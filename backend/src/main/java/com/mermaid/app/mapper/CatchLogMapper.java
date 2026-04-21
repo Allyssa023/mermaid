@@ -20,10 +20,17 @@ public class CatchLogMapper {
             entity.getId(),
             entity.getTripId(),
             fishSpeciesMapper.toModel(entity.getSpecies()),
-            toDouble(entity.getQuantityKg()),
             entity.getLoggedAt()
         );
+        m.setQuantityEstimate(JsonNullable.of(entity.getQuantityEstimate()));
+        m.setQuantityKg(JsonNullable.of(toDouble(entity.getQuantityKg())));
         m.setEstimatedPricePerKg(JsonNullable.of(toDouble(entity.getEstimatedPricePerKg())));
+        m.setIsSettled(entity.getIsSettled());
+        m.setSettledKg(JsonNullable.of(toDouble(entity.getSettledKg())));
+        m.setSettledPricePerKg(JsonNullable.of(toDouble(entity.getSettledPricePerKg())));
+        m.setSettledAt(JsonNullable.of(entity.getSettledAt()));
+        m.setSettledWithVendorId(JsonNullable.of(entity.getSettledWithVendorId()));
+        m.setBuyerName(JsonNullable.of(entity.getBuyerName()));
         m.setMatchedListingId(JsonNullable.of(entity.getMatchedListingId()));
         m.setNotes(JsonNullable.of(entity.getNotes()));
         return m;

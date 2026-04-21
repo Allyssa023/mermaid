@@ -5,6 +5,8 @@ import MyTrips from './MyTrips'
 import TripPlanner from './TripPlanner'
 import Marketplace from './Marketplace'
 import Messages from './Messages'
+import CatchAlerts from './CatchAlerts'
+import Orders from './Orders'
 import Carousel from './components/Carousel/Carousel'
 import GradientText from './components/GradientText/GradientText'
 import SpotlightCard from './components/SpotlightCard/SpotlightCard'
@@ -28,6 +30,8 @@ const MessageIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="
 const LogoutIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
 const RefreshIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
 const WavesIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
+const BellIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+const ClipboardIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
 const WindIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>
 const AlertIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
 const ShieldIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -183,9 +187,11 @@ function Sidebar({ user, activeNav, onNav, onLogout }) {
   const navItems = [
     { id: 'dashboard', icon: <DashIcon />,     label: 'Dashboard' },
     { id: 'planner',   icon: <CalendarIcon />, label: 'Trip Planner' },
-    { id: 'trips',     icon: <TripIcon />,     label: 'My Trips' },
-    { id: 'market',    icon: <ShopIcon />,     label: 'Marketplace' },
-    { id: 'messages',  icon: <MessageIcon />,  label: 'Messages' },
+    { id: 'trips',         icon: <TripIcon />,      label: 'My Trips' },
+    { id: 'catch-alerts', icon: <BellIcon />,      label: 'Catch Alerts' },
+    { id: 'orders',        icon: <ClipboardIcon />, label: 'Orders' },
+    { id: 'market',        icon: <ShopIcon />,      label: 'Marketplace' },
+    { id: 'messages',      icon: <MessageIcon />,   label: 'Messages' },
   ]
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
@@ -1065,10 +1071,12 @@ export default function FishermanDashboard({ user, token, onLogout }) {
     <div className="db-shell">
       <Sidebar user={user} activeNav={activeNav} onNav={setActiveNav} onLogout={onLogout} />
       <main className="db-main">
-        {activeNav === 'planner' ? <TripPlanner token={token} /> :
-         activeNav === 'trips'  ? <MyTrips token={token} /> :
-         activeNav === 'market' ? <Marketplace token={token} /> :
-         activeNav === 'messages' ? <Messages token={token} userProfile={user} /> :
+        {activeNav === 'planner'      ? <TripPlanner token={token} /> :
+         activeNav === 'trips'        ? <MyTrips token={token} /> :
+         activeNav === 'catch-alerts' ? <CatchAlerts token={token} role="FISHERMAN" /> :
+         activeNav === 'orders'       ? <Orders token={token} role="FISHERMAN" /> :
+         activeNav === 'market'       ? <Marketplace token={token} /> :
+         activeNav === 'messages'     ? <Messages token={token} userProfile={user} /> :
          (
           <div className="db-content">
             {/* ── Header ── */}

@@ -215,7 +215,8 @@ function AddCatchForm({ tripId, token, species, onAdded, onCancel }) {
   const [search, setSearch]             = useState('')
   const [selectedSpecies, setSelected]  = useState(null)
   const [showDropdown, setShowDropdown] = useState(false)
-  const [quantity, setQuantity]         = useState('')
+  const [estimate, setEstimate]         = useState('')
+  const [kg, setKg]                     = useState('')
   const [price, setPrice]               = useState('')
   const [notes, setNotes]               = useState('')
   const [submitting, setSubmitting]     = useState(false)
@@ -234,13 +235,14 @@ function AddCatchForm({ tripId, token, species, onAdded, onCancel }) {
   async function submit(e) {
     e.preventDefault()
     if (!selectedSpecies)                    { setError('Please select a species'); return }
-    if (!quantity || Number(quantity) < 0.1) { setError('Quantity must be at least 0.1 kg'); return }
+    if (!estimate.trim()) { setError('Please provide a quantity estimate (e.g. 2 baskets)'); return }
     setSubmitting(true)
     setError(null)
     try {
       await apiPost(`/trips/${tripId}/catches`, token, {
         speciesId:           selectedSpecies.id,
-        quantityKg:          Number(quantity),
+        quantityEstimate:    estimate.trim(),
+        quantityKg:          kg ? Number(kg) : undefined,
         estimatedPricePerKg: price ? Number(price) : null,
         notes:               notes.trim() || null,
       })
@@ -277,18 +279,30 @@ function AddCatchForm({ tripId, token, species, onAdded, onCancel }) {
       </div>
       <div className="catch-form__row">
         <label className="trip-form__label">
-          Quantity (kg) *
+          Estimate (e.g. 2 baskets) *
+          <input
+            className="trip-form__input"
+            type="text"
+            placeholder="Weight/Volume estimate"
+            value={estimate}
+            onChange={e => setEstimate(e.target.value)}
+            required
+          />
+        </label>
+        <label className="trip-form__label">
+          Weight (kg) <span style={{ opacity: 0.5, fontSize: '11px' }}>optional, if you have a scale</span>
           <input
             className="trip-form__input"
             type="number"
             min="0.1"
             step="0.01"
-            placeholder="0.00"
-            value={quantity}
-            onChange={e => setQuantity(e.target.value)}
-            required
+            placeholder="e.g. 12.5"
+            value={kg}
+            onChange={e => setKg(e.target.value)}
           />
         </label>
+      </div>
+      <div className="catch-form__row">
         <label className="trip-form__label">
           Price / kg
           <input
@@ -318,10 +332,72 @@ function AddCatchForm({ tripId, token, species, onAdded, onCancel }) {
   )
 }
 
+// ─── SettleCatchModal ────────────────────────────────────────────────────────
+
+function SettleCatchModal({ tripId, catchLog, token, onSettled, onCancel }) {
+  const [kg, setKg] = useState('')
+  const [price, setPrice] = useState('')
+  const [buyer, setBuyer] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+
+  async function submit(e) {
+    e.preventDefault()
+    if (!kg || Number(kg) < 0.1) { setError('Weight must be at least 0.1'); return }
+    if (!price || Number(price) < 0) { setError('Invalid price'); return }
+    setSubmitting(true)
+    setError(null)
+    try {
+      await apiPut(`/trips/${tripId}/catches/${catchLog.id}/settle`, token, {
+        settledKg: Number(kg),
+        settledPricePerKg: Number(price),
+        buyerName: buyer.trim() || null
+      })
+      onSettled()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="confirm-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <form className="confirm-box" onSubmit={submit}>
+        <p className="confirm-box__title">✅ Settle Catch</p>
+        <p className="confirm-box__msg">Confirm the final weight and price for <b>{catchLog.species.commonName}</b>.</p>
+        <p className="confirm-box__msg" style={{ marginTop: '-8px' }}>Estimated: {catchLog.quantityEstimate || `${catchLog.quantityKg} kg`}</p>
+        {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+        
+        <label className="trip-form__label">
+          Actual weight (kg) *
+          <input className="trip-form__input" type="number" min="0.1" step="0.01" value={kg} onChange={e => setKg(e.target.value)} required />
+        </label>
+        
+        <label className="trip-form__label">
+          Agreed price/kg *
+          <input className="trip-form__input" type="number" min="0" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
+        </label>
+        
+        <label className="trip-form__label">
+          Sold to (Vendor name)
+          <input className="trip-form__input" type="text" placeholder="e.g. Aling Nena" value={buyer} onChange={e => setBuyer(e.target.value)} />
+        </label>
+
+        <div className="trip-form__actions" style={{ marginTop: '16px' }}>
+          <button type="button" className="trip-btn trip-btn--ghost" onClick={onCancel} disabled={submitting}>Cancel</button>
+          <button type="submit" className="trip-btn trip-btn--primary" disabled={submitting}>{submitting ? 'Saving...' : 'Confirm Settle'}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // ─── CatchLogsSection ─────────────────────────────────────────────────────────
 
 function CatchLogsSection({ trip, token, species, catches, loading, error, onAdded, onRetry }) {
   const [showForm, setShowForm] = useState(false)
+  const [settleCatch, setSettleCatch] = useState(null)
 
   return (
     <div className="trips-card">
@@ -354,14 +430,17 @@ function CatchLogsSection({ trip, token, species, catches, loading, error, onAdd
               <div key={c.id} className="catch-card">
                 <div>
                   <p className="catch-card__species">{c.species.commonName}</p>
+                  <p className="catch-card__detail">{c.quantityEstimate || `${c.quantityKg} kg`} {c.isSettled ? '' : ' | Not settled'}</p>
+                  {c.isSettled && <p className="catch-card__detail" style={{ color: '#6EE7B7' }}>Settled: {c.settledKg}kg @ ₱{c.settledPricePerKg}/kg{c.buyerName ? ` — Sold to ${c.buyerName}` : ''}</p>}
                   {c.notes && <p className="catch-card__detail">{c.notes}</p>}
                 </div>
                 <div className="catch-card__qty">
-                  <div>{c.quantityKg} kg</div>
-                  {c.estimatedPricePerKg && (
-                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
-                      ₱{c.estimatedPricePerKg}/kg
-                    </div>
+                  {c.isSettled ? (
+                    <div>₱{(c.settledKg * c.settledPricePerKg).toLocaleString('en-PH')}</div>
+                  ) : trip.status === 'COMPLETED' ? (
+                    <button className="trip-btn trip-btn--ghost" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setSettleCatch(c)}>Settle</button>
+                  ) : (
+                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Not settled</span>
                   )}
                 </div>
               </div>
@@ -384,6 +463,15 @@ function CatchLogsSection({ trip, token, species, catches, loading, error, onAdd
           >
             + Add Catch
           </button>
+        )}
+        {settleCatch && (
+          <SettleCatchModal
+            tripId={trip.id}
+            catchLog={settleCatch}
+            token={token}
+            onSettled={() => { setSettleCatch(null); onAdded(); }}
+            onCancel={() => setSettleCatch(null)}
+          />
         )}
       </div>
     </div>
@@ -518,11 +606,12 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
 // ─── TripHistoryCard ──────────────────────────────────────────────────────────
 
 function TripHistoryCard({ trip, token }) {
-  const [open, setOpen]       = useState(false)
-  const [catches, setCatches] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
-  const [fetched, setFetched] = useState(false)
+  const [open, setOpen]           = useState(false)
+  const [catches, setCatches]     = useState([])
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState(null)
+  const [fetched, setFetched]     = useState(false)
+  const [settleCatch, setSettle]  = useState(null)
 
   async function fetchCatches() {
     setLoading(true)
@@ -619,22 +708,48 @@ function TripHistoryCard({ trip, token }) {
                 <thead>
                   <tr>
                     <th>Species</th>
-                    <th>Qty (kg)</th>
-                    <th>Price/kg</th>
-                    <th>Notes</th>
+                    <th>Estimate</th>
+                    <th>Settlement</th>
+                    {trip.status === 'COMPLETED' && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
                   {catches.map(c => (
                     <tr key={c.id}>
                       <td>{c.species.commonName}</td>
-                      <td>{c.quantityKg}</td>
-                      <td>{c.estimatedPricePerKg ? `₱${c.estimatedPricePerKg}` : '—'}</td>
-                      <td>{c.notes || '—'}</td>
+                      <td>{c.quantityEstimate || `${c.quantityKg} kg`}</td>
+                      <td>
+                        {c.isSettled
+                          ? <span style={{ color: '#6EE7B7' }}>{c.settledKg}kg @ ₱{c.settledPricePerKg}/kg{c.buyerName ? ` · ${c.buyerName}` : ''}</span>
+                          : <span style={{ color: 'rgba(255,255,255,0.35)' }}>Not settled</span>
+                        }
+                      </td>
+                      {trip.status === 'COMPLETED' && (
+                        <td>
+                          {!c.isSettled && (
+                            <button
+                              className="trip-btn trip-btn--ghost"
+                              style={{ padding: '4px 10px', fontSize: '12px' }}
+                              onClick={() => setSettle(c)}
+                            >
+                              Settle
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+            {settleCatch && (
+              <SettleCatchModal
+                tripId={trip.id}
+                catchLog={settleCatch}
+                token={token}
+                onSettled={() => { setSettle(null); fetchCatches() }}
+                onCancel={() => setSettle(null)}
+              />
             )}
           </div>
         </div>

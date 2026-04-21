@@ -4,6 +4,8 @@ import './vendor.css'
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
 import Marketplace from './Marketplace'
 import Messages from './Messages'
+import CatchAlerts from './CatchAlerts'
+import Orders from './Orders'
 import GradientText from './components/GradientText/GradientText'
 import SpotlightCard from './components/SpotlightCard/SpotlightCard'
 import {
@@ -129,6 +131,19 @@ const TrendIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
     <polyline points="16 7 22 7 22 13"/>
+  </svg>
+)
+const BellIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+)
+const ClipboardIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+    <path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>
   </svg>
 )
 
@@ -740,9 +755,11 @@ function VendorSidebar({ user, activeNav, onNav, onLogout }) {
   const [collapsed, setCollapsed] = useState(false)
   const navItems = [
     { id: 'dashboard', icon: <DashIcon />,  label: 'Dashboard' },
-    { id: 'listings',  icon: <ListIcon />,  label: 'My Listings' },
-    { id: 'market',    icon: <ShopIcon />,  label: 'Marketplace' },
-    { id: 'messages',  icon: <MessageIcon />, label: 'Messages' },
+    { id: 'listings',     icon: <ListIcon />,      label: 'My Listings' },
+    { id: 'market',       icon: <ShopIcon />,      label: 'Marketplace' },
+    { id: 'catch-alerts', icon: <BellIcon />,      label: 'Catch Alerts' },
+    { id: 'orders',       icon: <ClipboardIcon />, label: 'Orders' },
+    { id: 'messages',     icon: <MessageIcon />,   label: 'Messages' },
   ]
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
@@ -1219,8 +1236,10 @@ export default function VendorDashboard({ user, token, onLogout }) {
       <VendorSidebar user={user} activeNav={activeNav} onNav={setActiveNav} onLogout={onLogout} />
 
       <main className="db-main">
-        {activeNav === 'market' ? <Marketplace token={token} /> : 
-         activeNav === 'messages' ? <Messages token={token} userProfile={user} initialContact={jumpContact} /> : 
+        {activeNav === 'market'       ? <Marketplace token={token} /> :
+         activeNav === 'catch-alerts' ? <CatchAlerts token={token} role="VENDOR" /> :
+         activeNav === 'orders'       ? <Orders token={token} role="VENDOR" /> :
+         activeNav === 'messages'     ? <Messages token={token} userProfile={user} initialContact={jumpContact} /> :
          (
           <div className="db-content">
             {/* ── Header ── */}
