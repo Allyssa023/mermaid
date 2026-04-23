@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import './planner.css'
+import './design-system.css'
+import './light-compat.css'
 import { apiGet, apiPut } from './api'
 import StartTripModal from './components/StartTripModal'
 import InterestModal from './components/InterestModal'

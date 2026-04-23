@@ -1,84 +1,28 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import './dashboard.css'
+import './design-system.css'
+import './light-compat.css'
 import { apiGet } from './api'
+import { I } from './icons'
 import MyTrips from './MyTrips'
 import TripPlanner from './TripPlanner'
 import Marketplace from './Marketplace'
 import Messages from './Messages'
 import CatchAlerts from './CatchAlerts'
 import Orders from './Orders'
-import Carousel from './components/Carousel/Carousel'
-import GradientText from './components/GradientText/GradientText'
-import SpotlightCard from './components/SpotlightCard/SpotlightCard'
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 
-// ── Icons ──────────────────────────────────────────────────────────────────────
-const Icon = ({ d, size = 18, ...rest }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...rest}>
-    <path d={d} />
-  </svg>
-)
-
-const DashIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-const TripIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l1-8 4.5 4 3.5-8 3.5 8 4.5-4 1 8H3z"/></svg>
-const CalendarIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-const ShopIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" x2="21" y1="6" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-const MessageIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-const LogoutIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-const RefreshIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-const WavesIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></svg>
-const BellIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-const ClipboardIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
-const WindIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg>
-const AlertIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-const ShieldIcon = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-const AnchorIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>
-const TempIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
-const DropletIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-const CompassIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
-const PlusIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-const XIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-const GridIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function riskClass(level) {
-  if (level === 'SAFE') return 'safe'
-  if (level === 'CAUTION') return 'caution'
-  return 'unsafe'
-}
-
-function riskColor(level) {
-  if (level === 'SAFE') return 'var(--safe)'
-  if (level === 'CAUTION') return 'var(--caution)'
-  return 'var(--unsafe)'
-}
-
-function severityClass(s) {
-  if (s === 'LOW') return 'low'
-  if (s === 'MEDIUM') return 'medium'
-  if (s === 'HIGH') return 'high'
-  return 'critical'
-}
-
-function overallRisk(zones) {
-  if (!zones?.length) return null
-  if (zones.some(z => z.risk.level === 'UNSAFE')) return 'UNSAFE'
-  if (zones.some(z => z.risk.level === 'CAUTION')) return 'CAUTION'
-  return 'SAFE'
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function windDir(deg) {
   if (deg == null) return ''
-  return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(deg / 45) % 8]
+  return ['N','NE','E','SE','S','SW','W','NW'][Math.round(deg / 45) % 8]
 }
 
-function fmt(val, unit = '', decimals = 1) {
+function fmt(val, unit = '', dec = 1) {
   if (val == null || isNaN(val)) return '—'
-  return `${Number(val).toFixed(decimals)}${unit}`
+  return `${Number(val).toFixed(dec)}${unit}`
 }
 
 function fmtTime(iso) {
@@ -86,491 +30,484 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
 }
 
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
+function fmtDuration(startedAt) {
+  if (!startedAt) return '—'
+  const ms = Date.now() - new Date(startedAt).getTime()
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
 }
 
-// ── useCountUp hook ────────────────────────────────────────────────────────────
-
-function useCountUp(target, duration = 1200, decimals = 1) {
-  const [val, setVal] = useState(0)
-  const rafRef = useRef(null)
-  const startRef = useRef(null)
-
-  useEffect(() => {
-    if (target == null || isNaN(target) || target === 0) { setVal(0); return }
-    startRef.current = null
-    const animate = (ts) => {
-      if (!startRef.current) startRef.current = ts
-      const p = Math.min((ts - startRef.current) / duration, 1)
-      const eased = 1 - Math.pow(1 - p, 3)
-      setVal(+(target * eased).toFixed(decimals))
-      if (p < 1) rafRef.current = requestAnimationFrame(animate)
-    }
-    rafRef.current = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [target, duration, decimals])
-
-  return val
+function overallRisk(zones) {
+  if (!zones?.length) return null
+  if (zones.some(z => z.risk?.level === 'UNSAFE')) return 'UNSAFE'
+  if (zones.some(z => z.risk?.level === 'CAUTION')) return 'CAUTION'
+  return 'SAFE'
 }
 
-// ── Forecast generation ────────────────────────────────────────────────────────
+function riskLabel(r) {
+  if (r === 'SAFE') return 'favorable'
+  if (r === 'CAUTION') return 'manageable'
+  return 'dangerous'
+}
 
 function generateForecast(baseWave = 1.2, baseWind = 18) {
   const now = new Date()
-  return Array.from({ length: 48 }, (_, i) => {
+  return Array.from({ length: 24 }, (_, i) => {
     const h = new Date(now.getTime() + i * 3_600_000)
     const hour = h.getHours()
-    const waveSine = Math.sin((hour / 12) * Math.PI)
-    const wave = Math.max(0.1, baseWave + waveSine * 0.4 + (Math.random() - 0.5) * 0.15)
-    const windSine = Math.sin(((hour - 14) / 12) * Math.PI)
-    const wind = Math.max(2, baseWind + windSine * 7 + (Math.random() - 0.5) * 2.5)
-    const label = i === 0 ? 'Now' : (i % 6 === 0 ? `+${i}h` : '')
-    return { label, fullLabel: i === 0 ? 'Now' : `+${i}h`, wave: +wave.toFixed(2), wind: +wind.toFixed(1) }
+    const wave = Math.max(0.1, baseWave + Math.sin((hour / 12) * Math.PI) * 0.4 + (Math.random() - 0.5) * 0.1)
+    const wind = Math.max(2, baseWind + Math.sin(((hour - 14) / 12) * Math.PI) * 7 + (Math.random() - 0.5) * 2)
+    return {
+      label: i === 0 ? 'Now' : (i % 6 === 0 ? `+${i}h` : ''),
+      hour: h.getHours(),
+      wave: +wave.toFixed(2),
+      wind: +wind.toFixed(1),
+    }
   })
 }
 
-// ── Advisory severity counts ───────────────────────────────────────────────────
-
-function advisoryCounts(advisories) {
-  const counts = { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 }
-  advisories.forEach(a => { counts[a.severity] = (counts[a.severity] || 0) + 1 })
-  return [
-    { name: 'Low',      value: counts.LOW,      color: 'var(--safe)' },
-    { name: 'Medium',   value: counts.MEDIUM,   color: 'var(--caution)' },
-    { name: 'High',     value: counts.HIGH,      color: 'var(--amber)' },
-    { name: 'Critical', value: counts.CRITICAL,  color: 'var(--unsafe)' },
-  ].filter(d => d.value > 0)
+function bestWindow(forecastData) {
+  if (!forecastData?.length) return null
+  let bestScore = Infinity, bestStart = 0
+  const windowSize = 3
+  for (let i = 0; i <= forecastData.length - windowSize; i++) {
+    const slice = forecastData.slice(i, i + windowSize)
+    const score = slice.reduce((s, p) => s + p.wave * 2 + p.wind * 0.04, 0) / windowSize
+    if (score < bestScore) { bestScore = score; bestStart = i }
+  }
+  const start = forecastData[bestStart]
+  const end   = forecastData[Math.min(bestStart + 2, forecastData.length - 1)]
+  const fmtH  = h => `${h % 12 || 12}${h < 12 ? 'am' : 'pm'}`
+  return {
+    label:    `${fmtH(start.hour)} – ${fmtH(end.hour)}`,
+    wave:     forecastData.slice(bestStart, bestStart + 3).reduce((s, p) => s + p.wave, 0) / 3,
+    wind:     forecastData.slice(bestStart, bestStart + 3).reduce((s, p) => s + p.wind, 0) / 3,
+    hoursAway: bestStart,
+  }
 }
 
-// ── Custom Chart Tooltip ───────────────────────────────────────────────────────
+// ── Rail Sidebar ───────────────────────────────────────────────────────────────
 
-function SeaTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip__label">{payload[0]?.payload?.fullLabel || label}</p>
-      {payload.map((p, i) => (
-        <div key={i} className="chart-tooltip__row">
-          <span className="chart-tooltip__dot" style={{ background: p.color }} />
-          <span>{p.name}: <strong>{p.value}{p.name === 'Wave' ? 'm' : ' km/h'}</strong></span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function ZoneBarTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null
-  const d = payload[0]?.payload
-  return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip__label">{d?.name}</p>
-      <div className="chart-tooltip__row">
-        <span className="chart-tooltip__dot" style={{ background: d?.color }} />
-        <span>Wave: <strong>{d?.wave}m</strong></span>
-      </div>
-      <div className="chart-tooltip__row" style={{ color: 'var(--text-2)', fontSize: '11px' }}>
-        Risk: {d?.risk}
-      </div>
-    </div>
-  )
-}
-
-// ── Sidebar ────────────────────────────────────────────────────────────────────
-
-function Sidebar({ user, activeNav, onNav, onLogout }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const navItems = [
-    { id: 'dashboard', icon: <DashIcon />,     label: 'Dashboard' },
-    { id: 'planner',   icon: <CalendarIcon />, label: 'Trip Planner' },
-    { id: 'trips',         icon: <TripIcon />,      label: 'My Trips' },
-    { id: 'catch-alerts', icon: <BellIcon />,      label: 'Catch Alerts' },
-    { id: 'orders',        icon: <ClipboardIcon />, label: 'Orders' },
-    { id: 'market',        icon: <ShopIcon />,      label: 'Marketplace' },
-    { id: 'messages',      icon: <MessageIcon />,   label: 'Messages' },
+function Rail({ page, setPage, user, onLogout }) {
+  const items = [
+    { id: 'dashboard',    icon: 'Dashboard',  label: 'Dashboard' },
+    { id: 'planner',      icon: 'Calendar',   label: 'Trip Planner' },
+    { id: 'trips',        icon: 'Anchor',     label: 'My Trips' },
+    { id: 'catch-alerts', icon: 'Bell',       label: 'Catch Alerts' },
+    { id: 'orders',       icon: 'Clipboard',  label: 'Orders' },
+    { id: 'market',       icon: 'Store',      label: 'Marketplace' },
+    { id: 'messages',     icon: 'Message',    label: 'Messages' },
   ]
+
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     : 'FI'
+  const firstName = user?.fullName?.split(' ')[0] || 'Fisherman'
 
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-      <div className="sidebar__header">
-        <img src="/logo.png" alt="MERMAID" className="sidebar__logo-img" style={{ width: 48, height: 48, objectFit: 'contain' }} />
-        <span className="sidebar__brand">Mermaid</span>
-        <button className="sidebar__toggle" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand' : 'Collapse'}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
+    <aside className="rail">
+      <div className="rail__logo">
+        <div className="rail__logo-mark">M</div>
       </div>
 
-      <nav className="sidebar__nav">
-        <p className="sidebar__nav-label">Navigation</p>
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            className={`sidebar__link${activeNav === item.id ? ' sidebar__link--on' : ''}`}
-            onClick={() => onNav(item.id)}
-            title={collapsed ? item.label : undefined}
-          >
-            <span className="sidebar__link-icon">{item.icon}</span>
-            <span className="sidebar__link-text">{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <div className="rail__items">
+        <div className="rail__label">Workspace</div>
+        {items.map(it => {
+          const Icon = I[it.icon]
+          return (
+            <div
+              key={it.id}
+              className={`rail-item${page === it.id ? ' rail-item--on' : ''}`}
+              onClick={() => setPage(it.id)}
+              data-tip={it.label}
+            >
+              <div className="rail-item__icon"><Icon size={18} /></div>
+              <div className="rail-item__text">{it.label}</div>
+            </div>
+          )
+        })}
 
-      <div className="sidebar__bottom">
-        <button className="sidebar__link" onClick={() => onNav('profile')} title={collapsed ? 'Profile' : undefined}>
-          <span className="sidebar__avatar">{initials}</span>
-          <div className="sidebar__user-info">
-            <span className="sidebar__user-name">{user?.fullName?.split(' ')[0] || 'Profile'}</span>
-            <span className="sidebar__user-role">Fisherman</span>
+        <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
+        <div className="rail-item" onClick={onLogout} data-tip="Sign out">
+          <div className="rail-item__icon"><I.Logout size={18} /></div>
+          <div className="rail-item__text">Sign Out</div>
+        </div>
+        <div className="rail-item" data-tip="Help">
+          <div className="rail-item__icon"><I.Help size={18} /></div>
+          <div className="rail-item__text">Help</div>
+        </div>
+      </div>
+
+      <div className="rail__bottom">
+        <div className="rail__user">
+          <div className="rail__avatar">{initials}</div>
+          <div className="rail__user-info">
+            <span className="rail__user-name">{firstName}</span>
+            <span className="rail__user-role">Fisherman</span>
           </div>
-        </button>
-        <button className="sidebar__link sidebar__link--logout" onClick={onLogout} title={collapsed ? 'Sign Out' : undefined}>
-          <span className="sidebar__link-icon"><LogoutIcon /></span>
-          <span className="sidebar__link-text">Sign Out</span>
-        </button>
+        </div>
       </div>
     </aside>
   )
 }
 
+// ── Topbar ─────────────────────────────────────────────────────────────────────
 
-// ── Hero Card ──────────────────────────────────────────────────────────────────
-
-function HeroCard({ overall, loading }) {
-  const meta = {
-    SAFE:    { label: 'SAFE TO FISH',  sub: 'All monitored zones show favorable sea conditions.', icon: <ShieldIcon /> },
-    CAUTION: { label: 'USE CAUTION',   sub: 'Some zones have elevated risk. Check zone details before sailing.', icon: <AlertIcon /> },
-    UNSAFE:  { label: 'DO NOT SAIL',   sub: 'Dangerous conditions detected. Stay ashore until conditions improve.', icon: <AlertIcon /> },
+function Topbar({ page }) {
+  const labels = {
+    dashboard:    'Dashboard',
+    planner:      'Trip Planner',
+    trips:        'My Trips',
+    'catch-alerts': 'Catch Alerts',
+    orders:       'Orders',
+    market:       'Marketplace',
+    messages:     'Messages',
   }
-  const m = overall ? meta[overall] : null
-  const cls = overall ? riskClass(overall) : 'neutral'
-
   return (
-    <div className={`hero-card hero-card--${cls}`} style={{ animation: 'fadeup 0.4s ease' }}>
-      <div className="hero-card__bg" />
-      <div className="hero-card__inner">
-        <div className={`hero-card__icon`}>
-          {loading ? <WavesIcon /> : (m?.icon || <ShieldIcon />)}
-        </div>
-        <div>
-          <p className="hero-card__eyebrow">Sea Condition Status</p>
-          {loading
-            ? <div className="skeleton" style={{ height: '2.2rem', width: '220px', marginBottom: '8px' }} />
-            : <h2 className="hero-card__status">
-                <GradientText
-                  colors={overall === 'SAFE' ? ['#00f5a0', '#00d9f5', '#00f5a0'] : overall === 'CAUTION' ? ['#fbbf24', '#f59e0b', '#fbbf24'] : ['#ff4d4d', '#ff1744', '#ff4d4d']}
-                  animationSpeed={5}
-                >
-                  {m?.label || 'Loading…'}
-                </GradientText>
-              </h2>
-          }
-          {!loading && <p className="hero-card__sub">{m?.sub || 'Awaiting data…'}</p>}
-        </div>
+    <div className="topbar">
+      <div className="crumbs">
+        <span>Mermaid</span>
+        <span>/</span>
+        <strong>{labels[page] || page}</strong>
       </div>
+      <div className="topbar__spacer" />
+      <div className="topbar__search">
+        <I.Search size={14} />
+        <input placeholder="Search trips, zones, vendors…" />
+        <kbd>⌘K</kbd>
+      </div>
+      <button className="topbar__icon-btn" title="Notifications">
+        <I.Bell size={16} />
+      </button>
+      <button className="topbar__icon-btn" title="Help">
+        <I.Help size={16} />
+      </button>
     </div>
   )
 }
 
-// ── KPI Card ───────────────────────────────────────────────────────────────────
+// ── Forecast Chart ─────────────────────────────────────────────────────────────
 
-function KPICard({ label, rawValue, unit = '', decimals = 1, icon, iconVariant, sub, loading }) {
-  const counted = useCountUp(loading ? 0 : (rawValue ?? 0), 1200, decimals)
-  const display = loading ? '—' : (rawValue == null || isNaN(rawValue) ? '—' : `${counted}${unit}`)
-
+function ForecastChart({ data }) {
   return (
-    <SpotlightCard className="kpi-card" spotlightColor="rgba(0, 210, 190, 0.08)">
-      <div className={`kpi-card__icon-wrap${iconVariant ? ` kpi-card__icon-wrap--${iconVariant}` : ''}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="kpi-card__label">{label}</p>
-        <p className="kpi-card__value">{display}</p>
-      </div>
-      {sub && <p className="kpi-card__sub">{sub}</p>}
-    </SpotlightCard>
+    <ResponsiveContainer width="100%" height={160}>
+      <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="waveGradL" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="oklch(0.55 0.09 220)" stopOpacity={0.18} />
+            <stop offset="95%" stopColor="oklch(0.55 0.09 220)" stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="windGradL" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor="oklch(0.72 0.11 75)" stopOpacity={0.12} />
+            <stop offset="95%" stopColor="oklch(0.72 0.11 75)" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="2 4" stroke="#E5E4DD" vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={{ fill: '#8A90A0', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+          axisLine={false} tickLine={false}
+        />
+        <YAxis
+          tick={{ fill: '#8A90A0', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
+          axisLine={false} tickLine={false}
+        />
+        <Tooltip
+          contentStyle={{
+            background: '#FFFFFF', border: '1px solid #E5E4DD',
+            borderRadius: 10, fontFamily: 'Geist, sans-serif', fontSize: 12, color: '#0E1116',
+          }}
+        />
+        <Area type="monotone" dataKey="wave" name="Wave (m)"
+          stroke="oklch(0.55 0.09 220)" strokeWidth={1.5}
+          fill="url(#waveGradL)" dot={false}
+          activeDot={{ r: 3, fill: 'oklch(0.55 0.09 220)', stroke: '#fff', strokeWidth: 2 }}
+        />
+        <Area type="monotone" dataKey="wind" name="Wind (km/h)"
+          stroke="oklch(0.72 0.11 75)" strokeWidth={1.5} strokeDasharray="3 3"
+          fill="url(#windGradL)" dot={false}
+          activeDot={{ r: 3, fill: 'oklch(0.72 0.11 75)', stroke: '#fff', strokeWidth: 2 }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   )
 }
 
-// ── Sea Conditions Area Chart ─────────────────────────────────────────────────
+// ── Zone Carousel ──────────────────────────────────────────────────────────────
 
-function SeaConditionsChart({ forecast }) {
-  const [range, setRange] = useState(24)
-  const data = forecast.slice(0, range)
+function ZoneCarousel({ zones, loading }) {
+  const [idx, setIdx] = useState(0)
+  const timerRef = useRef(null)
+
+  const resetTimer = useCallback(() => {
+    clearInterval(timerRef.current)
+    if (zones.length > 1) {
+      timerRef.current = setInterval(() => {
+        setIdx(i => (i + 1) % zones.length)
+      }, 3500)
+    }
+  }, [zones.length])
+
+  useEffect(() => {
+    resetTimer()
+    return () => clearInterval(timerRef.current)
+  }, [resetTimer])
+
+  const go = (n) => {
+    setIdx((idx + n + zones.length) % zones.length)
+    resetTimer()
+  }
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[1,2,3].map(i => (
+          <div key={i} style={{ height: 48, background: 'var(--paper-2)', borderRadius: 8, animation: 'shimmer 1.4s infinite' }} />
+        ))}
+      </div>
+    )
+  }
+
+  if (!zones.length) {
+    return (
+      <div className="empty-ds">
+        <I.Waves size={24} />
+        <div className="empty-ds__title">No zone data</div>
+      </div>
+    )
+  }
+
+  const z = zones[idx]
+  const r = z.risk?.level ?? 'SAFE'
+  const riskColor = r === 'SAFE' ? 'var(--safe)' : r === 'CAUTION' ? 'var(--caution)' : 'var(--unsafe)'
+  const riskBg    = r === 'SAFE' ? 'var(--safe-soft)' : r === 'CAUTION' ? 'var(--caution-soft)' : 'var(--unsafe-soft)'
 
   return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Sea Conditions Forecast</p>
-          <p className="chart-card__sub">Wave height (m) & wind speed (km/h)</p>
+    <div style={{ position: 'relative' }}>
+      {/* Slide panel */}
+      <div
+        key={idx}
+        style={{
+          background: riskBg,
+          border: `1px solid ${riskColor}22`,
+          borderRadius: 'var(--r-md)',
+          padding: '18px 20px',
+          transition: 'opacity 0.3s',
+          animation: 'fadeSlide 0.35s ease',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)' }}>{z.zoneName}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{z.region}</div>
+          </div>
+          <span className={`chip chip--${r === 'SAFE' ? 'safe' : r === 'CAUTION' ? 'caution' : 'unsafe'} chip--dot`}>
+            {r}
+          </span>
         </div>
-        <div className="chart-toggle">
-          {[24, 48].map(r => (
-            <button
-              key={r}
-              className={`chart-toggle__btn${range === r ? ' chart-toggle__btn--on' : ''}`}
-              onClick={() => setRange(r)}
-            >
-              {r}h
-            </button>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+          {[
+            { label: 'Wave',  value: fmt(z.marine?.waveHeightM, '', 1),             unit: 'm' },
+            { label: 'Swell', value: fmt(z.marine?.swellHeightM, '', 1),            unit: 'm' },
+            { label: 'Wind',  value: z.weather?.windSpeedKmh != null ? `${Math.round(z.weather.windSpeedKmh)} ${windDir(z.weather?.windDirectionDeg)}` : '—', unit: 'km/h' },
+            { label: 'Temp',  value: z.weather?.temperatureC != null ? `${Math.round(z.weather.temperatureC)}°` : '—', unit: 'C' },
+          ].map(m => (
+            <div key={m.label} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>
+                {m.value}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: 2 }}>
+                {m.label}
+              </div>
+            </div>
           ))}
         </div>
-      </div>
 
-      <div className="chart-legend">
-        <div className="chart-legend__item">
-          <span className="chart-legend__dot" style={{ background: 'var(--accent)' }} />
-          Wave Height (m)
-        </div>
-        <div className="chart-legend__item">
-          <span className="chart-legend__dot" style={{ background: 'var(--amber)' }} />
-          Wind Speed (km/h)
-        </div>
-      </div>
-
-      <ResponsiveContainer width="100%" height={200}>
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-          <defs>
-            <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor="var(--accent)" stopOpacity={0.22} />
-              <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="windGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor="var(--amber)" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="var(--amber)" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<SeaTooltip />} />
-          <Area
-            type="monotone"
-            dataKey="wave"
-            name="Wave"
-            stroke="var(--accent)"
-            strokeWidth={2}
-            fill="url(#waveGrad)"
-            dot={false}
-            activeDot={{ r: 4, fill: 'var(--accent)', stroke: '#06090F', strokeWidth: 2 }}
-            isAnimationActive
-            animationDuration={1200}
-          />
-          <Area
-            type="monotone"
-            dataKey="wind"
-            name="Wind"
-            stroke="var(--amber)"
-            strokeWidth={2}
-            fill="url(#windGrad)"
-            dot={false}
-            activeDot={{ r: 4, fill: 'var(--amber)', stroke: '#06090F', strokeWidth: 2 }}
-            isAnimationActive
-            animationDuration={1400}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ── Zone Risk Bar Chart (Power BI style) ──────────────────────────────────────
-
-// ── Wave-tip bar shape ─────────────────────────────────────────────────────────
-
-function WaveBar(props) {
-  const { x, y, width, height, fill } = props
-  if (!height || height <= 0 || !width || width <= 0) return null
-
-  const wA = 7  // wave amplitude (peak-to-trough = 2×wA)
-  const w = width
-
-  // Wave runs along the top edge of the bar.
-  // Path: bottom-left → up left → 2 full sine waves (quadratic bézier) → down right → close
-  // Peaks sit at y - wA (above bar top), troughs at y + wA (dipping slightly in)
-  const path = [
-    `M ${x},${y + height}`,
-    `L ${x},${y}`,
-    `Q ${x + w * 0.125},${y - wA}   ${x + w * 0.25},${y}`,
-    `Q ${x + w * 0.375},${y + wA}   ${x + w * 0.5},${y}`,
-    `Q ${x + w * 0.625},${y - wA}   ${x + w * 0.75},${y}`,
-    `Q ${x + w * 0.875},${y + wA}   ${x + w},${y}`,
-    `L ${x + w},${y + height}`,
-    'Z',
-  ].join(' ')
-
-  // Gradient fill id unique per bar (use x position)
-  const gid = `wbg-${Math.round(x)}`
-
-  return (
-    <g>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stopColor={fill} stopOpacity="0.95" />
-          <stop offset="100%" stopColor={fill} stopOpacity="0.35" />
-        </linearGradient>
-      </defs>
-      {/* Glow layer */}
-      <path d={path} fill={fill} opacity={0.12} style={{ filter: 'blur(6px)' }} />
-      {/* Main bar */}
-      <path d={path} fill={`url(#${gid})`} />
-    </g>
-  )
-}
-
-// ── Zone Risk Bars (vertical columns) ─────────────────────────────────────────
-
-function ZoneRiskBars({ zones }) {
-  const data = zones
-    .filter(z => z.marine?.waveHeightM != null)
-    .map(z => ({
-      name: z.zoneName.replace(/\s+Zone$/i, ''),  // trim trailing "Zone" for brevity
-      wave: +z.marine.waveHeightM.toFixed(2),
-      risk: z.risk.level,
-      color: riskColor(z.risk.level),
-    }))
-    .sort((a, b) => b.wave - a.wave)
-
-  if (!data.length) return null
-
-  // Attach color per entry so WaveBar can read it via Cell
-  const CustomBar = (props) => {
-    const entry = data[props.index]
-    return <WaveBar {...props} fill={entry?.color ?? 'var(--safe)'} />
-  }
-
-  return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Zone Wave Heights</p>
-          <p className="chart-card__sub">Current wave height per fishing zone</p>
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} margin={{ top: 24, right: 16, left: 0, bottom: 8 }} barCategoryGap="28%">
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-          <XAxis
-            dataKey="name"
-            tick={{ fill: 'rgba(238,244,255,0.45)', fontSize: 10.5, fontFamily: 'Outfit' }}
-            axisLine={false}
-            tickLine={false}
-            interval={0}
-            tickFormatter={v => v.length > 14 ? v.slice(0, 13) + '…' : v}
-          />
-          <YAxis
-            tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
-            axisLine={false}
-            tickLine={false}
-            unit="m"
-            width={34}
-          />
-          <Tooltip content={<ZoneBarTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-          <Bar dataKey="wave" shape={<CustomBar />} isAnimationActive animationDuration={1000} label={{ position: 'top', fill: 'rgba(238,244,255,0.35)', fontSize: 10, fontFamily: 'Outfit', formatter: v => `${v}m` }} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ── Advisory Donut Chart ───────────────────────────────────────────────────────
-
-function AdvisoryDonut({ advisories }) {
-  const data = advisoryCounts(advisories)
-  const total = advisories.length
-
-  if (!total) {
-    return (
-      <div className="chart-card">
-        <div className="chart-card__head">
-          <div>
-            <p className="chart-card__title">Advisory Breakdown</p>
-            <p className="chart-card__sub">Severity distribution</p>
+        {z.risk?.advisory && (
+          <div style={{
+            marginTop: 12, fontSize: 12, color: 'var(--ink-3)',
+            borderTop: `1px solid ${riskColor}22`, paddingTop: 10, lineHeight: 1.5,
+          }}>
+            {z.risk.advisory}
           </div>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+        <button
+          onClick={() => go(-1)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: '2px 6px', borderRadius: 6 }}
+          title="Previous zone"
+        >
+          <I.ChevL size={16} />
+        </button>
+
+        {/* Dots */}
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          {zones.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => { setIdx(i); resetTimer() }}
+              style={{
+                width: i === idx ? 18 : 6, height: 6,
+                borderRadius: 3, border: 'none', cursor: 'pointer',
+                background: i === idx ? 'var(--accent)' : 'var(--line-2)',
+                padding: 0, transition: 'width 0.25s, background 0.25s',
+              }}
+            />
+          ))}
         </div>
-        <div className="adv-panel__empty" style={{ borderStyle: 'none', paddingTop: 16, paddingBottom: 20 }}>
-          <div className="adv-panel__empty-icon"><ShieldIcon /></div>
-          <p className="adv-panel__empty-title">All Clear</p>
-          <p className="adv-panel__empty-sub">No active advisories</p>
+
+        <button
+          onClick={() => go(1)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', padding: '2px 6px', borderRadius: 6 }}
+          title="Next zone"
+        >
+          <I.ChevR size={16} />
+        </button>
+      </div>
+
+      {/* Zone counter */}
+      <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--ink-5)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+        {idx + 1} / {zones.length} zones
+      </div>
+    </div>
+  )
+}
+
+// ── Active Trip Card ───────────────────────────────────────────────────────────
+
+function ActiveTripCard({ trip, onViewTrip }) {
+  const [duration, setDuration] = useState(() => fmtDuration(trip?.startedAt))
+
+  useEffect(() => {
+    if (!trip) return
+    const id = setInterval(() => setDuration(fmtDuration(trip.startedAt)), 10_000)
+    return () => clearInterval(id)
+  }, [trip])
+
+  if (!trip) {
+    return (
+      <div className="card card--paper">
+        <div className="card__head" style={{ marginBottom: 0 }}>
+          <div>
+            <div className="card__title">Active trip</div>
+            <div className="card__sub">No trip in progress</div>
+          </div>
+          <I.Anchor size={18} style={{ color: 'var(--ink-5)' }} />
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button className="btn btn--accent" onClick={onViewTrip} style={{ width: '100%', justifyContent: 'center' }}>
+            <I.Plus size={14} /> Start a trip
+          </button>
         </div>
       </div>
     )
   }
 
+  const checklistItems = trip.checklist ? Object.values(trip.checklist).filter(v => typeof v === 'boolean') : []
+  const checkedCount   = checklistItems.filter(Boolean).length
+  const totalItems     = checklistItems.length
+  const pct            = totalItems > 0 ? Math.round((checkedCount / totalItems) * 100) : 0
+
   return (
-    <div className="chart-card">
-      <div className="chart-card__head">
+    <div className="card" style={{ borderLeft: '3px solid var(--safe)', background: 'var(--safe-soft)' }}>
+      <div className="card__head" style={{ marginBottom: 12 }}>
         <div>
-          <p className="chart-card__title">Advisory Breakdown</p>
-          <p className="chart-card__sub">Severity distribution</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="chip chip--safe chip--dot" style={{ fontSize: 10 }}>ACTIVE</span>
+          </div>
+          <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', marginTop: 4 }}>
+            {trip.tripName || `Trip #${trip.id}`}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>
+            {duration}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 1 }}>elapsed</div>
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
-        <ResponsiveContainer width="100%" height={180}>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={52}
-              outerRadius={76}
-              paddingAngle={3}
-              dataKey="value"
-              isAnimationActive
-              animationDuration={1000}
-            >
-              {data.map((entry, i) => (
-                <Cell key={i} fill={entry.color} stroke="transparent" />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(v, n) => [v, n]}
-              contentStyle={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-2)',
-                borderRadius: '10px',
-                fontFamily: 'Outfit',
-                fontSize: '12px',
-                color: 'var(--text-1)',
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-        {/* Center label */}
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center', pointerEvents: 'none',
-        }}>
-          <p style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.8rem', fontWeight: 900, lineHeight: 1, color: 'var(--text-1)' }}>{total}</p>
-          <p style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Active</p>
+      {trip.vesselName && (
+        <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <I.Anchor size={12} /> {trip.vesselName}
         </div>
+      )}
+
+      {totalItems > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--ink-4)', marginBottom: 5 }}>
+            <span>Safety checklist</span>
+            <span style={{ fontFamily: 'var(--font-mono)' }}>{checkedCount}/{totalItems}</span>
+          </div>
+          <div style={{ height: 4, background: 'var(--line)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${pct}%`, background: 'var(--safe)', borderRadius: 2, transition: 'width 0.4s' }} />
+          </div>
+        </div>
+      )}
+
+      <button className="btn" onClick={onViewTrip} style={{ width: '100%', justifyContent: 'center' }}>
+        View trip details →
+      </button>
+    </div>
+  )
+}
+
+// ── Best Window Card ───────────────────────────────────────────────────────────
+
+function BestWindowCard({ forecast, loading }) {
+  if (loading) {
+    return (
+      <div className="card card--paper">
+        <div className="card__title" style={{ marginBottom: 8 }}>Today's best window</div>
+        <div style={{ height: 60, background: 'var(--paper-2)', borderRadius: 8 }} />
+      </div>
+    )
+  }
+
+  const win = bestWindow(forecast)
+  if (!win) return null
+
+  return (
+    <div className="card card--paper" style={{ borderLeft: '3px solid var(--accent)' }}>
+      <div className="card__head" style={{ marginBottom: 10 }}>
+        <div>
+          <div className="card__title">Today's best window</div>
+          <div className="card__sub">Lowest wave & wind in forecast</div>
+        </div>
+        <I.Star size={16} style={{ color: 'var(--accent)' }} />
       </div>
 
-      <div className="chart-legend" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
-        {data.map((d, i) => (
-          <div key={i} className="chart-legend__item">
-            <span className="chart-legend__dot" style={{ background: d.color }} />
-            {d.name}: {d.value}
+      <div style={{
+        background: 'var(--accent-soft)', borderRadius: 'var(--r-sm)',
+        padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 10,
+      }}>
+        <span style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--accent-ink)' }}>
+          {win.label}
+        </span>
+        {win.hoursAway === 0 ? (
+          <span className="chip chip--accent chip--dot">Now</span>
+        ) : (
+          <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>in {win.hoursAway}h</span>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {[
+          { label: 'Avg wave', value: fmt(win.wave, 'm', 1) },
+          { label: 'Avg wind', value: fmt(win.wind, ' km/h', 0) },
+        ].map(m => (
+          <div key={m.label} style={{
+            background: 'var(--surface)', borderRadius: 'var(--r-sm)',
+            padding: '8px 12px', border: '1px solid var(--line)',
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 600, fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>{m.value}</div>
+            <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 2 }}>{m.label}</div>
           </div>
         ))}
       </div>
@@ -578,470 +515,293 @@ function AdvisoryDonut({ advisories }) {
   )
 }
 
-// ── Advisories Panel ──────────────────────────────────────────────────────────
+// ── Dashboard Page ─────────────────────────────────────────────────────────────
 
-function AdvisoriesPanel({ advisories, loading }) {
-  const sevLabels = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical' }
+function DashboardPage({ conditions, advisories, forecast, activeTrip, loading, error, onLoad, user, setPage }) {
+  const overall  = conditions ? overallRisk(conditions.zones) : null
+  const zones    = conditions?.zones ?? []
 
-  return (
-    <div className="adv-panel">
-      <div className="adv-panel__head">
-        <p className="adv-panel__title">Active Advisories</p>
-        {!loading && advisories.length > 0 && (
-          <span className="adv-panel__count">{advisories.length}</span>
-        )}
-      </div>
-      <div className="adv-panel__list">
-        {loading ? (
-          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="skeleton" style={{ height: 72 }} />
-            <div className="skeleton" style={{ height: 72 }} />
-            <div className="skeleton" style={{ height: 72 }} />
-          </div>
-        ) : advisories.length > 0 ? (
-          advisories.map(a => (
-            <div key={a.id} className={`adv-item adv-item--${severityClass(a.severity)}`}>
-              <div className="adv-item__stripe" />
-              <div className="adv-item__body">
-                <div className="adv-item__header">
-                  <span className={`sev-chip sev-chip--${severityClass(a.severity)}`}>
-                    {sevLabels[a.severity] || a.severity}
-                  </span>
-                  <span className="adv-item__area">{a.affectedArea}</span>
-                </div>
-                <p className="adv-item__title">{a.title}</p>
-                <p className="adv-item__msg">{a.message}</p>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="adv-panel__empty">
-            <div className="adv-panel__empty-icon"><ShieldIcon /></div>
-            <p className="adv-panel__empty-title">All Clear</p>
-            <p className="adv-panel__empty-sub">No active advisories at this time.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
+  const zonesWithWave = zones.filter(z => z.marine?.waveHeightM != null)
+  const avgWave = zonesWithWave.length
+    ? zonesWithWave.reduce((s, z) => s + z.marine.waveHeightM, 0) / zonesWithWave.length
+    : null
+  const maxWind = zones.length
+    ? Math.max(...zones.map(z => z.weather?.windSpeedKmh ?? 0))
+    : null
+  const representativeZone = zones.find(z => z.risk?.level === 'SAFE') ?? zones[0]
+  const safeCount    = zones.filter(z => z.risk?.level === 'SAFE').length
+  const cautionCount = zones.filter(z => z.risk?.level === 'CAUTION').length
+  const unsafeCount  = zones.filter(z => z.risk?.level === 'UNSAFE').length
 
-// ── Zone Carousel Icon (header slot for each carousel card) ──────────────────
-
-function ZoneCarouselIcon({ zone }) {
-  const rc = riskClass(zone.risk.level)
-  return (
-    <div className="zone-carousel-icon">
-      <span className={`risk-badge risk-badge--${rc}`}>
-        {zone.risk.level === 'SAFE' ? '✓' : zone.risk.level === 'CAUTION' ? '!' : '✕'}
-        {' '}{zone.risk.level}
-      </span>
-      <div className="zone-carousel-stats">
-        <div className="zone-carousel-stat">
-          <WavesIcon />
-          <span>{fmt(zone.marine?.waveHeightM, 'm')}</span>
-        </div>
-        <div className="zone-carousel-stat">
-          <WindIcon />
-          <span>{zone.weather?.windSpeedKmh != null ? `${Math.round(zone.weather.windSpeedKmh)} km/h` : '—'}</span>
-        </div>
-        <div className="zone-carousel-stat">
-          <TempIcon />
-          <span>{zone.weather?.temperatureC != null ? `${Math.round(zone.weather.temperatureC)}°C` : '—'}</span>
-        </div>
-        <div className="zone-carousel-stat">
-          <DropletIcon />
-          <span>{fmt(zone.weather?.precipitationMm, ' mm', 1)}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Zone Cards ────────────────────────────────────────────────────────────────
-
-function ZoneCard({ zone, onClick }) {
-  const rc = riskClass(zone.risk.level)
-  return (
-    <div className={`zone-card zone-card--${rc}`} onClick={onClick}>
-      <div className="zone-card__top-bar" />
-      <div className="zone-card__body">
-        <div className="zone-card__head">
-          <div>
-            <p className="zone-card__name">{zone.zoneName}</p>
-            <p className="zone-card__region">{zone.region}</p>
-          </div>
-          <span className={`risk-badge risk-badge--${rc}`}>
-            {zone.risk.level === 'SAFE' ? '✓' : zone.risk.level === 'CAUTION' ? '!' : '✕'}
-            {' '}{zone.risk.level}
-          </span>
-        </div>
-
-        <p className="zone-card__advisory">{zone.risk.advisory}</p>
-
-        <div className="zone-card__stats">
-          <div className="zone-stat">
-            <div className="zone-stat__icon"><WavesIcon /></div>
-            <span className="zone-stat__value">{fmt(zone.marine?.waveHeightM, 'm')}</span>
-            <span className="zone-stat__label">Wave</span>
-          </div>
-          <div className="zone-stat">
-            <div className="zone-stat__icon"><WindIcon /></div>
-            <span className="zone-stat__value">
-              {zone.weather?.windSpeedKmh != null ? `${Math.round(zone.weather.windSpeedKmh)}` : '—'}
-            </span>
-            <span className="zone-stat__label">{zone.weather?.windDirectionDeg != null ? windDir(zone.weather.windDirectionDeg) : 'km/h'}</span>
-          </div>
-          <div className="zone-stat">
-            <div className="zone-stat__icon"><TempIcon /></div>
-            <span className="zone-stat__value">
-              {zone.weather?.temperatureC != null ? `${Math.round(zone.weather.temperatureC)}°` : '—'}
-            </span>
-            <span className="zone-stat__label">Temp</span>
-          </div>
-          <div className="zone-stat">
-            <div className="zone-stat__icon"><DropletIcon /></div>
-            <span className="zone-stat__value">
-              {fmt(zone.weather?.precipitationMm, '', 1)}
-            </span>
-            <span className="zone-stat__label">Rain mm</span>
-          </div>
-        </div>
-        <p className="zone-card__click-hint"><GridIcon /> View details</p>
-      </div>
-    </div>
-  )
-}
-
-// ── Zone Detail Modal ─────────────────────────────────────────────────────────
-
-function ZoneModal({ zone, onClose }) {
-  const [tab, setTab] = useState('overview')
-  const rc = riskClass(zone.risk.level)
-
-  // Escape key
-  useEffect(() => {
-    const handle = (e) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handle)
-    return () => window.removeEventListener('keydown', handle)
-  }, [onClose])
-
-  const scoreWidth = zone.risk.score != null ? `${(zone.risk.score / 10) * 100}%` : '0%'
+  const hour = new Date().getHours()
+  const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const firstName = user?.fullName?.split(' ')[0] || 'Captain'
 
   return (
-    <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal">
-        {/* Header */}
-        <div className="modal__header">
-          <div>
-            <p className="modal__region">{zone.region}</p>
-            <h2 className="modal__zone-name">{zone.zoneName}</h2>
-            <div style={{ marginTop: 10 }}>
-              <span className={`risk-badge risk-badge--${rc} risk-badge--lg`}>
-                {zone.risk.level === 'SAFE' ? '✓ SAFE' : zone.risk.level === 'CAUTION' ? '! CAUTION' : '✕ UNSAFE'}
-              </span>
-            </div>
-          </div>
-          <button className="modal__close" onClick={onClose}><XIcon /></button>
+    <div className="page">
+      {/* Header */}
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">{greet}, {firstName}</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            Today on the <em>water</em>.
+          </h1>
+          <p className="page__sub">
+            {zones.length} zones monitored · Updated {fmtTime(new Date().toISOString())}
+          </p>
         </div>
-
-        {/* Tabs */}
-        <div className="modal__tabs">
-          {['overview', 'marine', 'weather'].map(t => (
-            <button
-              key={t}
-              className={`modal__tab${tab === t ? ' modal__tab--on' : ''}`}
-              onClick={() => setTab(t)}
-            >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* Body */}
-        <div className="modal__body">
-          {tab === 'overview' && (
-            <>
-              <p className="modal__advisory-text">{zone.risk.advisory}</p>
-
-              {zone.risk.score != null && (
-                <>
-                  <p className="modal__score-label">Risk Score</p>
-                  <div className="modal__score-bar-wrap">
-                    <div className={`modal__score-bar modal__score-bar--${rc}`} style={{ width: scoreWidth }} />
-                  </div>
-                  <div className="modal__score-nums">
-                    <span>0 — Safe</span>
-                    <span style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1rem', fontWeight: 700, color: 'var(--text-1)' }}>
-                      {zone.risk.score}/10
-                    </span>
-                    <span>10 — Extreme</span>
-                  </div>
-                </>
-              )}
-
-              {zone.risk.factors?.length > 0 && (
-                <>
-                  <p className="modal__score-label" style={{ marginTop: 8 }}>Risk Factors</p>
-                  <div className="modal__factors">
-                    {zone.risk.factors.map((f, i) => (
-                      <span key={i} className="factor-chip">{f}</span>
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {(zone.lat != null || zone.observedAt) && (
-                <div className="modal__data-grid" style={{ marginTop: 16 }}>
-                  {zone.lat != null && (
-                    <div className="modal__data-item">
-                      <p className="modal__data-label">Coordinates</p>
-                      <p className="modal__data-value" style={{ fontSize: '1rem' }}>
-                        {zone.lat?.toFixed(4)}, {zone.lng?.toFixed(4)}
-                      </p>
-                    </div>
-                  )}
-                  {zone.observedAt && (
-                    <div className="modal__data-item">
-                      <p className="modal__data-label">Observed At</p>
-                      <p className="modal__data-value" style={{ fontSize: '1rem' }}>
-                        {fmtTime(zone.observedAt)}
-                      </p>
-                    </div>
-                  )}
-                  {zone.dataSource && (
-                    <div className="modal__data-item">
-                      <p className="modal__data-label">Data Source</p>
-                      <p className="modal__data-value" style={{ fontSize: '1rem' }}>{zone.dataSource}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-
-          {tab === 'marine' && (
-            <div className="modal__data-grid">
-              <div className="modal__data-item">
-                <p className="modal__data-label">Wave Height</p>
-                <p className="modal__data-value">{fmt(zone.marine?.waveHeightM, '', 2)}</p>
-                <p className="modal__data-unit">meters</p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Swell Height</p>
-                <p className="modal__data-value">{fmt(zone.marine?.swellHeightM, '', 2)}</p>
-                <p className="modal__data-unit">meters</p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Swell Period</p>
-                <p className="modal__data-value">{fmt(zone.marine?.swellPeriodS, '', 1)}</p>
-                <p className="modal__data-unit">seconds</p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Swell Direction</p>
-                <p className="modal__data-value">
-                  {zone.marine?.swellDirectionDeg != null
-                    ? `${Math.round(zone.marine.swellDirectionDeg)}°`
-                    : '—'}
-                </p>
-                <p className="modal__data-unit">{windDir(zone.marine?.swellDirectionDeg) || 'degrees'}</p>
-              </div>
-            </div>
-          )}
-
-          {tab === 'weather' && (
-            <div className="modal__data-grid">
-              <div className="modal__data-item">
-                <p className="modal__data-label">Wind Speed</p>
-                <p className="modal__data-value">{zone.weather?.windSpeedKmh != null ? Math.round(zone.weather.windSpeedKmh) : '—'}</p>
-                <p className="modal__data-unit">
-                  km/h {windDir(zone.weather?.windDirectionDeg)}
-                </p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Wind Gusts</p>
-                <p className="modal__data-value">{zone.weather?.windGustsKmh != null ? Math.round(zone.weather.windGustsKmh) : '—'}</p>
-                <p className="modal__data-unit">km/h</p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Temperature</p>
-                <p className="modal__data-value">{zone.weather?.temperatureC != null ? `${Math.round(zone.weather.temperatureC)}°` : '—'}</p>
-                <p className="modal__data-unit">Celsius</p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Precipitation</p>
-                <p className="modal__data-value">{fmt(zone.weather?.precipitationMm, '', 1)}</p>
-                <p className="modal__data-unit">mm</p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Cloud Cover</p>
-                <p className="modal__data-value">
-                  {zone.weather?.cloudCoverPct != null ? `${Math.round(zone.weather.cloudCoverPct)}` : '—'}
-                </p>
-                <p className="modal__data-unit">percent</p>
-              </div>
-              <div className="modal__data-item">
-                <p className="modal__data-label">Wind Direction</p>
-                <p className="modal__data-value" style={{ fontSize: '1.1rem' }}>
-                  {zone.weather?.windDirectionDeg != null ? `${Math.round(zone.weather.windDirectionDeg)}°` : '—'}
-                </p>
-                <p className="modal__data-unit">{windDir(zone.weather?.windDirectionDeg) || '—'}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Marketplace Status Widget ──────────────────────────────────────────────────
-
-function MarketplaceStatus({ token }) {
-  const [listings, setListings] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(0)
-  const pageSize = 4
-
-  useEffect(() => {
-    let active = true
-    apiGet('/marketplace/listings', token)
-      .then(data => {
-        if (active) {
-          setListings(data || [])
-          setLoading(false)
-        }
-      })
-      .catch(() => {
-        if (active) setLoading(false)
-      })
-    return () => { active = false }
-  }, [token])
-
-  const totalPages = Math.max(1, Math.ceil(listings.length / pageSize))
-  const paginated = listings.slice(page * pageSize, (page + 1) * pageSize)
-
-  return (
-    <div className="zone-swap-section" style={{ marginTop: 24 }}>
-      <div className="zone-grid-header" style={{ marginBottom: 12 }}>
-        <p className="section-label"><ShopIcon /> Marketplace Status</p>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button 
-            disabled={page === 0} 
-            onClick={() => setPage(p => p - 1)}
-            style={{ 
-              opacity: page === 0 ? 0.3 : 1, 
-              cursor: page === 0 ? 'default' : 'pointer', 
-              background: 'var(--bg-card-2)', 
-              border: '1px solid var(--border)', 
-              borderRadius: 4, 
-              width: 24, 
-              height: 24, 
-              color: 'var(--text-2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14
-            }}
-          >
-            {'<'}
+        <div className="page__actions">
+          <button className="btn" onClick={onLoad} disabled={loading}>
+            <I.Refresh size={14} /> Refresh
           </button>
-          <button 
-            disabled={page >= totalPages - 1} 
-            onClick={() => setPage(p => p + 1)}
-            style={{ 
-              opacity: page >= totalPages - 1 ? 0.3 : 1, 
-              cursor: page >= totalPages - 1 ? 'default' : 'pointer', 
-              background: 'var(--bg-card-2)', 
-              border: '1px solid var(--border)', 
-              borderRadius: 4, 
-              width: 24, 
-              height: 24, 
-              color: 'var(--text-2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 14
-            }}
-          >
-            {'>'}
+          <button className="btn btn--primary" onClick={() => setPage('trips')}>
+            <I.Plus size={14} /> Start trip
           </button>
         </div>
       </div>
-      
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div className="skeleton" style={{ height: 60, borderRadius: 12 }} />
-          <div className="skeleton" style={{ height: 60, borderRadius: 12 }} />
-          <div className="skeleton" style={{ height: 60, borderRadius: 12 }} />
-        </div>
-      ) : listings.length === 0 ? (
-        <div className="empty-state" style={{ minHeight: 180 }}>
-           <div className="empty-state__icon" style={{ marginBottom: 12 }}><ShopIcon /></div>
-           <p className="empty-state__title">No Active Listings</p>
-           <p className="empty-state__sub">Market is currently quiet.</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {paginated.map(l => (
-            <div key={l.id} style={{ 
-              background: 'var(--bg-card-2)', 
-              padding: '12px 14px', 
-              borderRadius: 12, 
-              border: '1px solid var(--border)', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center' 
-            }}>
-               <div style={{ minWidth: 0, paddingRight: 8 }}>
-                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                   {l.fishSpecies?.commonName || 'Unknown Fish'}
-                 </p>
-                 <p style={{ fontSize: 11, color: 'var(--text-3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 2 }}>
-                   {l.vendorName || 'Vendor'} · {l.marketLocation?.name || 'Unknown Location'}
-                 </p>
-               </div>
-               <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>₱{l.offerPricePerKg}/kg</p>
-                 <p style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>Need {l.quantityNeeded}kg</p>
-               </div>
-            </div>
-          ))}
+
+      {error && (
+        <div style={{
+          padding: '12px 16px', background: 'var(--unsafe-soft)', border: '1px solid var(--unsafe)',
+          borderRadius: 'var(--r-md)', marginBottom: 18, fontSize: 13, color: 'var(--unsafe)',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <I.Alert size={14} /> {error}
+          <button className="btn btn--sm" onClick={onLoad} style={{ marginLeft: 'auto' }}>Retry</button>
         </div>
       )}
+
+      {/* Hero sea status */}
+      <div className="hero" style={{ marginBottom: 18 }}>
+        <div>
+          <div className="hero__eyebrow">
+            Sea Status · {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </div>
+          {loading ? (
+            <div style={{ height: 44, marginTop: 8, background: 'var(--line-soft)', borderRadius: 8 }} />
+          ) : (
+            <h2 className="hero__headline">
+              Conditions are <em>{overall ? riskLabel(overall) : '—'}</em>
+              {overall === 'CAUTION' ? ' — some zones need care.' :
+               overall === 'UNSAFE' ? ' — stay ashore today.' :
+               overall === 'SAFE'   ? ' — good day to fish.' : '.'}
+            </h2>
+          )}
+          {!loading && (
+            <p className="hero__sub">
+              {representativeZone ? representativeZone.risk?.advisory : 'Checking conditions…'}
+            </p>
+          )}
+          <div className="hero__row">
+            {!loading && safeCount > 0 && (
+              <span className="chip chip--safe chip--dot">{safeCount} zone{safeCount > 1 ? 's' : ''} safe</span>
+            )}
+            {!loading && cautionCount > 0 && (
+              <span className="chip chip--caution chip--dot">{cautionCount} zone{cautionCount > 1 ? 's' : ''} caution</span>
+            )}
+            {!loading && unsafeCount > 0 && (
+              <span className="chip chip--unsafe chip--dot">{unsafeCount} zone{unsafeCount > 1 ? 's' : ''} unsafe</span>
+            )}
+            {advisories.length > 0 && (
+              <span className="chip chip--dot">{advisories.length} active advisor{advisories.length > 1 ? 'ies' : 'y'}</span>
+            )}
+          </div>
+        </div>
+        <div className="hero__weather">
+          <div className="hero__weather-item">
+            <div className="eyebrow">Wave</div>
+            <div className="data">{loading ? '—' : fmt(avgWave, '', 1)}<small>m avg</small></div>
+          </div>
+          <div className="hero__weather-item">
+            <div className="eyebrow">Wind</div>
+            <div className="data">{loading ? '—' : fmt(maxWind, '', 0)}<small>km/h max</small></div>
+          </div>
+          <div className="hero__weather-item">
+            <div className="eyebrow">Air</div>
+            <div className="data">{loading ? '—' : fmt(representativeZone?.weather?.temperatureC, '', 0)}<small>°C</small></div>
+          </div>
+          <div className="hero__weather-item">
+            <div className="eyebrow">Advisories</div>
+            <div className="data">{loading ? '—' : advisories.length}<small> open</small></div>
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid--kpi" style={{ marginBottom: 18 }}>
+        <div className="kpi">
+          <div className="kpi__label">Avg wave height</div>
+          <div className="kpi__value">{loading ? '—' : fmt(avgWave, '', 1)}<sup>m</sup></div>
+          <div className="kpi__foot">
+            <span className="muted" style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>Across all zones</span>
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="kpi__label">Max wind speed</div>
+          <div className="kpi__value">{loading ? '—' : fmt(maxWind, '', 0)}<sup>km/h</sup></div>
+          <div className="kpi__foot">
+            <span className="muted" style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>Peak reading</span>
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="kpi__label">Active advisories</div>
+          <div className="kpi__value">{loading ? '—' : advisories.length}</div>
+          <div className="kpi__foot">
+            {advisories.some(a => ['HIGH','CRITICAL'].includes(a.severity))
+              ? <span className="delta-down">High priority</span>
+              : <span className="delta-up">All manageable</span>
+            }
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="kpi__label">Zones monitored</div>
+          <div className="kpi__value">{loading ? '—' : zones.length}</div>
+          <div className="kpi__foot">
+            <span className="muted" style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>Real-time data</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Two-column grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18 }}>
+        {/* LEFT — forecast + zone carousel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div className="card">
+            <div className="card__head">
+              <div>
+                <div className="card__title">24-hour sea forecast</div>
+                <div className="card__sub">Wave height (m) · Wind speed (km/h, dashed)</div>
+              </div>
+              <div className="row">
+                <span className="chip chip--accent chip--dot">Wave m</span>
+                <span className="chip chip--caution chip--dot">Wind km/h</span>
+              </div>
+            </div>
+            <ForecastChart data={forecast} />
+          </div>
+
+          <div className="card">
+            <div className="card__head" style={{ marginBottom: 14 }}>
+              <div>
+                <div className="card__title">Zone conditions</div>
+                <div className="card__sub">{zones.length} zones monitored</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {safeCount > 0 && <span className="chip chip--safe" style={{ fontSize: 10 }}>{safeCount} safe</span>}
+                {cautionCount > 0 && <span className="chip chip--caution" style={{ fontSize: 10 }}>{cautionCount} caution</span>}
+                {unsafeCount > 0 && <span className="chip chip--unsafe" style={{ fontSize: 10 }}>{unsafeCount} unsafe</span>}
+              </div>
+            </div>
+            <ZoneCarousel zones={zones} loading={loading} />
+          </div>
+        </div>
+
+        {/* RIGHT — active trip + best window + advisories + quick actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <ActiveTripCard trip={activeTrip} onViewTrip={() => setPage('trips')} />
+
+          <BestWindowCard forecast={forecast} loading={loading} />
+
+          {/* Active advisories */}
+          <div className="card">
+            <div className="card__head">
+              <div>
+                <div className="card__title">Active advisories</div>
+                <div className="card__sub">{advisories.length} open</div>
+              </div>
+              {advisories.length > 0 && (
+                <span className="chip chip--ink">{advisories.length}</span>
+              )}
+            </div>
+            {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[1,2].map(i => (
+                  <div key={i} style={{ height: 64, background: 'var(--paper-2)', borderRadius: 8 }} />
+                ))}
+              </div>
+            ) : advisories.length > 0 ? (
+              <div className="adv-list">
+                {advisories.slice(0, 3).map((a, i) => {
+                  const s = a.severity || 'LOW'
+                  const cls = s === 'LOW' ? 'low' : s === 'MEDIUM' ? 'med' : 'high'
+                  return (
+                    <div key={a.id ?? i} className="adv-item">
+                      <div className={`adv-item__icon adv-item__icon--${cls}`}>
+                        <I.Alert size={14} />
+                      </div>
+                      <div>
+                        <div className="adv-item__title">{a.title}</div>
+                        <div className="adv-item__msg">{a.message || a.msg}</div>
+                        <div className="adv-item__meta">{a.affectedArea || a.area}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="empty-ds">
+                <I.Shield size={22} />
+                <div className="empty-ds__title">All clear</div>
+                <p style={{ fontSize: 12, color: 'var(--ink-4)', marginTop: 4 }}>No active advisories</p>
+              </div>
+            )}
+          </div>
+
+          {/* Quick actions */}
+          <div className="card card--paper">
+            <div className="card__head" style={{ marginBottom: 8 }}>
+              <div className="card__title">Quick actions</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button className="btn btn--accent" onClick={() => setPage('planner')} style={{ justifyContent: 'center' }}>
+                <I.Calendar size={14} /> Plan a trip
+              </button>
+              <button className="btn" onClick={() => setPage('catch-alerts')} style={{ justifyContent: 'center' }}>
+                <I.Bell size={14} /> Catch alerts
+              </button>
+              <button className="btn" onClick={() => setPage('market')} style={{ justifyContent: 'center' }}>
+                <I.Store size={14} /> Browse marketplace
+              </button>
+              <button className="btn" onClick={() => setPage('orders')} style={{ justifyContent: 'center' }}>
+                <I.Clipboard size={14} /> View orders
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-// ── Main Dashboard ────────────────────────────────────────────────────────────
+// ── Main Export ────────────────────────────────────────────────────────────────
 
 export default function FishermanDashboard({ user, token, onLogout }) {
-  const [conditions, setConditions] = useState(null)
-  const [advisories, setAdvisories] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
-  const [activeNav, setActiveNav] = useState('dashboard')
-  const [selectedZone, setSelectedZone] = useState(null)
-  const [forecast, setForecast] = useState(() => generateForecast())
+  const [conditions,  setConditions]  = useState(null)
+  const [advisories,  setAdvisories]  = useState([])
+  const [activeTrip,  setActiveTrip]  = useState(null)
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState(null)
+  const [activeNav,   setActiveNav]   = useState('dashboard')
+  const [forecast,    setForecast]    = useState(() => generateForecast())
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [cond, adv] = await Promise.all([
+      const [cond, adv, tripList] = await Promise.all([
         apiGet('/marine/conditions', token),
         apiGet('/advisories?activeOnly=true', token),
+        apiGet('/trips?status=ACTIVE', token).catch(() => []),
       ])
       setConditions(cond)
       setAdvisories(adv)
-      setLastUpdated(new Date())
-      // Regenerate forecast based on actual data
-      const zones = cond?.zones ?? []
-      const waveBases = zones.map(z => z.marine?.waveHeightM).filter(v => v != null)
-      const windBases = zones.map(z => z.weather?.windSpeedKmh).filter(v => v != null)
-      const baseWave = waveBases.length ? waveBases.reduce((a, b) => a + b, 0) / waveBases.length : 1.2
-      const baseWind = windBases.length ? windBases.reduce((a, b) => a + b, 0) / windBases.length : 18
+      setActiveTrip(Array.isArray(tripList) ? tripList[0] ?? null : null)
+
+      const zones     = cond?.zones ?? []
+      const waveBases = zones.map(z => z.marine?.waveHeightM).filter(Boolean)
+      const windBases = zones.map(z => z.weather?.windSpeedKmh).filter(Boolean)
+      const baseWave  = waveBases.length ? waveBases.reduce((a, b) => a + b, 0) / waveBases.length : 1.2
+      const baseWind  = windBases.length ? windBases.reduce((a, b) => a + b, 0) / windBases.length : 18
       setForecast(generateForecast(baseWave, baseWind))
     } catch (err) {
       setError(err.message)
@@ -1052,25 +812,12 @@ export default function FishermanDashboard({ user, token, onLogout }) {
 
   useEffect(() => { load() }, [load])
 
-  const overall = conditions ? overallRisk(conditions.zones) : null
-
-  const zonesWithWave = conditions?.zones?.filter(z => z.marine?.waveHeightM != null) ?? []
-  const avgWave = zonesWithWave.length
-    ? zonesWithWave.reduce((s, z) => s + z.marine.waveHeightM, 0) / zonesWithWave.length
-    : null
-
-  const maxWind = conditions?.zones?.length
-    ? Math.max(...conditions.zones.map(z => z.weather?.windSpeedKmh ?? 0))
-    : null
-
-  const today = new Date().toLocaleDateString('en-PH', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  })
-
   return (
-    <div className="db-shell">
-      <Sidebar user={user} activeNav={activeNav} onNav={setActiveNav} onLogout={onLogout} />
-      <main className="db-main">
+    <div className="app" data-density="balanced">
+      <Rail page={activeNav} setPage={setActiveNav} user={user} onLogout={onLogout} />
+      <div className="main">
+        <Topbar page={activeNav} />
+
         {activeNav === 'planner'      ? <TripPlanner token={token} /> :
          activeNav === 'trips'        ? <MyTrips token={token} /> :
          activeNav === 'catch-alerts' ? <CatchAlerts token={token} role="FISHERMAN" /> :
@@ -1078,166 +825,20 @@ export default function FishermanDashboard({ user, token, onLogout }) {
          activeNav === 'market'       ? <Marketplace token={token} /> :
          activeNav === 'messages'     ? <Messages token={token} userProfile={user} /> :
          (
-          <div className="db-content">
-            {/* ── Header ── */}
-            <header className="db-header">
-              <div>
-                <h1 className="db-greeting">
-                  {greeting()}, <span className="db-greeting__name">{user?.fullName?.split(' ')[0] || 'Fisherman'}</span>
-                </h1>
-                <p className="db-date">{today}</p>
-              </div>
-              <div className="db-header-right">
-                {lastUpdated && (
-                  <span className="db-last-updated">Updated {fmtTime(lastUpdated.toISOString())}</span>
-                )}
-                <button
-                  className={`db-refresh${loading ? ' db-refresh--spinning' : ''}`}
-                  onClick={load}
-                  disabled={loading}
-                >
-                  <RefreshIcon />
-                  Refresh
-                </button>
-                <button className="db-trip-btn" onClick={() => setActiveNav('trips')}>
-                  <PlusIcon />
-                  New Trip
-                </button>
-              </div>
-            </header>
-
-            {/* ── Body grid ── */}
-            <div className="db-body">
-              {/* ── Left column ── */}
-              <div className="db-left">
-                {error && (
-                  <div className="db-error">
-                    <AlertIcon />
-                    <span>{error}</span>
-                    <button className="db-error__retry" onClick={load}>Retry</button>
-                  </div>
-                )}
-
-                {/* Hero */}
-                <HeroCard overall={overall} loading={loading} />
-
-                {/* KPI Row */}
-                <div className="kpi-row">
-                  <KPICard
-                    label="Avg Wave Height"
-                    rawValue={avgWave}
-                    unit="m"
-                    decimals={1}
-                    icon={<WavesIcon />}
-                    sub="Across all zones"
-                    loading={loading}
-                  />
-                  <KPICard
-                    label="Max Wind Speed"
-                    rawValue={maxWind}
-                    unit=" km/h"
-                    decimals={0}
-                    icon={<WindIcon />}
-                    iconVariant="amber"
-                    sub="Peak reading"
-                    loading={loading}
-                  />
-                  <KPICard
-                    label="Active Advisories"
-                    rawValue={advisories.length}
-                    unit=""
-                    decimals={0}
-                    icon={<AlertIcon />}
-                    iconVariant={advisories.some(a => ['HIGH','CRITICAL'].includes(a.severity)) ? '' : 'safe'}
-                    sub={advisories.length === 0 ? 'None issued' : `${advisories.filter(a => ['HIGH','CRITICAL'].includes(a.severity)).length} high priority`}
-                    loading={loading}
-                  />
-                  <KPICard
-                    label="Zones Monitored"
-                    rawValue={conditions?.zones?.length ?? null}
-                    unit=""
-                    decimals={0}
-                    icon={<CompassIcon />}
-                    sub="La Union waters"
-                    loading={loading}
-                  />
-                </div>
-
-                {/* Sea Conditions Chart */}
-                {!loading && <SeaConditionsChart forecast={forecast} />}
-                {loading && <div className="skeleton" style={{ height: 300, borderRadius: 18 }} />}
-
-                {/* Zone Risk Bars */}
-                {!loading && conditions?.zones?.length > 0 && (
-                  <ZoneRiskBars zones={conditions.zones} />
-                )}
-                {loading && <div className="skeleton" style={{ height: 200, borderRadius: 18 }} />}
-
-                {/* Zone Cards removed — now in right column CardSwap */}
-                <div style={{ display: 'none' }}>
-                </div>
-              </div>
-
-              {/* ── Right column ── */}
-              <div className="db-right">
-                <AdvisoriesPanel advisories={advisories} loading={loading} />
-                {!loading && <AdvisoryDonut advisories={advisories} />}
-                {loading && <div className="skeleton" style={{ height: 260, borderRadius: 18 }} />}
-
-                {/* ── Zone CardSwap ── */}
-                <div className="zone-swap-section">
-                  <div className="zone-grid-header" style={{ marginBottom: 8 }}>
-                    <p className="section-label"><GridIcon /> Fishing Zones</p>
-                    {!loading && conditions?.zones?.length > 0 && (
-                      <span className="section-count">{conditions.zones.length}</span>
-                    )}
-                  </div>
-
-                  {loading ? (
-                    <div className="skeleton" style={{ height: 280, borderRadius: 18 }} />
-                  ) : conditions?.zones?.length > 0 ? (
-                    <div className="zone-carousel-wrapper" onClick={e => {
-                      // find which carousel item is active and open its modal
-                      const el = e.target.closest('.carousel-item')
-                      if (!el) return
-                      const items = e.currentTarget.querySelectorAll('.carousel-item')
-                      const idx = Array.from(items).indexOf(el)
-                      if (idx >= 0 && conditions.zones[idx]) setSelectedZone(conditions.zones[idx])
-                    }}>
-                      <Carousel
-                        items={conditions.zones.map((z, i) => ({
-                          id: i,
-                          title: z.zoneName,
-                          description: z.region,
-                          icon: <ZoneCarouselIcon zone={z} />,
-                        }))}
-                        baseWidth={322}
-                        autoplay
-                        autoplayDelay={4000}
-                        pauseOnHover
-                        loop
-                      />
-                    </div>
-                  ) : (
-                    <div className="empty-state">
-                      <div className="empty-state__icon"><WavesIcon /></div>
-                      <p className="empty-state__title">No Zone Data</p>
-                      <p className="empty-state__sub">Zone data unavailable.</p>
-                    </div>
-                  )}
-                </div>
-
-                <MarketplaceStatus token={token} />
-              </div>
-            </div>
-          </div>
-         )}
-      </main>
-
-      {/* Zone Detail Modal */}
-      {selectedZone && (
-        <ZoneModal zone={selectedZone} onClose={() => setSelectedZone(null)} />
-      )}
+           <DashboardPage
+             conditions={conditions}
+             advisories={advisories}
+             forecast={forecast}
+             activeTrip={activeTrip}
+             loading={loading}
+             error={error}
+             onLoad={load}
+             user={user}
+             setPage={setActiveNav}
+           />
+         )
+        }
+      </div>
     </div>
   )
 }

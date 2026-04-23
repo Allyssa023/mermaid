@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
+import './design-system.css'
+import './light-compat.css'
 import { apiGet, apiPost, apiPut } from './api'
-import './orders.css'
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 

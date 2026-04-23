@@ -78,6 +78,6 @@ MARINE_API_KEY = os.environ.get("MARINE_API_KEY", "dev-marine-key-change-in-prod
 APP_VERSION = "1.0.0"
 CONDITIONS_CACHE_TTL = int(os.environ.get("CONDITIONS_CACHE_TTL", "900"))
 FORECAST_CACHE_TTL = int(os.environ.get("FORECAST_CACHE_TTL", "3600"))
-HTTP_TIMEOUT = float(os.environ.get("HTTP_TIMEOUT", "30.0"))
+HTTP_TIMEOUT = float(os.environ.get("HTTP_TIMEOUT", "8.0"))
 OPEN_METEO_MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
 OPEN_METEO_WEATHER_URL = "https://api.open-meteo.com/v1/forecast"

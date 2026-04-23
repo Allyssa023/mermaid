@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import './design-system.css'
+import './light-compat.css'
 import { Client } from '@stomp/stompjs'
 import { apiGet } from './api'
-import './messages.css'
 
 // Parse "Interested in X at Y.\nNote: Z" into { quote, note } or null
 function parseInterestMessage(content) {

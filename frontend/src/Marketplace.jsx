@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import './design-system.css'
+import './light-compat.css'
 import { apiGet, apiPost } from './api'
 import InterestModal from './components/InterestModal'
 

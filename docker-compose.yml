@@ -108,10 +108,13 @@ services:
       - MARINE_API_KEY=dev-marine-key-change-in-prod
       - ALLOWED_ORIGINS=http://backend:8080
       - DEBUG=True
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       - ./marine-service:/app
     command: >
-      sh -c "python manage.py migrate && gunicorn marine_project.wsgi:application --bind 0.0.0.0:8081 --workers 2"
+      sh -c "python manage.py migrate && gunicorn marine_project.wsgi:application --bind 0.0.0.0:8081 --workers 2 --timeout 120"
 
   # ── Frontend (React/Vite) ──────────────────────────────────────────────────
   frontend:
