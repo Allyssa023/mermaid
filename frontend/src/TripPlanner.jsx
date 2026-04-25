@@ -625,19 +625,18 @@ export default function TripPlanner({ token }) {
   return (
     <div className="planner">
       {/* Header */}
-      <div className="planner-header">
-        <div className="planner-header__left">
-          <h1 className="planner-header__title">Trip Planner</h1>
-          <p className="planner-header__sub">Plan your fishing trips around weather, advisories, and market demand</p>
+      <div className="page__head" style={{ marginBottom: 18 }}>
+        <div>
+          <div className="eyebrow">Planning</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>Trip <em>Planner</em></h1>
+          <p className="page__sub">Match upcoming days with forecasts, demand, and your capacity.</p>
         </div>
-        <div className="planner-header__right">
-          <button
-            className="planner-nav__today"
-            onClick={load}
-            disabled={loading}
-            style={{ display: 'flex', alignItems: 'center', gap: 5 }}
-          >
+        <div className="page__actions">
+          <button className="btn" onClick={load} disabled={loading}>
             {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+          <button className="btn btn--primary" onClick={() => setShowScheduleModal(true)}>
+            + New trip
           </button>
         </div>
       </div>

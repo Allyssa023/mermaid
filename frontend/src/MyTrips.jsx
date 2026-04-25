@@ -109,28 +109,36 @@ function Skeleton({ height = '120px', radius = '14px' }) {
 
 // ── TripTabs ──────────────────────────────────────────────────────────────────
 
-function TripTabs({ active, onChange, hasActiveTrip }) {
+function TripTabs({ active, onChange, hasActiveTrip, pastCount, plannedCount }) {
+  const tabs = [
+    { id: 'active',  label: 'Active',  count: hasActiveTrip ? 1 : null },
+    { id: 'past',    label: 'Past',    count: pastCount },
+    { id: 'planned', label: 'Planned', count: plannedCount },
+  ]
   return (
-    <div className="trips-tabs">
-      <button
-        className={`trips-tab${active === 'active' ? ' trips-tab--on' : ''}`}
-        onClick={() => onChange('active')}
-      >
-        Active Trip
-        {hasActiveTrip && <span className="trips-tab__dot" />}
-      </button>
-      <button
-        className={`trips-tab${active === 'past' ? ' trips-tab--on' : ''}`}
-        onClick={() => onChange('past')}
-      >
-        Past Trips
-      </button>
-      <button
-        className={`trips-tab${active === 'planned' ? ' trips-tab--on' : ''}`}
-        onClick={() => onChange('planned')}
-      >
-        Planned
-      </button>
+    <div className="row" style={{ gap: 4, marginBottom: 20, borderBottom: '1px solid var(--line)' }}>
+      {tabs.map(t => (
+        <button key={t.id}
+          onClick={() => onChange(t.id)}
+          style={{
+            padding: '10px 16px',
+            fontSize: 13,
+            fontWeight: 500,
+            color: active === t.id ? 'var(--ink)' : 'var(--ink-4)',
+            borderBottom: active === t.id ? '2px solid var(--ink)' : '2px solid transparent',
+            marginBottom: -1,
+          }}>
+          {t.label}
+          {t.count != null && (
+            <span style={{
+              marginLeft: 6,
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              color: active === t.id ? 'var(--ink-3)' : 'var(--ink-4)',
+            }}>{t.count}</span>
+          )}
+        </button>
+      ))}
     </div>
   )
 }
@@ -184,57 +192,53 @@ function SafetyChecklistSection({ trip, token, onSaved }) {
   const allDone = checkedCount === 6
   const barPct = (checkedCount / 6) * 100
 
+  const pct = Math.round((checkedCount / 6) * 100)
+
   return (
-    <div className="trips-card">
-      <div className="trips-card__header">
-        <span className="trips-card__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ShieldIcon size={16} /> Safety Checklist
-        </span>
-        <div className="trips-checklist-progress">
-          <div className="trips-checklist-bar-wrap">
-            <div
-              className="trips-checklist-bar-fill"
-              style={{
-                width: `${barPct}%`,
-                background: allDone ? 'var(--safe)' : checkedCount > 0 ? 'var(--caution)' : 'var(--border-2)',
-              }}
-            />
+    <div className="card">
+      <div className="card__head">
+        <div>
+          <div className="card__title">Pre-departure checklist</div>
+          <div className="card__sub">{checkedCount}/6 complete</div>
+        </div>
+        <div style={{
+          width: 40, height: 40, borderRadius: 99,
+          background: `conic-gradient(var(--accent) ${(checkedCount / 6) * 360}deg, var(--line-soft) 0)`,
+          display: 'grid', placeItems: 'center',
+        }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 99, background: 'var(--surface)',
+            display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600,
+            color: 'var(--ink-2)', fontFamily: 'var(--font-mono)',
+          }}>
+            {pct}%
           </div>
-          <span className={`trips-checklist-count${allDone ? ' trips-checklist-count--full' : ''}`}>
-            {checkedCount}/6
-          </span>
         </div>
       </div>
-      <div className="trips-card__body">
-        <div className="trips-pill-grid">
-          {CHECKLIST_FIELDS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              className={`trips-pill${values[key] ? ' trips-pill--checked' : ''}`}
-              onClick={() => toggle(key)}
-            >
-              <span className="trips-pill__box">
-                {values[key] && <CheckIcon size={10} />}
-              </span>
-              {label}
-            </button>
-          ))}
-        </div>
-        {saveError && <p className="trip-err" style={{ marginTop: 10 }}>{saveError}</p>}
-        {trip.checklist?.checklistCompletedAt && !dirty && (
-          <p className="checklist-saved" style={{ marginTop: 8 }}>
-            Saved {fmtDate(trip.checklist.checklistCompletedAt)}
-          </p>
-        )}
-        {dirty && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <button className="trip-btn trip-btn--primary" disabled={saving} onClick={save}>
-              {saving ? 'Saving…' : 'Save Checklist'}
-            </button>
-          </div>
-        )}
+      <div className="check-list">
+        {CHECKLIST_FIELDS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            className={`check-item${values[key] ? ' check-item--on' : ''}`}
+            onClick={() => toggle(key)}
+            style={{ cursor: 'pointer', background: 'none', border: 'none', width: '100%', textAlign: 'left', padding: 0 }}
+          >
+            <div className="check-item__box">
+              {values[key] && <CheckIcon size={10} />}
+            </div>
+            <span>{label}</span>
+          </button>
+        ))}
       </div>
+      {saveError && <p className="trip-err" style={{ marginTop: 10 }}>{saveError}</p>}
+      {dirty && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <button className="btn btn--accent btn--sm" disabled={saving} onClick={save}>
+            {saving ? 'Saving…' : 'Save Checklist'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -444,89 +448,75 @@ function CatchLogsSection({ trip, token, species, catches, loading, error, onAdd
   const [settleCatch, setSettle]    = useState(null)
 
   return (
-    <div className="trips-card">
-      <div className="trips-card__header">
-        <span className="trips-card__title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FishIcon size={16} /> Catch Logs
-        </span>
-        {catches.length > 0 && <span className="trips-card__count">{catches.length}</span>}
+    <div className="card">
+      <div className="card__head">
+        <div>
+          <div className="card__title">Catch log</div>
+          <div className="card__sub">{catches.length} entries</div>
+        </div>
+        <button className="btn btn--sm" onClick={() => setShowForm(true)}><FishIcon size={12} /> Add entry</button>
       </div>
-      <div className="trips-card__body">
-        {loading && <Skeleton height="60px" />}
-        {error && (
-          <div className="trip-err" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {error}
-            <button className="trip-btn trip-btn--ghost" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={onRetry}>Retry</button>
-          </div>
-        )}
-        {!loading && !error && catches.length === 0 && !showForm && (
-          <p className="trips-card__empty">No catches logged yet.</p>
-        )}
-        {!loading && catches.length > 0 && (
-          <div className="catch-log-list">
-            {catches.map(c => (
-              <div key={c.id} className="catch-log-item">
-                <div className="catch-log-item__left">
-                  <div className="catch-log-item__fish-icon"><FishIcon size={14} /></div>
-                  <div>
-                    <p className="catch-log-item__species">{c.species?.commonName ?? c.species}</p>
-                    <p className="catch-log-item__qty">{c.quantityEstimate || `${c.quantityKg} kg`}</p>
-                  </div>
-                </div>
-                <div className="catch-log-item__right">
-                  {c.isSettled ? (
-                    <>
-                      <span className="catch-log-item__settled-total">
-                        ₱{(c.settledKg * c.settledPricePerKg).toLocaleString('en-PH')}
-                      </span>
-                      <span className="catch-log-item__settled-detail">
-                        {c.settledKg}kg × ₱{c.settledPricePerKg}
-                      </span>
-                    </>
-                  ) : trip.status === 'COMPLETED' ? (
-                    <button className="trip-btn trip-btn--ghost" style={{ padding: '5px 12px', fontSize: '12px' }} onClick={() => setSettle(c)}>
-                      Settle
-                    </button>
-                  ) : (
-                    <>
-                      <span className="catch-log-item__bfar">BFAR ₱—/kg</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Unsettled</span>
-                    </>
-                  )}
+
+      {loading && <Skeleton height="60px" />}
+      {error && (
+        <div className="trip-err" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {error}
+          <button className="btn btn--sm" onClick={onRetry}>Retry</button>
+        </div>
+      )}
+      {!loading && !error && catches.length === 0 && !showForm && (
+        <p style={{ fontSize: 13, color: 'var(--ink-4)', padding: '8px 0' }}>No catches logged yet.</p>
+      )}
+      {!loading && catches.length > 0 && (
+        <div className="catch-log">
+          {[...catches].reverse().map(c => (
+            <div key={c.id} className="catch-entry">
+              <div className="catch-entry__dot" />
+              <div>
+                <div className="catch-entry__species">{c.species?.commonName ?? c.species}</div>
+                <div className="catch-entry__meta">
+                  {c.quantityEstimate ?? ''}
+                  {c.notes ? ` · ${c.notes}` : ''}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-        {showForm ? (
-          <div style={{ marginTop: 12 }}>
-            <AddCatchForm
-              tripId={trip.id}
-              token={token}
-              species={species}
-              onAdded={() => { setShowForm(false); onAdded() }}
-              onCancel={() => setShowForm(false)}
-            />
-          </div>
-        ) : (
-          <button
-            className="trip-btn trip-btn--primary"
-            style={{ fontSize: '13px', padding: '8px 18px', alignSelf: 'flex-start', marginTop: catches.length > 0 ? 12 : 0 }}
-            onClick={() => setShowForm(true)}
-          >
-            + Add Catch
-          </button>
-        )}
-        {settleCatch && (
-          <SettleCatchModal
+              {c.quantityKg != null && (
+                <div className="catch-entry__qty">{c.quantityKg}<small style={{ color: 'var(--ink-4)' }}>kg</small></div>
+              )}
+              {c.isSettled ? (
+                <div className="catch-entry__price">₱{c.settledPricePerKg}<small>/kg</small></div>
+              ) : trip.status === 'COMPLETED' ? (
+                <button className="btn btn--sm btn--ghost" onClick={() => setSettle(c)}>Settle</button>
+              ) : (
+                c.estimatedPricePerKg != null && (
+                  <div className="catch-entry__price">₱{c.estimatedPricePerKg}<small>/kg</small></div>
+                )
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{ marginTop: 12 }}>
+          <AddCatchForm
             tripId={trip.id}
-            catchLog={settleCatch}
             token={token}
-            onSettled={() => { setSettle(null); onAdded() }}
-            onCancel={() => setSettle(null)}
+            species={species}
+            onAdded={() => { setShowForm(false); onAdded() }}
+            onCancel={() => setShowForm(false)}
           />
-        )}
-      </div>
+        </div>
+      )}
+
+      {settleCatch && (
+        <SettleCatchModal
+          tripId={trip.id}
+          catchLog={settleCatch}
+          token={token}
+          onSettled={() => { setSettle(null); onAdded() }}
+          onCancel={() => setSettle(null)}
+        />
+      )}
     </div>
   )
 }
@@ -591,7 +581,7 @@ function EndTripButton({ tripId, token, onEnded }) {
 
 // ── ActiveTripView ────────────────────────────────────────────────────────────
 
-function TripHeroCard({ trip }) {
+function TripHeroCard({ trip, catches, onEndTrip }) {
   const [duration, setDuration] = useState(fmtDuration(trip.startedAt))
 
   useEffect(() => {
@@ -599,42 +589,53 @@ function TripHeroCard({ trip }) {
     return () => clearInterval(id)
   }, [trip.startedAt])
 
+  const totalKg = catches.reduce((a, c) => a + (c.quantityKg ?? 0), 0)
+  const totalRevenue = catches.reduce((a, c) => a + (c.quantityKg ?? 0) * (c.estimatedPricePerKg ?? 0), 0)
+
   return (
-    <div className="trips-hero">
-      <div className="trips-hero__top">
+    <div className="active-trip">
+      <div className="active-trip__head">
         <div>
-          <div className="trips-hero__live">
-            <span className="trips-hero__pulse" />
-            Live
+          <div className="row" style={{ gap: 8 }}>
+            <span className="chip chip--safe chip--dot">ACTIVE</span>
           </div>
-          <div className="trips-hero__route" style={{ marginTop: 8 }}>
-            {trip.departurePoint}
-            <span className="trips-hero__arrow">→</span>
-            {trip.targetArea}
+          <h2 className="active-trip__title" style={{ marginTop: 8 }}>
+            {trip.departurePoint} → {trip.targetArea}
+          </h2>
+          <div className="active-trip__meta">
+            {trip.vesselName && <span><VesselIcon /> {trip.vesselName}</span>}
+            <span><ClockIcon /> Departed {fmtDate(trip.startedAt)}</span>
           </div>
-          {trip.vesselName && (
-            <div className="trips-hero__vessel">
-              <VesselIcon /> {trip.vesselName}
-            </div>
-          )}
         </div>
-        <div className="trips-hero__timer-block">
-          <p className="trips-hero__timer-label">Trip Duration</p>
-          <p className="trips-hero__timer">{duration}</p>
+        <div style={{ textAlign: 'right' }}>
+          <div className="active-trip__timer">
+            {duration}
+            <small>elapsed</small>
+          </div>
         </div>
       </div>
-      <div className="trips-hero__meta">
-        <div className="trips-hero__meta-item">
-          <span className="trips-hero__meta-label">Started</span>
-          <span className="trips-hero__meta-value">{fmtDate(trip.startedAt)}</span>
+
+      <div className="active-trip__grid">
+        <div className="tile">
+          <div className="tile__label">Catches</div>
+          <div className="tile__value">{catches.length}</div>
+        </div>
+        <div className="tile">
+          <div className="tile__label">Total catch</div>
+          <div className="tile__value">{totalKg > 0 ? totalKg.toFixed(1) : '—'}<small>kg</small></div>
+        </div>
+        <div className="tile">
+          <div className="tile__label">Est. value</div>
+          <div className="tile__value">{totalRevenue > 0 ? `₱${Math.round(totalRevenue).toLocaleString()}` : '—'}</div>
         </div>
         {trip.notes && (
-          <div className="trips-hero__meta-item">
-            <span className="trips-hero__meta-label">Notes</span>
-            <span className="trips-hero__meta-value">{trip.notes}</span>
+          <div className="tile">
+            <div className="tile__label">Notes</div>
+            <div className="tile__value" style={{ fontSize: 12 }}>{trip.notes}</div>
           </div>
         )}
       </div>
+
     </div>
   )
 }
@@ -664,13 +665,12 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
   )
 
   return (
-    <div className="trips-active-grid">
-      <div className="trips-active-col">
-        <TripHeroCard trip={trip} />
-        <EndTripButton tripId={trip.id} token={token} onEnded={onTripEnded} />
-      </div>
-      <div className="trips-active-col">
-        <SafetyChecklistSection trip={trip} token={token} onSaved={onChecklistSaved} />
+    <div className="trips-grid">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <TripHeroCard trip={trip} catches={catches} />
+        <div className="row" style={{ gap: 8 }}>
+          <EndTripButton tripId={trip.id} token={token} onEnded={onTripEnded} />
+        </div>
         <CatchLogsSection
           trip={trip}
           token={token}
@@ -681,6 +681,9 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
           onAdded={onCatchAdded}
           onRetry={onCatchesRetry}
         />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <SafetyChecklistSection trip={trip} token={token} onSaved={onChecklistSaved} />
       </div>
     </div>
   )
@@ -718,82 +721,74 @@ function TripHistoryCard({ trip, token }) {
 
   const cl = trip.checklist
 
+  const startDate = trip.startedAt ? new Date(trip.startedAt) : null
+  const month = startDate ? startDate.toLocaleDateString('en', { month: 'short' }).toUpperCase() : '—'
+  const day = startDate ? startDate.getDate() : '—'
+
   return (
-    <div className="history-card" style={{ flexDirection: 'column', padding: 0, gap: 0 }}>
-      <button className="history-card__summary" onClick={expand}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', width: '100%', textAlign: 'left', cursor: 'pointer' }}>
-        <div className="history-card__left">
-          <span className="history-card__route">{trip.departurePoint} → {trip.targetArea}</span>
-          <span className="history-card__sub">
-            {trip.vesselName && `${trip.vesselName} · `}
-            {fmtDate(trip.startedAt)}
-            {trip.endedAt && ` – ${fmtDate(trip.endedAt)}`}
-          </span>
+    <>
+      <div className="trip-card" onClick={expand} style={{ cursor: 'pointer' }}>
+        <div className="trip-card__date">
+          <div className="trip-card__month">{month}</div>
+          <div className="trip-card__day">{day}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <span className={`trip-status trip-status--${statusClass(trip.status)}`}>
-            {statusLabel(trip.status)}
-          </span>
-          <ChevronIcon open={open} />
+        <div>
+          <div className="trip-card__name">{trip.departurePoint} → {trip.targetArea}</div>
+          <div className="trip-card__sub">{trip.vesselName ? `${trip.vesselName} · ` : ''}{trip.crew || ''}</div>
         </div>
-      </button>
+        {trip.endedAt && trip.startedAt && (
+          <div className="trip-card__stat">
+            <div className="v">{((new Date(trip.endedAt) - new Date(trip.startedAt)) / 3_600_000).toFixed(1)}h</div>
+            <div className="l">Duration</div>
+          </div>
+        )}
+        <span className={`chip chip--${trip.status === 'CANCELLED' ? 'unsafe' : trip.status === 'ACTIVE' ? 'safe' : 'ink'} chip--dot`}>
+          {trip.status}
+        </span>
+        <ChevronIcon open={open} />
+      </div>
 
       {open && (
-        <div className="history-card__detail" style={{ padding: '14px 16px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <p className="history-section-title">Safety Checklist</p>
+        <div style={{ padding: '14px 18px', background: 'var(--paper)', borderRadius: '0 0 12px 12px', marginTop: -8, border: '1px solid var(--line)', borderTop: 'none', marginBottom: 4 }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Checklist</div>
             {cl ? (
-              <div className="history-checklist" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {CHECKLIST_FIELDS.map(({ key, label }) => (
-                  <span key={key} className={`trip-status ${cl[key] ? 'trip-status--active' : 'trip-status--ended'}`}>
-                    {cl[key] ? <CheckIcon size={10} /> : null} {label}
+                  <span key={key} className={`chip ${cl[key] ? 'chip--safe' : ''}`} style={{ fontSize: 11 }}>
+                    {cl[key] ? <CheckIcon size={9} /> : null} {label}
                   </span>
                 ))}
               </div>
             ) : (
-              <p style={{ fontSize: '13px', color: 'var(--text-3)' }}>No checklist recorded.</p>
+              <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>No checklist recorded.</p>
             )}
           </div>
 
           <div>
-            <p className="history-section-title">Catch Logs</p>
-            {loading && <Skeleton height="60px" />}
-            {error && (
-              <div className="trip-err" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {error}
-                <button className="trip-btn trip-btn--ghost" style={{ padding: '4px 10px', fontSize: '12px' }} onClick={fetchCatches}>Retry</button>
-              </div>
-            )}
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Catch logs</div>
+            {loading && <Skeleton height="40px" />}
+            {error && <div className="trip-err">{error} <button className="btn btn--sm" onClick={fetchCatches}>Retry</button></div>}
             {!loading && !error && catches.length === 0 && (
-              <p style={{ fontSize: '13px', color: 'var(--text-3)' }}>No catches logged.</p>
+              <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>No catches logged.</p>
             )}
             {!loading && catches.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div className="catch-log">
                 {catches.map(c => (
-                  <div key={c.id} className="catch-log-item">
-                    <div className="catch-log-item__left">
-                      <div className="catch-log-item__fish-icon"><FishIcon size={14} /></div>
-                      <div>
-                        <p className="catch-log-item__species">{c.species?.commonName ?? c.species}</p>
-                        <p className="catch-log-item__qty">{c.quantityEstimate || `${c.quantityKg} kg`}</p>
-                      </div>
+                  <div key={c.id} className="catch-entry">
+                    <div className="catch-entry__dot" />
+                    <div>
+                      <div className="catch-entry__species">{c.species?.commonName ?? c.species}</div>
+                      <div className="catch-entry__meta">{c.quantityEstimate ?? ''}</div>
                     </div>
-                    <div className="catch-log-item__right">
-                      {c.isSettled ? (
-                        <>
-                          <span className="catch-log-item__settled-total">
-                            ₱{(c.settledKg * c.settledPricePerKg).toLocaleString('en-PH')}
-                          </span>
-                          <span className="catch-log-item__settled-detail">{c.settledKg}kg × ₱{c.settledPricePerKg}{c.buyerName ? ` · ${c.buyerName}` : ''}</span>
-                        </>
-                      ) : trip.status === 'COMPLETED' ? (
-                        <button className="trip-btn trip-btn--ghost" style={{ padding: '5px 12px', fontSize: '12px' }} onClick={() => setSettle(c)}>
-                          Settle
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Unsettled</span>
-                      )}
-                    </div>
+                    {c.quantityKg != null && (
+                      <div className="catch-entry__qty">{c.quantityKg}<small style={{ color: 'var(--ink-4)' }}>kg</small></div>
+                    )}
+                    {c.isSettled ? (
+                      <div className="catch-entry__price">₱{c.settledPricePerKg}<small>/kg</small></div>
+                    ) : trip.status === 'COMPLETED' ? (
+                      <button className="btn btn--sm btn--ghost" onClick={e => { e.stopPropagation(); setSettle(c) }}>Settle</button>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -811,7 +806,7 @@ function TripHistoryCard({ trip, token }) {
           )}
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -984,75 +979,83 @@ export default function MyTrips({ token }) {
   }
 
   if (loading) return (
-    <div className="trips-page">
-      <div className="trips-main">
-        <Skeleton height="40px" radius="12px" />
-        <Skeleton height="180px" />
-        <Skeleton height="120px" />
-      </div>
+    <div className="page">
+      <Skeleton height="40px" radius="12px" />
+      <Skeleton height="180px" />
+      <Skeleton height="120px" />
     </div>
   )
 
   if (error) return (
-    <div className="trips-page">
-      <div className="trips-main">
-        <div className="db-error">
-          <span>{error}</span>
-          <button className="db-error__retry" onClick={load}>Retry</button>
-        </div>
+    <div className="page">
+      <div className="trip-err" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {error}
+        <button className="btn btn--sm" onClick={load}>Retry</button>
       </div>
     </div>
   )
 
+  const totalPast = pastTrips.length
+  const lifetimeRevenue = pastTrips.reduce((sum, t) => sum + (t.totalRevenue ?? 0), 0)
+
   return (
-    <div className="trips-page">
-      <div className="trips-main">
-        <div className="trips-page-header">
-          <div>
-            <h2 className="trips-page-header__title">My Trips</h2>
-            <p className="trips-page-header__sub">
-              {pastTrips.length > 0
-                ? `${pastTrips.length} past trip${pastTrips.length !== 1 ? 's' : ''} · ${plannedTrips.length} planned`
-                : 'Track your fishing trips and catch logs'}
-            </p>
-          </div>
-          {activeTrip && (
-            <span className="trips-page-header__active-chip">
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--safe)', display: 'inline-block', marginRight: 5 }} />
-              1 trip active
-            </span>
-          )}
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Trips</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            <em>My</em> Trips
+          </h1>
+          <p className="page__sub">
+            {totalPast} total logged{lifetimeRevenue > 0 ? ` · ₱${lifetimeRevenue.toLocaleString()} lifetime revenue` : ''}
+          </p>
         </div>
-
-        <TripTabs active={activeTab} onChange={setActiveTab} hasActiveTrip={!!activeTrip} />
-
-        {activeTab === 'active' ? (
-          <ActiveTripView
-            trip={activeTrip}
-            token={token}
-            species={fishSpecies}
-            catches={catches}
-            catchesLoading={catchesLoading}
-            catchesError={catchesError}
-            onTripStarted={load}
-            onTripEnded={load}
-            onChecklistSaved={handleChecklistSaved}
-            onCatchAdded={handleCatchAdded}
-            onCatchesRetry={() => activeTrip && loadCatches(activeTrip.id)}
-          />
-        ) : activeTab === 'past' ? (
-          <TripHistoryList trips={pastTrips} token={token} view="past" />
-        ) : (
-          <TripHistoryList trips={plannedTrips} token={token} view="planned" />
-        )}
+        <div className="page__actions">
+          <button className="btn btn--primary" onClick={() => setActiveTab('active')}>
+            <span>+</span> Start trip
+          </button>
+        </div>
       </div>
 
-      <TripsPanel
-        activeTrip={activeTrip}
-        pastTrips={pastTrips}
-        plannedTrips={plannedTrips}
-        catches={catches}
+      <TripTabs
+        active={activeTab}
+        onChange={setActiveTab}
+        hasActiveTrip={!!activeTrip}
+        pastCount={pastTrips.length}
+        plannedCount={plannedTrips.length}
       />
+
+      {activeTab === 'active' ? (
+        <ActiveTripView
+          trip={activeTrip}
+          token={token}
+          species={fishSpecies}
+          catches={catches}
+          catchesLoading={catchesLoading}
+          catchesError={catchesError}
+          onTripStarted={load}
+          onTripEnded={load}
+          onChecklistSaved={handleChecklistSaved}
+          onCatchAdded={handleCatchAdded}
+          onCatchesRetry={() => activeTrip && loadCatches(activeTrip.id)}
+        />
+      ) : activeTab === 'past' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {pastTrips.length === 0 ? (
+            <p style={{ color: 'var(--ink-4)', fontSize: 14, padding: '20px 0' }}>No past trips yet.</p>
+          ) : (
+            pastTrips.map(t => <TripHistoryCard key={t.id} trip={t} token={token} />)
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {plannedTrips.length === 0 ? (
+            <p style={{ color: 'var(--ink-4)', fontSize: 14, padding: '20px 0' }}>No planned trips. Use the Trip Planner to schedule one.</p>
+          ) : (
+            plannedTrips.map(t => <TripHistoryCard key={t.id} trip={t} token={token} />)
+          )}
+        </div>
+      )}
     </div>
   )
 }

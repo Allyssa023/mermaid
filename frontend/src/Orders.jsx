@@ -626,11 +626,23 @@ function OrdersPanel({ orders, role }) {
 
 const STATUS_FILTERS = ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'DISPUTED']
 
+function stepLabel(status) {
+  switch (status) {
+    case 'PENDING':   return 'Awaiting'
+    case 'CONFIRMED': return 'Confirmed'
+    case 'COMPLETED': return 'Delivered'
+    case 'CANCELLED': return 'Cancelled'
+    case 'DISPUTED':  return 'Disputed'
+    default:          return 'Awaiting'
+  }
+}
+
 export default function Orders({ token, role }) {
   const [orders,       setOrders]      = useState([])
   const [loading,      setLoading]     = useState(false)
   const [error,        setError]       = useState(null)
   const [statusFilter, setStatusFilter] = useState('ALL')
+  const [openOrder,    setOpenOrder]   = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -648,70 +660,178 @@ export default function Orders({ token, role }) {
 
   useEffect(() => { load() }, [load])
 
+  const allOrders = orders
+  const pending   = allOrders.filter(o => o.status === 'PENDING').length
+  const confirmed = allOrders.filter(o => o.status === 'CONFIRMED').length
+  const inTransit = allOrders.filter(o => o.status === 'CONFIRMED' && o.handoff?.status === 'CONFIRMED').length
+  const completed = allOrders.filter(o => o.status === 'COMPLETED').length
+  const totalValue = allOrders.filter(o => !['CANCELLED', 'DISPUTED'].includes(o.status))
+    .reduce((a, o) => a + (o.handoff?.totalAmount ?? (o.orderedQtyKg ?? 0) * (o.agreedPricePerKg ?? 0)), 0)
+
+  const filtered = statusFilter === 'ALL' ? allOrders : allOrders.filter(o => o.status === statusFilter)
+
   return (
-    <div className="ord-page">
-      <div className="ord-main">
-        {/* Header */}
-        <div className="ord-header">
-          <div className="ord-header__left">
-            <div className="ord-header__icon"><ClipboardIcon /></div>
-            <div>
-              <div className="ord-header__title">My Orders</div>
-              <div className="ord-header__sub">Track your fish trade transactions</div>
-            </div>
-          </div>
-          <button className="ca-refresh-btn" onClick={load} disabled={loading}>
-            <RefreshIcon />
-            {loading ? 'Refreshing…' : 'Refresh'}
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Operations</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            <em>Orders</em>
+          </h1>
+          <p className="page__sub">Track every confirmed sale from matched alert to delivery.</p>
+        </div>
+        <div className="page__actions">
+          <button className="btn" onClick={load} disabled={loading}>
+            <RefreshIcon /> {loading ? '…' : 'Refresh'}
           </button>
         </div>
+      </div>
 
-        {/* Filter tabs */}
-        <div className="ord-filter-tabs">
-          {STATUS_FILTERS.map(s => (
-            <button
-              key={s}
-              className={`ord-filter-tab${statusFilter === s ? ' ord-filter-tab--active' : ''}`}
-              onClick={() => setStatusFilter(s)}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+      {/* Stats strip */}
+      <div className="orders-strip">
+        <div className="stat"><div className="l">Pending</div><div className="v">{pending}</div><div className="s">Awaiting confirmation</div></div>
+        <div className="stat"><div className="l">Confirmed</div><div className="v">{confirmed}</div><div className="s">Ready for handoff</div></div>
+        <div className="stat"><div className="l">In transit</div><div className="v">{inTransit}</div><div className="s">Handoff in progress</div></div>
+        <div className="stat"><div className="l">Completed</div><div className="v">{completed}</div><div className="s">Fully settled</div></div>
+        <div className="stat"><div className="l">Open value</div><div className="v">₱{(totalValue / 1000).toFixed(1)}k</div><div className="s">Across {allOrders.length} orders</div></div>
+      </div>
 
-        {/* Error */}
-        {error && (
-          <div className="ord-error">
-            {error}
-            <button className="trip-btn trip-btn--ghost" style={{ marginLeft: 8, fontSize: 12 }} onClick={load}>Retry</button>
+      {/* Pipeline */}
+      <div className="pipeline">
+        <div className="card__head" style={{ marginBottom: 0 }}>
+          <div>
+            <div className="card__title">Pipeline this week</div>
+            <div className="card__sub">Distribution of open orders across stages</div>
           </div>
-        )}
+          <span className="chip chip--ink">₱{(totalValue / 1000).toFixed(1)}k open</span>
+        </div>
+        <div className="pipeline__bars">
+          <div className="pipeline__bar" style={{ flex: Math.max(pending, 1) }} />
+          <div className="pipeline__bar" style={{ flex: Math.max(confirmed, 1) }} />
+          <div className="pipeline__bar" style={{ flex: Math.max(inTransit, 1) }} />
+          <div className="pipeline__bar" style={{ flex: Math.max(completed, 1) }} />
+        </div>
+        <div className="pipeline__labels">
+          <span><strong>{pending}</strong> Awaiting</span>
+          <span><strong>{confirmed}</strong> Confirmed</span>
+          <span><strong>{inTransit}</strong> In transit</span>
+          <span><strong>{completed}</strong> Delivered</span>
+        </div>
+      </div>
 
-        {/* Content */}
-        {loading && orders.length === 0 ? (
-          <Skeleton />
-        ) : orders.length === 0 ? (
-          <div className="ord-empty">
-            <div className="ord-empty__icon"><EmptyBoxIcon /></div>
-            <div className="ord-empty__msg">
+      {/* Filter chips */}
+      <div className="row" style={{ gap: 6, marginBottom: 12 }}>
+        {STATUS_FILTERS.map(s => (
+          <button key={s}
+            className={`chip ${statusFilter === s ? 'chip--ink' : ''}`}
+            style={{ cursor: 'pointer' }}
+            onClick={() => setStatusFilter(s)}>
+            {s === 'ALL' ? 'All orders' : s.charAt(0) + s.slice(1).toLowerCase()}
+            <span style={{ marginLeft: 6, opacity: 0.7, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+              {s === 'ALL' ? allOrders.length : allOrders.filter(o => o.status === s).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div style={{ padding: '12px 16px', background: 'var(--unsafe-soft)', border: '1px solid var(--unsafe)', borderRadius: 'var(--r-md)', marginBottom: 14, fontSize: 13, color: 'var(--unsafe)' }}>
+          {error} <button className="btn btn--sm" style={{ marginLeft: 8 }} onClick={load}>Retry</button>
+        </div>
+      )}
+
+      {/* Orders list */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div className="card__title">All orders</div>
+            <div className="card__sub">{filtered.length} matching · sorted newest first</div>
+          </div>
+        </div>
+        {loading && filtered.length === 0 ? (
+          <div style={{ padding: 18 }}><Skeleton /></div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--ink-4)' }}>
+            <EmptyBoxIcon />
+            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 10 }}>
               {statusFilter === 'ALL' ? 'No orders yet' : `No ${statusFilter.toLowerCase()} orders`}
             </div>
-            <div className="ord-empty__sub">
+            <div style={{ fontSize: 13, marginTop: 6 }}>
               {statusFilter === 'ALL'
-                ? 'Orders appear here when vendors make offers on catch alerts.'
-                : 'Try a different filter to see other orders.'}
+                ? 'Orders appear when vendors make offers on catch alerts.'
+                : 'Try a different filter.'}
             </div>
           </div>
         ) : (
-          <div className="ord-list">
-            {orders.map(o => (
-              <OrderCard key={o.id} order={o} role={role} token={token} onReload={load} />
-            ))}
-          </div>
+          filtered.map(o => {
+            const step = statusToStep(o.status)
+            const failed = step === -1
+            return (
+              <div key={o.id} className="order-row">
+                <div className="order-row__id" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)' }}>#{o.id}</div>
+                <div className="order-row__party">
+                  {role === 'FISHERMAN' ? (o.buyer?.fullName ?? 'Buyer') : (o.seller?.fullName ?? 'Seller')}
+                  <small>{o.dispatchMode ?? ''}</small>
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{o.species?.commonName ?? '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                    {o.orderedQtyKg != null ? `${o.orderedQtyKg}kg` : o.orderedQtyEstimate ?? '—'}
+                    {o.agreedPricePerKg != null ? ` · ₱${o.agreedPricePerKg}/kg` : ''}
+                  </div>
+                </div>
+                <div className="order-row__total">
+                  {o.handoff?.totalAmount != null
+                    ? `₱${o.handoff.totalAmount.toLocaleString()}`
+                    : o.orderedQtyKg && o.agreedPricePerKg
+                      ? `₱${(o.orderedQtyKg * o.agreedPricePerKg).toLocaleString()}`
+                      : '—'}
+                </div>
+                <div>
+                  <div className="order-row__steps">
+                    {[0, 1, 2, 3].map(i => (
+                      <span key={i} className={`order-row__step ${
+                        failed ? 'order-row__step--fail' :
+                        i < step ? 'order-row__step--done' :
+                        i === step ? 'order-row__step--cur' : ''
+                      }`} />
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {failed ? o.status : stepLabel(o.status)}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+                  {fmt(o.createdAt)}
+                </div>
+                <button className="btn btn--sm" onClick={() => setOpenOrder(o)}>
+                  Open <span style={{ fontSize: 11 }}>→</span>
+                </button>
+              </div>
+            )
+          })
         )}
       </div>
 
-      <OrdersPanel orders={orders} role={role} />
+      {/* Order detail modal */}
+      {openOrder && (
+        <div className="modal-backdrop" onClick={() => setOpenOrder(null)}>
+          <div className="modal" style={{ maxWidth: 640, maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div className="modal__header">
+              <h3 className="modal__title">Order #{openOrder.id}</h3>
+              <button className="modal__close" onClick={() => setOpenOrder(null)}><XIcon /></button>
+            </div>
+            <div className="modal__body">
+              <OrderCard
+                order={openOrder}
+                role={role}
+                token={token}
+                onReload={() => { load(); setOpenOrder(null) }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

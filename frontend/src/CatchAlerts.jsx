@@ -664,83 +664,153 @@ export default function CatchAlerts({ token, role }) {
     }
   }, [token, role])
 
+  const activeAlerts  = alerts.filter(a => a.status === 'ACTIVE')
+  const matchedAlerts = alerts.filter(a => a.status === 'MATCHED')
+  const expiredAlerts = alerts.filter(a => a.status === 'EXPIRED' || a.status === 'CANCELLED' || isExpired(a.expiresAt))
+  const totalKg       = alerts.reduce((s, a) => s + (a.quantityKg ?? 0), 0)
+  const potentialRev  = alerts.reduce((s, a) => s + (a.quantityKg ?? 0) * (a.askingPricePerKg ?? 0), 0)
+  const matchCount    = matchedAlerts.length
+  const openOffers    = alerts.reduce((s, a) => s + (a.matchedListingIds?.length ?? 0), 0)
+
   return (
-    <div className="ca-page">
-      <div className="ca-main">
-        {/* Header */}
-        <div className="ca-header">
-          <div className="ca-header__left">
-            <div className="ca-header__icon"><BellIcon /></div>
-            <div>
-              <div className="ca-header__title">
-                {role === 'FISHERMAN' ? 'Alert Vendors' : 'Browse Catch Alerts'}
-              </div>
-              <div className="ca-header__sub">
-                {role === 'FISHERMAN'
-                  ? 'Notify wet market vendors about your fresh catch'
-                  : 'Live catch alerts from active fishing trips'}
-              </div>
-            </div>
-          </div>
-          <div className="ca-header__controls">
-            {role === 'VENDOR' && (
-              <select className="ca-filter-select" value={filterSpecies} onChange={e => setFilter(e.target.value)}>
-                <option value="">All species</option>
-                {allSpecies.map(s => <option key={s.id} value={s.id}>{s.commonName}</option>)}
-              </select>
-            )}
-            <button className="ca-refresh-btn" onClick={load} disabled={loading}>
-              <RefreshIcon />
-              {loading ? 'Refreshing…' : 'Refresh'}
-            </button>
-          </div>
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">{role === 'FISHERMAN' ? 'Fishing' : 'Market'}</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            Catch <em>Alerts</em>
+          </h1>
+          <p className="page__sub">
+            {role === 'FISHERMAN'
+              ? 'Notify vendors about your fresh catch · alerts expire in 4h'
+              : 'Live catch alerts from active fishing trips'}
+          </p>
         </div>
-
-        {/* Error */}
-        {error && (
-          <div className="ca-error">
-            {error}
-            <button className="trip-btn trip-btn--ghost" style={{ marginLeft: 8, fontSize: 12 }} onClick={load}>Retry</button>
-          </div>
-        )}
-
-        {/* Active trip quick-alert banner (fisherman only) */}
-        {role === 'FISHERMAN' && (
-          <ActiveTripSection token={token} existingAlerts={alerts} onAlertsChanged={load} />
-        )}
-
-        {/* Content */}
-        {loading && alerts.length === 0 ? (
-          <Skeleton />
-        ) : alerts.length === 0 ? (
-          <div className="ca-empty">
-            <div className="ca-empty__icon"><AlertEmptyIcon /></div>
-            <div className="ca-empty__msg">
-              {role === 'FISHERMAN'
-                ? 'No alerts sent yet'
-                : 'No active catch alerts right now'}
-            </div>
-            <div className="ca-empty__sub">
-              {role === 'FISHERMAN'
-                ? 'Use the banner above to alert vendors from your active trip.'
-                : 'Check back soon — fishermen will post when they have fresh catch.'}
-            </div>
-          </div>
-        ) : role === 'VENDOR' ? (
-          <VendorGroupedView alerts={alerts} token={token} onReload={load} />
-        ) : (
-          <>
-            <div className="ca-section-label">My Sent Alerts</div>
-            <div className="ca-feed">
-              {alerts.map(a => (
-                <AlertCard key={a.id} alert={a} role={role} token={token} onReload={load} />
-              ))}
-            </div>
-          </>
-        )}
+        <div className="page__actions">
+          {role === 'VENDOR' && (
+            <select className="btn" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }} value={filterSpecies} onChange={e => setFilter(e.target.value)}>
+              <option value="">All species</option>
+              {allSpecies.map(s => <option key={s.id} value={s.id}>{s.commonName}</option>)}
+            </select>
+          )}
+          <button className="btn" onClick={load} disabled={loading}>
+            <RefreshIcon /> {loading ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
-      <AlertsPanel alerts={alerts} role={role} allSpecies={allSpecies} />
+      {/* Stats strip */}
+      <div className="orders-strip">
+        <div className="stat">
+          <div className="l">Active alerts</div>
+          <div className="v">{activeAlerts.length}</div>
+          <div className="s">Visible to vendors</div>
+        </div>
+        <div className="stat">
+          <div className="l">Total offered</div>
+          <div className="v">{totalKg > 0 ? `${totalKg.toFixed(0)}kg` : '—'}</div>
+          <div className="s">Across all alerts</div>
+        </div>
+        <div className="stat">
+          <div className="l">Potential revenue</div>
+          <div className="v">{potentialRev > 0 ? `₱${Math.round(potentialRev).toLocaleString()}` : '—'}</div>
+          <div className="s">At asking price</div>
+        </div>
+        <div className="stat">
+          <div className="l">Open offers</div>
+          <div className="v">{openOffers}</div>
+          <div className="s">Awaiting response</div>
+        </div>
+        <div className="stat">
+          <div className="l">Match rate</div>
+          <div className="v">{alerts.length > 0 ? `${Math.round((matchCount / alerts.length) * 100)}%` : '—'}</div>
+          <div className="s">{matchCount} matched / {alerts.length} total</div>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ padding: '12px 16px', background: 'var(--unsafe-soft)', border: '1px solid var(--unsafe)', borderRadius: 'var(--r-md)', marginBottom: 14, fontSize: 13, color: 'var(--unsafe)' }}>
+          {error} <button className="btn btn--sm" style={{ marginLeft: 8 }} onClick={load}>Retry</button>
+        </div>
+      )}
+
+      {role === 'FISHERMAN' && (
+        <ActiveTripSection token={token} existingAlerts={alerts} onAlertsChanged={load} />
+      )}
+
+      {loading && alerts.length === 0 ? (
+        <Skeleton />
+      ) : alerts.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--ink-4)' }}>
+          <AlertEmptyIcon />
+          <div style={{ fontSize: 16, fontWeight: 600, marginTop: 12 }}>
+            {role === 'FISHERMAN' ? 'No alerts sent yet' : 'No active catch alerts'}
+          </div>
+          <div style={{ fontSize: 13, marginTop: 6 }}>
+            {role === 'FISHERMAN'
+              ? 'Use the banner above to alert vendors from your active trip.'
+              : 'Check back soon — fishermen will post when they have fresh catch.'}
+          </div>
+        </div>
+      ) : role === 'VENDOR' ? (
+        <VendorGroupedView alerts={alerts} token={token} onReload={load} />
+      ) : (
+        <>
+          {activeAlerts.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                Active · {activeAlerts.length}
+              </div>
+              <div className="alerts-grid" style={{ marginBottom: 24 }}>
+                {activeAlerts.map(a => (
+                  <AlertCard key={a.id} alert={a} role={role} token={token} onReload={load} />
+                ))}
+              </div>
+            </>
+          )}
+          {matchedAlerts.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                Matched · {matchedAlerts.length}
+              </div>
+              <div className="tbl" style={{ marginBottom: 24 }}>
+                <table>
+                  <tbody>
+                    {matchedAlerts.map(a => (
+                      <tr key={a.id}>
+                        <td style={{ fontWeight: 500 }}>{a.species?.commonName ?? '—'}</td>
+                        <td style={{ color: 'var(--ink-4)', fontSize: 12 }}>{a.quantityKg != null ? `${a.quantityKg}kg` : a.quantityEstimate ?? '—'}</td>
+                        <td>{a.askingPricePerKg != null ? `₱${a.askingPricePerKg}/kg` : '—'}</td>
+                        <td><span className="chip chip--safe chip--dot">MATCHED</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+          {expiredAlerts.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                Expired / Cancelled · {expiredAlerts.length}
+              </div>
+              <div className="tbl">
+                <table>
+                  <tbody>
+                    {expiredAlerts.map(a => (
+                      <tr key={a.id} style={{ opacity: 0.6 }}>
+                        <td style={{ fontWeight: 500 }}>{a.species?.commonName ?? '—'}</td>
+                        <td style={{ color: 'var(--ink-4)', fontSize: 12 }}>{a.quantityKg != null ? `${a.quantityKg}kg` : a.quantityEstimate ?? '—'}</td>
+                        <td><span className="chip chip--dot">{a.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 }

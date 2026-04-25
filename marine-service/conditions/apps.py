@@ -11,7 +11,12 @@ class ConditionsConfig(AppConfig):
         from django.conf import settings
 
         self.http_client = httpx.Client(
-            timeout=settings.HTTP_TIMEOUT,
+            timeout=httpx.Timeout(
+                connect=3.0,
+                read=settings.HTTP_TIMEOUT,
+                write=5.0,
+                pool=3.0,
+            ),
             headers={
                 "Accept": "application/json",
                 "User-Agent": "MERMAID-MarineService/1.0",

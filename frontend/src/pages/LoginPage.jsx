@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import '../index.css'
+import './LoginPage.css'
 
 // ── API ───────────────────────────────────────────────────────────────────────
 const API_BASE = '/api'
@@ -667,7 +667,7 @@ function HookFish({ active }) {
 // ── Role Setup Page (full-page wrapper for new OAuth2 users) ─────────────────
 export function RoleSetupPage() {
   return (
-    <div className="page">
+    <div className="auth-page">
       <video className="bg-video" autoPlay muted loop playsInline>
         <source src="/mainbg.mov" type="video/mp4" />
         <source src="/mainbg.mov" type="video/quicktime" />
@@ -741,7 +741,7 @@ export function LoginPage() {
   // Show role setup for new OAuth2 users
   if (setupRole) {
     return (
-      <div className="page">
+      <div className="auth-page">
         <video className="bg-video" autoPlay muted loop playsInline>
           <source src="/mainbg.mov" type="video/mp4" />
           <source src="/mainbg.mov" type="video/quicktime" />
@@ -765,7 +765,7 @@ export function LoginPage() {
   // Show email verification status
   if (verifyToken) {
     return (
-      <div className="page">
+      <div className="auth-page">
         <video className="bg-video" autoPlay muted loop playsInline>
           <source src="/mainbg.mov" type="video/mp4" />
           <source src="/mainbg.mov" type="video/quicktime" />
@@ -815,7 +815,7 @@ export function LoginPage() {
   // Show reset password form when token is present
   if (resetToken) {
     return (
-      <div className="page">
+      <div className="auth-page">
         <video className="bg-video" autoPlay muted loop playsInline>
           <source src="/mainbg.mov" type="video/mp4" />
           <source src="/mainbg.mov" type="video/quicktime" />
@@ -837,7 +837,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="page">
+    <div className="auth-page">
       <video className="bg-video" autoPlay muted loop playsInline>
         <source src="/mainbg.mov" type="video/mp4" />
         <source src="/mainbg.mov" type="video/quicktime" />
