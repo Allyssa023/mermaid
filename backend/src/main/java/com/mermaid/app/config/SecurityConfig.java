@@ -125,6 +125,7 @@ public class SecurityConfig {
                     "/auth/otp/verify", "/oauth2/**", "/login/oauth2/**", "/ws-chat/**"
                 ).permitAll()
                 .requestMatchers("/error").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/buyer/marketplace/listings").permitAll()
                 .anyRequest().authenticated()
             )
             .oauth2Login(oauth2 -> oauth2
