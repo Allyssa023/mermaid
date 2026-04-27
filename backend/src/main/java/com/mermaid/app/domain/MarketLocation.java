@@ -1,6 +1,7 @@
 package com.mermaid.app.domain;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -23,6 +24,12 @@ public class MarketLocation {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(precision = 9, scale = 6)
+    private BigDecimal lat;
+
+    @Column(precision = 9, scale = 6)
+    private BigDecimal lng;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -41,6 +48,10 @@ public class MarketLocation {
     public void setProvince(String province) { this.province = province; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public BigDecimal getLat() { return lat; }
+    public void setLat(BigDecimal lat) { this.lat = lat; }
+    public BigDecimal getLng() { return lng; }
+    public void setLng(BigDecimal lng) { this.lng = lng; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }
