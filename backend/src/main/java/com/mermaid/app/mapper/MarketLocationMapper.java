@@ -12,6 +12,12 @@ public class MarketLocationMapper {
             new com.mermaid.app.model.MarketLocation(
                 entity.getId(), entity.getName(), entity.getMunicipality(), entity.isActive());
         m.setProvince(JsonNullable.of(entity.getProvince()));
+        if (entity.getLat() != null) {
+            m.setLat(JsonNullable.of(entity.getLat().doubleValue()));
+        }
+        if (entity.getLng() != null) {
+            m.setLng(JsonNullable.of(entity.getLng().doubleValue()));
+        }
         return m;
     }
 }
