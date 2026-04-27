@@ -22,6 +22,8 @@ tags:
   - name: Catch Logs
   - name: Catch Alerts
   - name: Orders
+  - name: Buyer Marketplace
+  - name: Buyer Orders
   - name: Lookups
 
 security:
@@ -991,6 +993,119 @@ paths:
                 items:
                   $ref: '#/components/schemas/ListingInterestDetail'
 
+  /buyer/marketplace/listings:
+    get:
+      tags: [Buyer Marketplace]
+      summary: Browse open vendor demand listings (public)
+      operationId: getBuyerMarketplaceListings
+      security: []
+      parameters:
+        - in: query
+          name: speciesId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: locationId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: minOfferPrice
+          schema:
+            type: number
+            format: double
+        - in: query
+          name: maxOfferPrice
+          schema:
+            type: number
+            format: double
+      responses:
+        '200':
+          description: List of open demand listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DemandListing'
+
+  /buyer/orders:
+    post:
+      tags: [Buyer Orders]
+      summary: Place an order against a vendor demand listing
+      operationId: placeBuyerOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyerPlaceOrderRequest'
+      responses:
+        '201':
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Listing not found or closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      tags: [Buyer Orders]
+      summary: List buyer's own orders
+      operationId: getBuyerOrders
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, DISPUTED]
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+
+  /buyer/orders/{orderId}:
+    get:
+      tags: [Buyer Orders]
+      summary: Get a single buyer order by ID
+      operationId: getBuyerOrderById
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found or not owned by this buyer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /trips:
     get:
       tags: [Trips]
@@ -1739,8 +1854,8 @@ components:
           maxLength: 200
         role:
           type: string
-          enum: [VENDOR, FISHERMAN]
-          description: Self-registration only allows VENDOR or FISHERMAN
+          enum: [VENDOR, FISHERMAN, BUYER]
+          description: Self-registration only allows VENDOR, FISHERMAN, or BUYER
 
     LoginResponse:
       type: object
@@ -1916,6 +2031,39 @@ components:
           nullable: true
         active:
           type: boolean
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lng:
+          type: number
+          format: double
+          nullable: true
+
+    BuyerPlaceOrderRequest:
+      type: object
+      required: [listingId, dispatchMode]
+      properties:
+        listingId:
+          type: integer
+          format: int64
+        orderedQtyKg:
+          type: number
+          format: double
+          nullable: true
+        orderedQtyEstimate:
+          type: string
+          nullable: true
+        dispatchMode:
+          type: string
+          enum: [PICKUP, DELIVERY]
+        deliveryAddress:
+          type: string
+          nullable: true
+          description: Required when dispatchMode is DELIVERY
+        notes:
+          type: string
+          nullable: true
 
     MarketLocationCreateRequest:
       type: object
@@ -2621,6 +2769,9 @@ components:
           type: string
           enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, DISPUTED]
         notes:
+          type: string
+          nullable: true
+        deliveryAddress:
           type: string
           nullable: true
         handoff:
