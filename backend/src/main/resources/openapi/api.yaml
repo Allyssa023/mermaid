@@ -1970,7 +1970,7 @@ components:
 
     Role:
       type: string
-      enum: [ADMIN, VENDOR, FISHERMAN]
+      enum: [ADMIN, VENDOR, FISHERMAN, BUYER]
 
     Severity:
       type: string
