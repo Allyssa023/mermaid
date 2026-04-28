@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { LoginPage, RoleSetupPage } from './pages/LoginPage'
 import FishermanDashboard from './FishermanDashboard'
+import BuyerDashboard from './BuyerDashboard'
 import AdminDashboard from './AdminDashboard'
 import VendorDashboard from './VendorDashboard'
 
@@ -30,6 +31,9 @@ function AppInner() {
   }
   if (user.role === 'VENDOR') {
     return <><VendorDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
+  }
+  if (user.role === 'BUYER') {
+    return <><BuyerDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
   }
 
   if (!user.role) return <><RoleSetupPage /><ThemeToggle /></>

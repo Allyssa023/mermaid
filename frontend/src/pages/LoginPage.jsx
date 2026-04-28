@@ -186,6 +186,11 @@ function RoleSetupPanel() {
             onClick={() => setRole('VENDOR')}>
             🏪 Vendor
           </button>
+          <button type="button"
+            className={`role-chip${role === 'BUYER' ? ' role-chip--on' : ''}`}
+            onClick={() => setRole('BUYER')}>
+            🛒 Buyer
+          </button>
         </div>
         <button type="submit" className="cta" disabled={loading}>
           {loading ? <><span className="spinner" /> Saving…</> : 'Start Exploring'}
@@ -593,6 +598,11 @@ function RegisterForm({ onSwitch }) {
             className={`role-chip${role === 'VENDOR' ? ' role-chip--on' : ''}`}
             onClick={() => setRole('VENDOR')}>
             🏪 Vendor
+          </button>
+          <button type="button"
+            className={`role-chip${role === 'BUYER' ? ' role-chip--on' : ''}`}
+            onClick={() => setRole('BUYER')}>
+            🛒 Buyer
           </button>
         </div>
         <div className="terms-row">

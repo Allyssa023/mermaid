@@ -1,0 +1,372 @@
+/* ── Buyer Dashboard ─────────────────────────────────────────────────────── */
+
+/* Filter bar */
+.buyer-filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.buyer-filter-bar select,
+.buyer-filter-bar input[type="number"] {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.85rem;
+  outline: none;
+}
+.buyer-filter-bar select:focus,
+.buyer-filter-bar input[type="number"]:focus {
+  border-color: var(--accent);
+}
+.buyer-map-btn {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.buyer-map-btn--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* Map panel */
+.buyer-map-panel {
+  height: 340px;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+/* Listings grid */
+.buyer-listings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--gap);
+}
+.buyer-listing-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--pad-card);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: box-shadow 0.15s;
+}
+.buyer-listing-card:hover {
+  box-shadow: var(--shadow-2);
+}
+.buyer-listing-card--highlighted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.buyer-listing-card__species {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--ink);
+}
+.buyer-listing-card__price {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+.buyer-listing-card__meta {
+  color: var(--ink-3);
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+.buyer-listing-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+/* Deadline chip */
+.chip--deadline {
+  background: oklch(0.95 0.04 25);
+  color: oklch(0.45 0.18 25);
+  font-size: 0.75rem;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+}
+.chip--deadline-ok {
+  background: oklch(0.94 0.04 145);
+  color: oklch(0.42 0.14 145);
+  font-size: 0.75rem;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+}
+
+/* Dispatch chip variants */
+.chip--pickup {
+  background: oklch(0.93 0.07 145);
+  color: oklch(0.38 0.18 145);
+}
+.chip--delivery {
+  background: oklch(0.93 0.05 240);
+  color: oklch(0.38 0.16 240);
+}
+
+/* Order modal overlay */
+.buyer-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.buyer-modal {
+  background: var(--surface);
+  border-radius: var(--r-lg);
+  padding: 28px 28px 24px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow-3);
+}
+.buyer-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.buyer-modal__title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.buyer-modal__close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  padding: 4px;
+  border-radius: var(--r-sm);
+}
+.buyer-modal__close:hover { background: var(--hover); }
+
+/* Form elements */
+.buyer-form-group {
+  margin-bottom: 14px;
+}
+.buyer-form-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.buyer-form-input,
+.buyer-form-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.9rem;
+  font-family: inherit;
+  box-sizing: border-box;
+  outline: none;
+}
+.buyer-form-input:focus,
+.buyer-form-textarea:focus { border-color: var(--accent); }
+.buyer-form-textarea { resize: vertical; min-height: 72px; }
+
+/* Radio dispatch */
+.buyer-dispatch-row {
+  display: flex;
+  gap: 10px;
+}
+.buyer-dispatch-radio {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  background: var(--paper);
+  transition: border-color 0.15s, background 0.15s;
+}
+.buyer-dispatch-radio--on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 500;
+}
+
+/* Modal actions */
+.buyer-modal__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.buyer-modal__err {
+  color: var(--unsafe);
+  font-size: 0.83rem;
+  margin-top: 8px;
+  text-align: center;
+}
+
+/* Step tracker (light) */
+.buyer-step-track {
+  display: flex;
+  align-items: flex-start;
+}
+.buyer-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.72rem;
+  color: var(--ink-3);
+  min-width: 56px;
+  position: relative;
+}
+.buyer-step__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+  z-index: 1;
+}
+.buyer-step--done .buyer-step__dot {
+  border-color: var(--safe);
+  background: var(--safe);
+  color: #fff;
+}
+.buyer-step--current .buyer-step__dot {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.buyer-step__connector {
+  position: absolute;
+  top: 11px;
+  left: calc(50% + 11px);
+  right: calc(-50% + 11px);
+  height: 2px;
+  background: var(--line);
+}
+.buyer-step--done + .buyer-step .buyer-step__connector,
+.buyer-step--done .buyer-step__connector {
+  background: var(--safe);
+}
+
+/* Order cards */
+.buyer-order-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.buyer-order-card__main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.buyer-order-card__info { flex: 1.2; min-width: 0; }
+.buyer-order-card__species { font-weight: 600; font-size: 0.95rem; color: var(--ink); }
+.buyer-order-card__vendor { font-size: 0.82rem; color: var(--ink-3); margin-top: 1px; }
+.buyer-order-card__tracker { flex: 2; }
+.buyer-order-card__meta {
+  flex: 1;
+  text-align: right;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.buyer-order-card__price { font-family: var(--font-mono); font-size: 0.95rem; color: var(--ink); }
+.buyer-order-card__expand {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  padding: 2px 4px;
+  border-radius: var(--r-sm);
+  margin-left: 8px;
+}
+.buyer-order-card__expand:hover { background: var(--hover); }
+.buyer-order-detail {
+  background: var(--paper-2, var(--paper));
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin-top: 10px;
+  font-size: 0.83rem;
+  color: var(--ink-3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Hero card */
+.buyer-hero {
+  background: linear-gradient(135deg, oklch(0.96 0.04 240) 0%, oklch(0.97 0.03 200) 100%);
+  border: 1px solid oklch(0.88 0.06 240);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-bottom: var(--gap);
+}
+.buyer-hero__greeting {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.buyer-hero__sub { font-size: 0.9rem; color: var(--ink-2); }
+
+/* Featured listings in dashboard */
+.buyer-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+/* Empty state */
+.buyer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  color: var(--ink-3);
+  font-size: 0.9rem;
+}
