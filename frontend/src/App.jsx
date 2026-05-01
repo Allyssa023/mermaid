@@ -1,6 +1,7 @@
 import './index.css'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
+import { CartProvider } from './context/CartContext'
 import { LoginPage, RoleSetupPage } from './pages/LoginPage'
 import FishermanDashboard from './FishermanDashboard'
 import BuyerDashboard from './BuyerDashboard'
@@ -33,7 +34,12 @@ function AppInner() {
     return <><VendorDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
   }
   if (user.role === 'BUYER') {
-    return <><BuyerDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
+    return (
+      <CartProvider>
+        <BuyerDashboard user={user} token={null} onLogout={logout} />
+        <ThemeToggle />
+      </CartProvider>
+    )
   }
 
   if (!user.role) return <><RoleSetupPage /><ThemeToggle /></>

@@ -36,6 +36,17 @@ public class DemandListingMapper {
         return m;
     }
 
+    public com.mermaid.app.model.BuyerVendorProfile toVendorProfile(com.mermaid.app.domain.User vendor) {
+        com.mermaid.app.model.BuyerVendorProfile p = new com.mermaid.app.model.BuyerVendorProfile(
+            vendor.getId(), vendor.getFullName());
+        p.setAvatarUrl(JsonNullable.of(null));
+        p.setAvgRating(JsonNullable.of(null));
+        p.setReviewCount(JsonNullable.of(null));
+        p.setJoinedDate(JsonNullable.of(vendor.getCreatedAt()));
+        p.setTotalCompletedTrades(JsonNullable.of(null));
+        return p;
+    }
+
     public com.mermaid.app.model.OfferLookupItem toOfferLookupItem(DemandListing entity, String vendorName) {
         com.mermaid.app.model.OfferLookupItem item = new com.mermaid.app.model.OfferLookupItem(
             entity.getId(),

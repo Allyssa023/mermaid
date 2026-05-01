@@ -23,6 +23,9 @@ tags:
   - name: Catch Alerts
   - name: Orders
   - name: Buyer Marketplace
+  - name: Buyer Cart
+  - name: Buyer Addresses
+  - name: Buyer Checkout
   - name: Buyer Orders
   - name: Lookups
 
@@ -1001,6 +1004,11 @@ paths:
       security: []
       parameters:
         - in: query
+          name: q
+          description: Free-text search across species name, vendor name, and notes
+          schema:
+            type: string
+        - in: query
           name: speciesId
           schema:
             type: integer
@@ -1020,15 +1028,331 @@ paths:
           schema:
             type: number
             format: double
+        - in: query
+          name: lat
+          description: Buyer latitude (required when sort=DISTANCE_ASC or maxDistanceKm is set)
+          schema:
+            type: number
+            format: double
+        - in: query
+          name: lng
+          description: Buyer longitude (required when sort=DISTANCE_ASC or maxDistanceKm is set)
+          schema:
+            type: number
+            format: double
+        - in: query
+          name: maxDistanceKm
+          description: Max haversine distance from (lat,lng) to listing market location
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - in: query
+          name: sort
+          description: Sort order; defaults to RECENT
+          schema:
+            $ref: '#/components/schemas/BuyerListingSort'
+        - in: query
+          name: page
+          description: Zero-based page index
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: size
+          description: Page size (max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
-          description: List of open demand listings
+          description: Paginated list of open demand listings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedDemandListings'
+
+  /buyer/marketplace/listings/{listingId}:
+    get:
+      tags: [Buyer Marketplace]
+      summary: Get rich detail for a single listing (vendor profile, related listings)
+      operationId: getBuyerListingDetail
+      security: []
+      parameters:
+        - in: path
+          name: listingId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Listing detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerListingDetail'
+        '404':
+          description: Listing not found or closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /buyer/cart:
+    get:
+      tags: [Buyer Cart]
+      summary: Get current cart with items grouped by vendor
+      operationId: getBuyerCart
+      responses:
+        '200':
+          description: Cart view (lazy-created if absent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerCartView'
+    delete:
+      tags: [Buyer Cart]
+      summary: Clear all items from cart
+      operationId: clearBuyerCart
+      responses:
+        '200':
+          description: Empty cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerCartView'
+
+  /buyer/cart/items:
+    post:
+      tags: [Buyer Cart]
+      summary: Add item to cart (or merge quantity if listing already in cart)
+      operationId: addBuyerCartItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCartItemRequest'
+      responses:
+        '200':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerCartView'
+        '404':
+          description: Listing not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Listing closed or quantity exceeds available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /buyer/cart/items/{itemId}:
+    patch:
+      tags: [Buyer Cart]
+      summary: Update quantity or notes on a cart item
+      operationId: updateBuyerCartItem
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCartItemRequest'
+      responses:
+        '200':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerCartView'
+        '404':
+          description: Cart item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Listing closed or quantity exceeds available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Buyer Cart]
+      summary: Remove an item from cart
+      operationId: removeBuyerCartItem
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerCartView'
+        '404':
+          description: Cart item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /buyer/addresses:
+    get:
+      tags: [Buyer Addresses]
+      summary: List buyer's active delivery addresses (default first)
+      operationId: getBuyerAddresses
+      responses:
+        '200':
+          description: Addresses
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/DemandListing'
+                  $ref: '#/components/schemas/BuyerAddress'
+    post:
+      tags: [Buyer Addresses]
+      summary: Create a new address
+      operationId: createBuyerAddress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyerAddressCreateRequest'
+      responses:
+        '201':
+          description: Address created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerAddress'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /buyer/addresses/{addressId}:
+    patch:
+      tags: [Buyer Addresses]
+      summary: Update an address
+      operationId: updateBuyerAddress
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyerAddressUpdateRequest'
+      responses:
+        '200':
+          description: Updated address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerAddress'
+        '404':
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Buyer Addresses]
+      summary: Soft-delete an address
+      operationId: deleteBuyerAddress
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Deleted
+
+  /buyer/addresses/{addressId}/default:
+    put:
+      tags: [Buyer Addresses]
+      summary: Set this address as the buyer's default
+      operationId: setBuyerAddressDefault
+      parameters:
+        - in: path
+          name: addressId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Updated address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerAddress'
+
+  /buyer/checkout:
+    post:
+      tags: [Buyer Checkout]
+      summary: Place orders from cart (one order per cart item, atomic)
+      operationId: placeBuyerCheckout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyerCheckoutRequest'
+      responses:
+        '201':
+          description: Orders created; cart cleared
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerCheckoutResult'
+        '400':
+          description: Empty cart or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: One or more cart items unavailable; cart preserved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /buyer/orders:
     post:
@@ -2206,6 +2530,358 @@ components:
           type: string
           format: date-time
           nullable: true
+        distanceKm:
+          type: number
+          format: double
+          nullable: true
+          description: Haversine distance from buyer's lat/lng (when supplied) to listing market location
+
+    BuyerListingSort:
+      type: string
+      enum: [RECENT, PRICE_ASC, PRICE_DESC, DISTANCE_ASC]
+
+    PagedDemandListings:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/DemandListing'
+        page:
+          type: integer
+          description: Zero-based page index
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+
+    BuyerVendorProfile:
+      type: object
+      required: [id, fullName]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fullName:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        avgRating:
+          type: number
+          format: double
+          nullable: true
+          description: Average review rating (null until reviews are implemented)
+        reviewCount:
+          type: integer
+          format: int64
+          nullable: true
+        joinedDate:
+          type: string
+          format: date-time
+          nullable: true
+        totalCompletedTrades:
+          type: integer
+          format: int64
+          nullable: true
+
+    BuyerAddress:
+      type: object
+      required: [id, label, recipientName, addressLine1, city, isDefault]
+      properties:
+        id:
+          type: integer
+          format: int64
+        label:
+          type: string
+        recipientName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        addressLine1:
+          type: string
+        addressLine2:
+          type: string
+          nullable: true
+        barangay:
+          type: string
+          nullable: true
+        city:
+          type: string
+        province:
+          type: string
+          nullable: true
+        postalCode:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        isDefault:
+          type: boolean
+        oneLine:
+          type: string
+          description: Pre-formatted single-line representation
+          nullable: true
+
+    BuyerAddressCreateRequest:
+      type: object
+      required: [label, recipientName, addressLine1, city]
+      properties:
+        label:
+          type: string
+          maxLength: 60
+        recipientName:
+          type: string
+          maxLength: 120
+        phone:
+          type: string
+          maxLength: 40
+        addressLine1:
+          type: string
+          maxLength: 255
+        addressLine2:
+          type: string
+          maxLength: 255
+        barangay:
+          type: string
+          maxLength: 120
+        city:
+          type: string
+          maxLength: 120
+        province:
+          type: string
+          maxLength: 120
+        postalCode:
+          type: string
+          maxLength: 20
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        setAsDefault:
+          type: boolean
+          default: false
+
+    BuyerAddressUpdateRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 60
+        recipientName:
+          type: string
+          maxLength: 120
+        phone:
+          type: string
+          maxLength: 40
+        addressLine1:
+          type: string
+          maxLength: 255
+        addressLine2:
+          type: string
+          maxLength: 255
+        barangay:
+          type: string
+          maxLength: 120
+        city:
+          type: string
+          maxLength: 120
+        province:
+          type: string
+          maxLength: 120
+        postalCode:
+          type: string
+          maxLength: 20
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+
+    BuyerCheckoutGroupSpec:
+      type: object
+      required: [vendorId, dispatchMode]
+      properties:
+        vendorId:
+          type: integer
+          format: int64
+        dispatchMode:
+          type: string
+          enum: [PICKUP, DELIVERY]
+        addressId:
+          type: integer
+          format: int64
+          description: Required when dispatchMode=DELIVERY
+        notes:
+          type: string
+          maxLength: 500
+
+    BuyerCheckoutRequest:
+      type: object
+      required: [groups]
+      properties:
+        groups:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/BuyerCheckoutGroupSpec'
+        paymentMethod:
+          type: string
+          enum: [CASH, ONLINE]
+          default: CASH
+
+    BuyerCheckoutResult:
+      type: object
+      required: [orderIds]
+      properties:
+        orderIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        grandTotal:
+          type: number
+          format: double
+
+    AddCartItemRequest:
+      type: object
+      required: [listingId, quantityKg]
+      properties:
+        listingId:
+          type: integer
+          format: int64
+        quantityKg:
+          type: number
+          format: double
+          minimum: 0.1
+        notes:
+          type: string
+          maxLength: 500
+
+    UpdateCartItemRequest:
+      type: object
+      properties:
+        quantityKg:
+          type: number
+          format: double
+          minimum: 0.1
+        notes:
+          type: string
+          maxLength: 500
+
+    BuyerCartItem:
+      type: object
+      required: [id, listingId, vendorId, speciesName, quantityKg, unitPriceSnapshot, currentPricePerKg, lineTotal, addedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        listingId:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+        locationName:
+          type: string
+          nullable: true
+        quantityKg:
+          type: number
+          format: double
+        unitPriceSnapshot:
+          type: number
+          format: double
+        currentPricePerKg:
+          type: number
+          format: double
+        lineTotal:
+          type: number
+          format: double
+        notes:
+          type: string
+          nullable: true
+        addedAt:
+          type: string
+          format: date-time
+        warning:
+          type: string
+          nullable: true
+          description: Set when listing closed mid-shop, qty exceeds available, or price changed
+
+    BuyerCartGroup:
+      type: object
+      required: [vendor, items, subtotal]
+      properties:
+        vendor:
+          $ref: '#/components/schemas/BuyerVendorProfile'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BuyerCartItem'
+        subtotal:
+          type: number
+          format: double
+
+    BuyerCartView:
+      type: object
+      required: [groups, grandTotal, itemCount]
+      properties:
+        id:
+          type: integer
+          format: int64
+          nullable: true
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/BuyerCartGroup'
+        grandTotal:
+          type: number
+          format: double
+        itemCount:
+          type: integer
+        warnings:
+          type: array
+          items:
+            type: string
+
+    BuyerListingDetail:
+      type: object
+      required: [listing, vendor, photoUrls, relatedListings]
+      properties:
+        listing:
+          $ref: '#/components/schemas/DemandListing'
+        vendor:
+          $ref: '#/components/schemas/BuyerVendorProfile'
+        photoUrls:
+          type: array
+          description: Empty until image upload (Phase 3.3)
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+          description: Long-form description (currently mirrors listing notes)
+        relatedListings:
+          type: array
+          maxItems: 4
+          items:
+            $ref: '#/components/schemas/DemandListing'
 
     DemandListingCreateRequest:
       type: object

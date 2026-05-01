@@ -33,14 +33,25 @@ export async function apiPut(path, _token, body) {
   return data
 }
 
+export async function apiPatch(path, _token, body) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message || `Request failed (${res.status})`)
+  return data
+}
+
 export async function apiDelete(path, _token) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) {
-    const data = await res.json().catch(() => null)
-    throw new Error(data?.message || `Request failed (${res.status})`)
-  }
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.message || `Request failed (${res.status})`)
+  return data
 }
 
