@@ -9,6 +9,10 @@ import com.mermaid.app.model.PaymentCreateRequest;
 import com.mermaid.app.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.ApplicationEventPublisher;
+import com.mermaid.app.event.OrderStatusChangeEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -16,6 +20,8 @@ import java.util.List;
 
 @Service
 public class OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final OrderRepository orderRepo;
     private final CatchAlertRepository alertRepo;
@@ -25,6 +31,8 @@ public class OrderService {
     private final UserRepository userRepo;
     private final CatchLogRepository catchLogRepo;
     private final OrderMapper mapper;
+    private final OrderStatusEventRepository eventRepo;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderService(OrderRepository orderRepo,
                         CatchAlertRepository alertRepo,
@@ -33,7 +41,9 @@ public class OrderService {
                         PaymentRepository paymentRepo,
                         UserRepository userRepo,
                         CatchLogRepository catchLogRepo,
-                        OrderMapper mapper) {
+                        OrderMapper mapper,
+                        OrderStatusEventRepository eventRepo,
+                        ApplicationEventPublisher eventPublisher) {
         this.orderRepo = orderRepo;
         this.alertRepo = alertRepo;
         this.speciesRepo = speciesRepo;
@@ -42,6 +52,8 @@ public class OrderService {
         this.userRepo = userRepo;
         this.catchLogRepo = catchLogRepo;
         this.mapper = mapper;
+        this.eventRepo = eventRepo;
+        this.eventPublisher = eventPublisher;
     }
 
     private String resolveName(Long userId) {
@@ -101,7 +113,9 @@ public class OrderService {
             order.setNotes(req.getNotes().get());
         }
 
-        return toModel(orderRepo.save(order));
+        Order saved = orderRepo.save(order);
+        recordStatusEvent(saved.getId(), "PENDING", vendorId, "Order created");
+        return toModel(saved);
     }
 
     @Transactional(readOnly = true)
@@ -123,7 +137,9 @@ public class OrderService {
             throw new IllegalArgumentException("Order is not in PENDING state.");
         }
         order.setStatus("CONFIRMED");
-        return toModel(orderRepo.save(order));
+        Order saved = orderRepo.save(order);
+        recordStatusEvent(orderId, "CONFIRMED", fishermanId, "Order confirmed by seller");
+        return toModel(saved);
     }
 
     @Transactional
@@ -134,7 +150,9 @@ public class OrderService {
             throw new IllegalArgumentException("Cannot cancel a completed order.");
         }
         order.setStatus("CANCELLED");
-        return toModel(orderRepo.save(order));
+        Order saved = orderRepo.save(order);
+        recordStatusEvent(orderId, "CANCELLED", userId, "Order cancelled");
+        return toModel(saved);
     }
 
     @Transactional
@@ -196,6 +214,7 @@ public class OrderService {
             handoff.setConfirmedAt(OffsetDateTime.now());
             order.setStatus("COMPLETED");
             orderRepo.save(order);
+            recordStatusEvent(order.getId(), "COMPLETED", null, "Both parties confirmed handoff");
 
             // Mark the catch alert as SOLD so it no longer appears in browse
             if (order.getCatchAlertId() != null) {
@@ -300,5 +319,25 @@ public class OrderService {
         m.setProofReference(org.openapitools.jackson.nullable.JsonNullable.of(p.getProofReference()));
         m.setPaidAt(org.openapitools.jackson.nullable.JsonNullable.of(p.getPaidAt()));
         return m;
+    }
+
+    private void recordStatusEvent(Long orderId, String status, Long actorId, String note) {
+        try {
+            com.mermaid.app.domain.OrderStatusEvent event = new com.mermaid.app.domain.OrderStatusEvent();
+            event.setOrderId(orderId);
+            event.setStatus(status);
+            event.setActorId(actorId);
+            event.setNote(note);
+            eventRepo.save(event);
+
+            // Publish event for notification system
+            orderRepo.findById(orderId).ifPresent(order ->
+                eventPublisher.publishEvent(new OrderStatusChangeEvent(
+                    this, orderId, order.getBuyerId(), order.getSellerId(), status, note
+                ))
+            );
+        } catch (Exception e) {
+            log.warn("Failed to record status event for order {}: {}", orderId, e.getMessage());
+        }
     }
 }

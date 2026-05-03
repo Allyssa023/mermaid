@@ -9,10 +9,11 @@ import './design-system.css'
 import './light-compat.css'
 import './handoff.css'
 import './buyer.css'
-import { apiGet, apiPost } from './api'
+import { apiGet, apiPost, apiPatch } from './api'
 import { I } from './icons'
 import Messages from './Messages'
 import { useCart } from './context/CartContext'
+import { useFavorites } from './context/FavoritesContext'
 
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
@@ -28,23 +29,6 @@ function fmtPrice(p) {
   if (p == null) return '—'
   return `₱${Number(p).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
-
-// ── Mock Data: Saved Vendors ──────────────────────────────────────────────────
-// TODO: Replace with apiGet('/buyer/favorites') when backend endpoint is ready
-
-const MOCK_FAVORITES = [
-  { id: 210, name: 'Marina Seafoods', port: 'Pinagbayanan · Quezon', rating: 4.8, trades: 184, lastBought: '2 days ago' },
-  { id: 213, name: 'Puerto Azul Resto', port: 'Anilao · Batangas', rating: 4.9, trades: 31, lastBought: '5 days ago' },
-  { id: 214, name: 'Del Mar Cold Chain', port: 'Batangas Port', rating: 4.7, trades: 215, lastBought: '9 days ago' },
-]
-
-const MOCK_ACTIVITY = [
-  { ts: '12 min ago', who: 'Marina Seafoods',  what: 'confirmed your order ORD-8412 (6kg Mahi-mahi)', type: 'order' },
-  { ts: '2 hr ago',   who: 'Bay City Market',  what: 'replied to your message about Grouper availability', type: 'message' },
-  { ts: '4 hr ago',   who: 'Marina Seafoods',  what: 'posted new listing — Yellowfin Tuna ₱400/kg × 60kg', type: 'listing' },
-  { ts: 'Yesterday',  who: 'You',              what: 'placed order ORD-8409 — Lapu-lapu 3kg × ₱560', type: 'order' },
-  { ts: 'Yesterday',  who: 'Del Mar',          what: 'completed delivery for ORD-8387 · ₱1,744', type: 'order' },
-]
 
 // ── Order Modal ───────────────────────────────────────────────────────────────
 
@@ -197,9 +181,292 @@ function OrderModal({ listing, onClose, onSuccess }) {
   )
 }
 
+// ── Review Modal ──────────────────────────────────────────────────────────────
+
+function StarPicker({ value, onChange, size = 28 }) {
+  return (
+    <div className="row" style={{ gap: 4 }}>
+      {[1, 2, 3, 4, 5].map(n => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n)}
+          aria-label={`${n} star${n === 1 ? '' : 's'}`}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: 4,
+            cursor: 'pointer',
+            color: n <= value ? 'var(--accent, #f5a524)' : 'var(--ink-4, #999)',
+          }}
+        >
+          <I.Star size={size} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ReviewModal({ order, existing, onClose, onSubmitted }) {
+  const [rating, setRating]   = useState(existing?.rating || 5)
+  const [comment, setComment] = useState(existing?.comment || '')
+  const [busy, setBusy]       = useState(false)
+  const [error, setError]     = useState('')
+
+  const isEdit = Boolean(existing?.id)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const path = `/buyer/orders/${order.id}/review`
+      const body = { rating, comment: comment.trim() || undefined }
+      if (isEdit) {
+        await apiPatch(path, null, body)
+      } else {
+        await apiPost(path, null, body)
+      }
+      onSubmitted && onSubmitted()
+      onClose()
+    } catch (err) {
+      setError(err?.message || 'Could not save review.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const speciesName = order.species?.commonName || 'this order'
+  const sellerName  = order.sellerName || order.seller?.fullName || 'the vendor'
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true">
+      <div className="modal__backdrop" onClick={onClose} />
+      <div className="modal__panel" style={{ maxWidth: 520 }}>
+        <div className="modal__head">
+          <h2>{isEdit ? 'Edit review' : 'Rate your order'}</h2>
+          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close">×</button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ padding: '0 18px 18px' }}>
+          <div className="muted-data" style={{ fontSize: 13, marginBottom: 12 }}>
+            How was your <strong>{speciesName}</strong> from <strong>{sellerName}</strong>?
+          </div>
+
+          <div className="label" style={{ marginTop: 4 }}>Your rating</div>
+          <StarPicker value={rating} onChange={setRating} />
+
+          <div className="label" style={{ marginTop: 18 }}>Comment (optional)</div>
+          <textarea
+            className="input"
+            value={comment}
+            onChange={e => setComment(e.target.value)}
+            placeholder="Anything other buyers should know about this vendor?"
+            rows={4}
+            maxLength={2000}
+          />
+
+          {error && (
+            <div style={{ color: 'var(--unsafe)', fontSize: 13, marginTop: 10 }}>{error}</div>
+          )}
+
+          <div className="row" style={{ gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
+            <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn--accent" disabled={busy || rating < 1}>
+              {busy ? 'Saving…' : isEdit ? 'Update review' : 'Submit review'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Favorite heart toggle (shared) ────────────────────────────────────────────
+
+function FavoriteHeart({ targetType, targetId, size = 14, label = 'Save', stopPropagation = true }) {
+  const { isFavorited, toggle } = useFavorites()
+  const [busy, setBusy] = useState(false)
+  const active = isFavorited(targetType, targetId)
+  return (
+    <button
+      type="button"
+      className="btn btn--ghost btn--sm"
+      onClick={async (e) => {
+        if (stopPropagation) e.stopPropagation()
+        if (busy) return
+        setBusy(true)
+        await toggle(targetType, targetId)
+        setBusy(false)
+      }}
+      aria-label={active ? `Remove ${label}` : `Save ${label}`}
+      title={active ? 'Saved' : 'Save'}
+      style={{
+        color: active ? 'var(--accent, #f5a524)' : 'var(--ink-4, #999)',
+        padding: '4px 8px',
+      }}
+    >
+      <I.Star size={size} />
+    </button>
+  )
+}
+
+function SavedCountBadge() {
+  const { favorites } = useFavorites()
+  return (
+    <button className="btn btn--ghost">
+      {favorites.length} saved <I.Star size={12} />
+    </button>
+  )
+}
+
+// ── Vendor Storefront View ────────────────────────────────────────────────────
+
+function VendorStorefrontView({ vendorId, onBack, onSelectListing }) {
+  const [data, setData]       = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true); setError('')
+    apiGet(`/vendors/${vendorId}/storefront`)
+      .then(d => { if (!cancelled) setData(d) })
+      .catch(e => { if (!cancelled) setError(e?.message || 'Failed to load vendor.') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [vendorId])
+
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+          <button className="btn btn--ghost btn--sm" onClick={onBack}><I.ChevL size={12} /> Back</button>
+        </div>
+        <div className="card" style={{ marginTop: 18, padding: 24 }}>
+          <div className="skeleton" style={{ height: 24, width: '40%' }} />
+          <div className="skeleton" style={{ height: 120, marginTop: 12 }} />
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="page">
+        <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+          <button className="btn btn--ghost btn--sm" onClick={onBack}><I.ChevL size={12} /> Back</button>
+        </div>
+        <div className="buyer-empty" style={{ marginTop: 40 }}>
+          <I.Alert size={36} />
+          <span>{error || 'Vendor unavailable.'}</span>
+        </div>
+      </div>
+    )
+  }
+
+  const vendor   = data.vendor || {}
+  const listings = data.listings || []
+  const reviews  = data.recentReviews || []
+  const initials = (vendor.fullName || '?').split(' ').map(s => s[0]).join('').slice(0, 2)
+
+  return (
+    <div className="page">
+      <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+        <button className="btn btn--ghost btn--sm" onClick={onBack}><I.ChevL size={12} /> Back</button>
+      </div>
+
+      {/* Hero */}
+      <div className="card" style={{ marginTop: 14, padding: 20 }}>
+        <div className="row" style={{ alignItems: 'center', gap: 16 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%', background: 'var(--surface-2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 700, fontSize: 22,
+          }}>{initials}</div>
+          <div style={{ flex: 1 }}>
+            <div className="eyebrow">Vendor</div>
+            <h1 className="page__title" style={{ marginTop: 2, fontSize: 28 }}>{vendor.fullName || '—'}</h1>
+            <div className="muted-data" style={{ fontSize: 13, marginTop: 4 }}>
+              {vendor.avgRating != null ? (
+                <span style={{ color: 'var(--accent, #f5a524)' }}>★ {vendor.avgRating}</span>
+              ) : 'New vendor'}
+              {vendor.reviewCount ? ` · ${vendor.reviewCount} review${vendor.reviewCount === 1 ? '' : 's'}` : ''}
+              {vendor.joinedDate ? ` · joined ${fmt(vendor.joinedDate)}` : ''}
+            </div>
+          </div>
+          <FavoriteHeart targetType="VENDOR" targetId={vendor.id} label="vendor" stopPropagation={false} />
+        </div>
+      </div>
+
+      {/* Listings */}
+      <div style={{ marginTop: 24 }}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 className="page__title" style={{ fontSize: 20 }}>Open listings ({listings.length})</h2>
+        </div>
+        {listings.length === 0 ? (
+          <div className="muted-data" style={{ fontSize: 13, marginTop: 8 }}>
+            No open listings from this vendor right now.
+          </div>
+        ) : (
+          <div className="buyer-grid" style={{ marginTop: 12 }}>
+            {listings.map(l => {
+              const tag = l.fishSpecies?.tag || (l.fishSpecies?.commonName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+              return (
+                <div key={l.id} className="buyer-card" onClick={() => onSelectListing && onSelectListing(l.id)}>
+                  <div className="buyer-card__hero" data-tag={tag} style={{ position: 'relative' }}>
+                    <div className="buyer-card__species-tag">{tag}</div>
+                    <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                      <FavoriteHeart targetType="LISTING" targetId={l.id} />
+                    </div>
+                  </div>
+                  <div className="buyer-card__body">
+                    <h3 className="buyer-card__species">{l.fishSpecies?.commonName || '—'}</h3>
+                    <div className="buyer-card__location"><I.MapPin size={11} /> {l.marketLocation?.name || '—'}</div>
+                    <div className="buyer-card__price">
+                      <span className="big">{fmtPrice(l.offerPricePerKg)}</span>
+                      <span>/kg</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Recent reviews */}
+      <div style={{ marginTop: 32 }}>
+        <h2 className="page__title" style={{ fontSize: 20 }}>Recent reviews</h2>
+        {reviews.length === 0 ? (
+          <div className="muted-data" style={{ fontSize: 13, marginTop: 8 }}>
+            No reviews yet — be the first to share your experience after a completed order.
+          </div>
+        ) : (
+          <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {reviews.map(r => (
+              <div key={r.id} className="card" style={{ padding: 14 }}>
+                <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontWeight: 600 }}>{r.reviewerName || 'Buyer'}</div>
+                  <div style={{ color: 'var(--accent, #f5a524)', fontFamily: 'var(--font-mono)' }}>
+                    {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                  </div>
+                </div>
+                {r.comment && (
+                  <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.5 }}>{r.comment}</div>
+                )}
+                <div className="muted-data" style={{ fontSize: 11, marginTop: 6 }}>{fmt(r.createdAt)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Listing Detail View ───────────────────────────────────────────────────────
 
-function ListingDetailView({ listingId, onBack, onOrder, onSelectRelated, onCartAdded }) {
+function ListingDetailView({ listingId, onBack, onOrder, onSelectRelated, onCartAdded, onSelectVendor }) {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
@@ -310,19 +577,31 @@ function ListingDetailView({ listingId, onBack, onOrder, onSelectRelated, onCart
             </div>
           )}
 
-          <div className="card" style={{ marginTop: 18, padding: 14 }}>
+          <div
+            className="card"
+            style={{ marginTop: 18, padding: 14, cursor: vendor.id && onSelectVendor ? 'pointer' : 'default' }}
+            onClick={() => { if (vendor.id && onSelectVendor) onSelectVendor(vendor.id) }}
+          >
             <div className="row" style={{ alignItems: 'center', gap: 12 }}>
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 }}>
                 {(vendor.fullName || '?').slice(0, 1)}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>{vendor.fullName || '—'}</div>
+                <div style={{ fontWeight: 600 }}>
+                  {vendor.fullName || '—'}
+                  {vendor.id && onSelectVendor && (
+                    <span className="muted-data" style={{ fontSize: 11, marginLeft: 8 }}>· View storefront →</span>
+                  )}
+                </div>
                 <div className="muted-data" style={{ fontSize: 12 }}>
                   {vendor.avgRating != null ? `★ ${vendor.avgRating}` : 'New vendor'}
                   {vendor.reviewCount ? ` · ${vendor.reviewCount} reviews` : ''}
                   {vendor.joinedDate ? ` · joined ${fmt(vendor.joinedDate)}` : ''}
                 </div>
               </div>
+              {vendor.id && (
+                <FavoriteHeart targetType="VENDOR" targetId={vendor.id} label="vendor" stopPropagation={true} />
+              )}
             </div>
           </div>
 
@@ -421,6 +700,7 @@ function BrowseView() {
   const [loading, setLoading]         = useState(false)
   const [orderListing, setOrderListing] = useState(null)
   const [selectedListingId, setSelectedListingId] = useState(null)
+  const [selectedVendorId, setSelectedVendorId] = useState(null)
   const [highlighted, setHighlighted] = useState(null)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const cardRefs = useRef({})
@@ -497,6 +777,16 @@ function BrowseView() {
   const advancedActive = speciesId || locationId || minPrice || maxPrice || (sort && sort !== 'RECENT')
   const canLoadMore = !loading && page + 1 < totalPages
 
+  if (selectedVendorId) {
+    return (
+      <VendorStorefrontView
+        vendorId={selectedVendorId}
+        onBack={() => setSelectedVendorId(null)}
+        onSelectListing={(id) => { setSelectedVendorId(null); setSelectedListingId(id) }}
+      />
+    )
+  }
+
   if (selectedListingId) {
     return (
       <>
@@ -505,6 +795,7 @@ function BrowseView() {
           onBack={() => setSelectedListingId(null)}
           onOrder={(l) => setOrderListing(l)}
           onSelectRelated={(id) => setSelectedListingId(id)}
+          onSelectVendor={(id) => { setSelectedListingId(null); setSelectedVendorId(id) }}
         />
         {orderListing && (
           <OrderModal
@@ -544,7 +835,7 @@ function BrowseView() {
           <button className={`btn${showMap ? ' btn--accent' : ''}`} onClick={() => setShowMap(v => !v)}>
             <I.MapPin size={14} /> {showMap ? 'Hide map' : 'Map view'}
           </button>
-          <button className="btn btn--ghost">{MOCK_FAVORITES.length} saved <I.Star size={12} /></button>
+          <SavedCountBadge />
         </div>
       </div>
 
@@ -682,11 +973,14 @@ function BrowseView() {
                 className={`buyer-card${highlighted === l.id ? ' buyer-card--highlighted' : ''}`}
                 onClick={() => setSelectedListingId(l.id)}
               >
-                <div className="buyer-card__hero" data-tag={tag}>
+                <div className="buyer-card__hero" data-tag={tag} style={{ position: 'relative' }}>
                   <div className="buyer-card__species-tag">{tag}</div>
                   {tagLabel ? (
                     <span className={`buyer-card__chip buyer-card__chip--${tagLabel.toLowerCase()}`}>{tagLabel}</span>
                   ) : null}
+                  <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                    <FavoriteHeart targetType="LISTING" targetId={l.id} />
+                  </div>
                 </div>
                 <div className="buyer-card__body">
                   <h3 className="buyer-card__species">{l.fishSpecies?.commonName || '—'}</h3>
@@ -752,14 +1046,27 @@ function OrdersView() {
   const [tab, setTab]         = useState('active')
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(false)
+  const [reviewedOrderIds, setReviewedOrderIds] = useState(new Set())
+  const [reviewOrder, setReviewOrder] = useState(null)
+  const [reviewExisting, setReviewExisting] = useState(null)
 
-  useEffect(() => {
+  function loadOrders() {
     setLoading(true)
     apiGet('/buyer/orders')
-      .then(d => setOrders(d?.content || d || []))
+      .then(d => {
+        const arr = d?.content || d || []
+        setOrders(arr)
+        // Probe each completed order for an existing review (best-effort).
+        const completed = arr.filter(o => o.status === 'COMPLETED')
+        Promise.all(completed.map(o =>
+          apiGet(`/buyer/orders/${o.id}/review`).then(r => r ? o.id : null).catch(() => null)
+        )).then(ids => setReviewedOrderIds(new Set(ids.filter(Boolean))))
+      })
       .catch(() => setOrders([]))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadOrders() }, [])
 
   const filtered = orders.filter(o => {
     if (tab === 'active') return ['PENDING', 'CONFIRMED'].includes(o.status)
@@ -927,6 +1234,25 @@ function OrdersView() {
                         {o.status === 'PENDING' && <button className="btn btn--ghost btn--sm">Cancel</button>}
                         {o.status === 'CONFIRMED' && <button className="btn btn--accent btn--sm">Confirm receipt</button>}
                         {o.status === 'COMPLETED' && <button className="btn btn--ghost btn--sm">Re-order</button>}
+                        {o.status === 'COMPLETED' && (
+                          reviewedOrderIds.has(o.id) ? (
+                            <button
+                              className="btn btn--ghost btn--sm"
+                              onClick={async () => {
+                                try {
+                                  const r = await apiGet(`/buyer/orders/${o.id}/review`)
+                                  setReviewExisting(r)
+                                  setReviewOrder(o)
+                                } catch { /* fall through */ }
+                              }}
+                            >Edit review</button>
+                          ) : (
+                            <button
+                              className="btn btn--accent btn--sm"
+                              onClick={() => { setReviewExisting(null); setReviewOrder(o) }}
+                            >Leave review</button>
+                          )
+                        )}
                       </div>
                     </div>
                   </div>
@@ -936,64 +1262,142 @@ function OrdersView() {
           </div>
         )}
       </div>
+
+      {reviewOrder && (
+        <ReviewModal
+          order={reviewOrder}
+          existing={reviewExisting}
+          onClose={() => { setReviewOrder(null); setReviewExisting(null) }}
+          onSubmitted={() => {
+            setReviewedOrderIds(prev => new Set([...prev, reviewOrder.id]))
+            loadOrders()
+          }}
+        />
+      )}
     </div>
   )
 }
 
 // ── Saved Vendors View ────────────────────────────────────────────────────────
 
-function SavedVendorsView({ onNavigate }) {
+function SavedVendorsView({ onNavigate, onSelectListing }) {
+  const { vendorFavorites, listingFavorites, loading } = useFavorites()
+  const [tab, setTab] = useState('vendors')
+
   return (
     <div className="page">
       <div className="page__head">
         <div>
           <div className="eyebrow">Network</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}>Saved <em>Vendors</em></h1>
-          <p className="page__sub">{MOCK_FAVORITES.length} vendors you trust. Quick access to their listings and message threads.</p>
+          <h1 className="page__title" style={{ marginTop: 4 }}>Your <em>saved</em> items</h1>
+          <p className="page__sub">
+            {vendorFavorites.length} vendor{vendorFavorites.length === 1 ? '' : 's'} ·{' '}
+            {listingFavorites.length} listing{listingFavorites.length === 1 ? '' : 's'} saved.
+          </p>
         </div>
       </div>
 
-      <div className="vendor-grid" style={{ marginTop: 18 }}>
-        {MOCK_FAVORITES.map(v => (
-          <div key={v.id} className="vendor-card">
-            <div className="vendor-card__head">
-              <div className="vendor-card__avatar">
-                {v.name.split(' ').map(s => s[0]).join('').slice(0, 2)}
-              </div>
-              <button className="btn btn--ghost btn--sm"><I.Star size={12} /></button>
-            </div>
-            <h3 className="vendor-card__name">{v.name}</h3>
-            <div className="muted-data" style={{ marginBottom: 12 }}><I.MapPin size={11} /> {v.port}</div>
-            <div className="vendor-card__stats">
-              <div><div className="l">Rating</div><div className="v">★ {v.rating}</div></div>
-              <div><div className="l">Trades</div><div className="v">{v.trades}</div></div>
-              <div><div className="l">Last buy</div><div className="v" style={{ fontSize: 13 }}>{v.lastBought}</div></div>
-            </div>
-            <div className="vendor-card__foot">
-              <button className="btn btn--ghost btn--sm" style={{ flex: 1 }}>Message</button>
-              <button className="btn btn--accent btn--sm" style={{ flex: 1 }} onClick={() => onNavigate('browse')}>View listings</button>
-            </div>
+      <div className="seg" style={{ marginTop: 14, alignSelf: 'flex-start' }}>
+        <button className={tab === 'vendors' ? 'on' : ''} onClick={() => setTab('vendors')}>
+          Vendors ({vendorFavorites.length})
+        </button>
+        <button className={tab === 'listings' ? 'on' : ''} onClick={() => setTab('listings')}>
+          Listings ({listingFavorites.length})
+        </button>
+      </div>
+
+      {loading && (
+        <div className="muted-data" style={{ marginTop: 18 }}>Loading…</div>
+      )}
+
+      {tab === 'vendors' && !loading && (
+        vendorFavorites.length === 0 ? (
+          <div className="buyer-empty" style={{ marginTop: 40 }}>
+            <I.Star size={36} />
+            <span>No saved vendors yet. Tap the star icon on any vendor to save them.</span>
+            <button className="btn btn--accent" style={{ marginTop: 18 }} onClick={() => onNavigate('browse')}>
+              Browse marketplace
+            </button>
           </div>
-        ))}
-      </div>
+        ) : (
+          <div className="vendor-grid" style={{ marginTop: 18 }}>
+            {vendorFavorites.map(f => {
+              const v = f.vendor
+              if (!v) return null
+              return (
+                <div key={f.id} className="vendor-card">
+                  <div className="vendor-card__head">
+                    <div className="vendor-card__avatar">
+                      {(v.fullName || '?').split(' ').map(s => s[0]).join('').slice(0, 2)}
+                    </div>
+                    <FavoriteHeart targetType="VENDOR" targetId={v.id} label="vendor" stopPropagation={false} />
+                  </div>
+                  <h3 className="vendor-card__name">{v.fullName}</h3>
+                  <div className="muted-data" style={{ marginBottom: 12 }}>
+                    {v.joinedDate ? `Joined ${fmt(v.joinedDate)}` : 'Vendor'}
+                  </div>
+                  <div className="vendor-card__stats">
+                    <div><div className="l">Rating</div><div className="v">★ {v.avgRating ?? '—'}</div></div>
+                    <div><div className="l">Reviews</div><div className="v">{v.reviewCount ?? 0}</div></div>
+                    <div><div className="l">Trades</div><div className="v" style={{ fontSize: 13 }}>{v.totalCompletedTrades ?? '—'}</div></div>
+                  </div>
+                  <div className="vendor-card__foot">
+                    <button className="btn btn--ghost btn--sm" style={{ flex: 1 }}>Message</button>
+                    <button className="btn btn--accent btn--sm" style={{ flex: 1 }} onClick={() => onNavigate('browse')}>View listings</button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
 
-      {/* Activity feed from saved vendors */}
-      <div className="card" style={{ marginTop: 18 }}>
-        <div className="card__head">
-          <div className="card__title">Activity from saved vendors</div>
-        </div>
-        <ul className="activity">
-          {MOCK_ACTIVITY.map((a, i) => (
-            <li key={i} className="activity__item">
-              <span className={`activity__dot activity__dot--${a.type}`} />
-              <div className="activity__body">
-                <div className="activity__line"><strong>{a.who}</strong> <span>{a.what}</span></div>
-                <div className="activity__time">{a.ts}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {tab === 'listings' && !loading && (
+        listingFavorites.length === 0 ? (
+          <div className="buyer-empty" style={{ marginTop: 40 }}>
+            <I.Star size={36} />
+            <span>No saved listings yet. Tap the star icon on any listing card.</span>
+            <button className="btn btn--accent" style={{ marginTop: 18 }} onClick={() => onNavigate('browse')}>
+              Browse marketplace
+            </button>
+          </div>
+        ) : (
+          <div className="buyer-grid" style={{ marginTop: 18 }}>
+            {listingFavorites.map(f => {
+              const l = f.listing
+              if (!l) {
+                return (
+                  <div key={f.id} className="buyer-card" style={{ opacity: 0.5 }}>
+                    <div className="buyer-card__body">
+                      <div className="muted-data">Listing no longer available</div>
+                      <FavoriteHeart targetType="LISTING" targetId={f.targetId} stopPropagation={false} />
+                    </div>
+                  </div>
+                )
+              }
+              const tag = l.fishSpecies?.tag || (l.fishSpecies?.commonName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+              return (
+                <div key={f.id} className="buyer-card" onClick={() => onSelectListing && onSelectListing(l.id)}>
+                  <div className="buyer-card__hero" data-tag={tag} style={{ position: 'relative' }}>
+                    <div className="buyer-card__species-tag">{tag}</div>
+                    <div style={{ position: 'absolute', top: 8, right: 8 }}>
+                      <FavoriteHeart targetType="LISTING" targetId={l.id} />
+                    </div>
+                  </div>
+                  <div className="buyer-card__body">
+                    <h3 className="buyer-card__species">{l.fishSpecies?.commonName || '—'}</h3>
+                    <div className="buyer-card__vendor"><span>{l.vendorName || '—'}</span></div>
+                    <div className="buyer-card__price">
+                      <span className="big">{fmtPrice(l.offerPricePerKg)}</span>
+                      <span>/kg</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
     </div>
   )
 }

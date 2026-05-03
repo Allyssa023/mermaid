@@ -40,8 +40,9 @@ public class DemandListingMapper {
         com.mermaid.app.model.BuyerVendorProfile p = new com.mermaid.app.model.BuyerVendorProfile(
             vendor.getId(), vendor.getFullName());
         p.setAvatarUrl(JsonNullable.of(null));
-        p.setAvgRating(JsonNullable.of(null));
-        p.setReviewCount(JsonNullable.of(null));
+        p.setAvgRating(JsonNullable.of(
+            vendor.getAvgRating() != null ? vendor.getAvgRating().doubleValue() : null));
+        p.setReviewCount(JsonNullable.of((long) vendor.getReviewCount()));
         p.setJoinedDate(JsonNullable.of(vendor.getCreatedAt()));
         p.setTotalCompletedTrades(JsonNullable.of(null));
         return p;

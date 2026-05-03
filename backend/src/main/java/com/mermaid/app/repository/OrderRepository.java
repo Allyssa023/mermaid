@@ -17,4 +17,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT o FROM Order o WHERE o.id = :id AND (o.buyerId = :userId OR o.sellerId = :userId)")
     Optional<Order> findByIdAndParticipant(Long id, Long userId);
+
+    long countByBuyerId(Long buyerId);
 }

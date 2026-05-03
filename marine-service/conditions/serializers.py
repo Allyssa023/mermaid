@@ -39,6 +39,15 @@ class ZoneConditionsSerializer(serializers.Serializer):
     weather = WeatherDataSerializer()
     risk = RiskAssessmentSerializer()
     data_source = serializers.CharField()
+    data_freshness_seconds = serializers.SerializerMethodField()
+
+    def get_data_freshness_seconds(self, obj) -> int:
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        ts = obj.timestamp
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return max(0, int((now - ts).total_seconds()))
 
 
 class DailyForecastSummarySerializer(serializers.Serializer):

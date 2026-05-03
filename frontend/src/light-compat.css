@@ -29,12 +29,9 @@
   --text-3:   var(--ink-4);
   --border:   var(--line);
   --border-2: var(--line-2);
-  --r-sm:  var(--r-sm);
-  --r-md:  var(--r-md);
-  --r-lg:  var(--r-lg);
-  --font-display: var(--font-display);
+  /* radius + font tokens inherited from design-system.css :root — do NOT re-declare */
+  --sidebar-w: 220px;
   --font-body: var(--font-ui);
-  --sidebar-w: var(--rail-expanded);
 }
 
 /* ── Page wrappers ── */

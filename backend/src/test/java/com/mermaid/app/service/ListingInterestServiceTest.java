@@ -93,6 +93,13 @@ class ListingInterestServiceTest {
         l.setId(id);
         l.setVendorId(10L);
         l.setStatus(status);
+        com.mermaid.app.domain.FishSpecies fs = new com.mermaid.app.domain.FishSpecies();
+        fs.setCommonName("Bangus");
+        l.setSpecies(fs);
+        com.mermaid.app.domain.MarketLocation loc = new com.mermaid.app.domain.MarketLocation();
+        loc.setName("City Public Market");
+        loc.setMunicipality("City of San Fernando");
+        l.setLocation(loc);
         return l;
     }
 

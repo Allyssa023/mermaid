@@ -91,6 +91,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalState(
+            IllegalStateException ex, HttpServletRequest request) {
+        ErrorResponse body = errorResponse(request.getRequestURI(), HttpStatus.CONFLICT,
+                ex.getMessage(), "ILLEGAL_STATE");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(DuplicateInterestException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateInterest(
             DuplicateInterestException ex, HttpServletRequest request) {

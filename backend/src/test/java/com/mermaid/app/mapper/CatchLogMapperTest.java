@@ -35,7 +35,7 @@ class CatchLogMapperTest {
         assertEquals(10L, model.getId());
         assertEquals(1L, model.getTripId());
         assertEquals("Bangus", model.getSpecies().getCommonName());
-        assertEquals(5.5, model.getQuantityKg());
+        assertEquals(5.5, model.getQuantityKg().get());
         assertEquals(120.0, model.getEstimatedPricePerKg().get());
         assertEquals(7L, model.getMatchedListingId().get());
         assertEquals("fresh", model.getNotes().get());

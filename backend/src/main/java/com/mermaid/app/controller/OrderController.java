@@ -4,6 +4,7 @@ import com.mermaid.app.api.OrdersApi;
 import com.mermaid.app.model.*;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.OrderService;
+import com.mermaid.app.service.OrderTimelineService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,9 +15,11 @@ import java.util.List;
 public class OrderController implements OrdersApi {
 
     private final OrderService service;
+    private final OrderTimelineService timelineService;
 
-    public OrderController(OrderService service) {
+    public OrderController(OrderService service, OrderTimelineService timelineService) {
         this.service = service;
+        this.timelineService = timelineService;
     }
 
     @Override
@@ -71,5 +74,12 @@ public class OrderController implements OrdersApi {
     @PreAuthorize("hasRole('FISHERMAN')")
     public ResponseEntity<PaymentRecord> confirmPayment(Long orderId) {
         return ResponseEntity.ok(service.confirmPayment(orderId, SecurityUtils.currentUserId()));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('FISHERMAN') or hasRole('VENDOR') or hasRole('BUYER')")
+    public ResponseEntity<List<OrderStatusEvent>> getOrderTimeline(Long orderId) {
+        return ResponseEntity.ok(
+            timelineService.getTimelineForParticipant(orderId, SecurityUtils.currentUserId()));
     }
 }

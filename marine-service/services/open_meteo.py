@@ -1,13 +1,13 @@
 """
-Open-Meteo API client — synchronous version.
+Open-Meteo API client — synchronous, sequential fetch with retry.
 
-Uses the free Open-Meteo Marine API and Weather API (no API key required).
-Marine + weather data for the same location are requested concurrently via
-ThreadPoolExecutor(max_workers=2).
+Marine and weather endpoints are called sequentially (not concurrently) to stay
+within Open-Meteo's free-tier burst limits. Each request is retried up to 3 times
+with exponential back-off before raising.
 """
 
 import logging
-from concurrent.futures import ThreadPoolExecutor
+import time
 from datetime import date, datetime, timezone
 
 import httpx
@@ -33,6 +33,7 @@ _WEATHER_PARAMS = (
     "precipitation,temperature_2m,cloud_cover"
 )
 _TIMEZONE = "Asia/Manila"
+_RETRY_DELAYS = (0.5, 2.0, 5.0)
 
 
 def fetch_current_conditions(zone, client: httpx.Client) -> ZoneConditions:
@@ -71,23 +72,28 @@ def _fetch_both(zone, client: httpx.Client, *, hourly: bool) -> tuple[dict, dict
     key = "hourly" if hourly else "current"
     base = {"latitude": zone.lat, "longitude": zone.lng, "timezone": _TIMEZONE}
 
-    def get_marine():
-        r = client.get(settings.OPEN_METEO_MARINE_URL, params={**base, key: _MARINE_PARAMS})
-        r.raise_for_status()
-        return r.json()
+    marine_json = _get_with_retry(client, settings.OPEN_METEO_MARINE_URL, {**base, key: _MARINE_PARAMS})
+    weather_json = _get_with_retry(client, settings.OPEN_METEO_WEATHER_URL, {**base, key: _WEATHER_PARAMS})
+    return marine_json, weather_json
 
-    def get_weather():
-        r = client.get(settings.OPEN_METEO_WEATHER_URL, params={**base, key: _WEATHER_PARAMS})
-        r.raise_for_status()
-        return r.json()
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        f_marine = pool.submit(get_marine)
-        f_weather = pool.submit(get_weather)
-        marine_data = f_marine.result()
-        weather_data = f_weather.result()
-
-    return marine_data, weather_data
+def _get_with_retry(client: httpx.Client, url: str, params: dict) -> dict:
+    """GET with up to 3 attempts and exponential back-off. Raises on final failure."""
+    last_exc: Exception | None = None
+    for attempt, delay in enumerate(_RETRY_DELAYS):
+        try:
+            r = client.get(url, params=params)
+            r.raise_for_status()
+            return r.json()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < len(_RETRY_DELAYS) - 1:
+                logger.warning(
+                    "Open-Meteo retry %d/%d for %s: %s",
+                    attempt + 1, len(_RETRY_DELAYS), url, exc,
+                )
+                time.sleep(delay)
+    raise last_exc  # type: ignore[misc]
 
 
 def _parse_marine_current(data: dict) -> MarineData:

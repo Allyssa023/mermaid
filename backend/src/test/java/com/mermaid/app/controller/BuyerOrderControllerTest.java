@@ -57,6 +57,7 @@ class BuyerOrderControllerTest {
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @MockitoBean BuyerOrderService buyerOrderService;
+    @MockitoBean com.mermaid.app.service.OrderTimelineService timelineService;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor asBuyer(long userId) {
@@ -84,7 +85,7 @@ class BuyerOrderControllerTest {
         mockMvc.perform(post("/buyer/orders")
                .contentType(MediaType.APPLICATION_JSON)
                .content("{\"listingId\":1,\"dispatchMode\":\"PICKUP\"}"))
-               .andExpect(status().isUnauthorized());
+               .andExpect(status().isForbidden());
     }
 
     @Test

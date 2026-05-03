@@ -22,13 +22,16 @@ public class BuyerOrderService {
     private final OrderRepository orderRepository;
     private final DemandListingRepository listingRepo;
     private final BuyerOrderMapper buyerOrderMapper;
+    private final OrderTimelineService timelineService;
 
     public BuyerOrderService(OrderRepository orderRepository,
                              DemandListingRepository listingRepo,
-                             BuyerOrderMapper buyerOrderMapper) {
+                             BuyerOrderMapper buyerOrderMapper,
+                             OrderTimelineService timelineService) {
         this.orderRepository = orderRepository;
         this.listingRepo = listingRepo;
         this.buyerOrderMapper = buyerOrderMapper;
+        this.timelineService = timelineService;
     }
 
     @Transactional
@@ -78,6 +81,7 @@ public class BuyerOrderService {
         }
 
         Order saved = orderRepository.save(order);
+        timelineService.recordEvent(saved.getId(), "PENDING", buyerId, "Order placed by buyer");
         return buyerOrderMapper.toModel(saved);
     }
 

@@ -42,6 +42,23 @@ public class Payment {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    // ── PayMongo integration fields (Phase 3.1) ─────────────────────────────────
+
+    @Column(name = "payment_intent_id", length = 100)
+    private String paymentIntentId;
+
+    @Column(name = "payment_method_id", length = 100)
+    private String paymentMethodId;
+
+    @Column(name = "source_id", length = 100)
+    private String sourceId;
+
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
+    @Column(length = 20)
+    private String gateway = "CASH";
+
     @PrePersist
     protected void onCreate() {
         createdAt = OffsetDateTime.now();
@@ -70,4 +87,15 @@ public class Payment {
     public void setPaidAt(OffsetDateTime paidAt) { this.paidAt = paidAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getPaymentIntentId() { return paymentIntentId; }
+    public void setPaymentIntentId(String paymentIntentId) { this.paymentIntentId = paymentIntentId; }
+    public String getPaymentMethodId() { return paymentMethodId; }
+    public void setPaymentMethodId(String paymentMethodId) { this.paymentMethodId = paymentMethodId; }
+    public String getSourceId() { return sourceId; }
+    public void setSourceId(String sourceId) { this.sourceId = sourceId; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+    public String getGateway() { return gateway; }
+    public void setGateway(String gateway) { this.gateway = gateway; }
 }

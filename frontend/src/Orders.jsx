@@ -681,6 +681,13 @@ export default function Orders({ token, role }) {
           <p className="page__sub">Track every confirmed sale from matched alert to delivery.</p>
         </div>
         <div className="page__actions">
+          <button className="btn" disabled title="Coming soon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/>
+              <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>
+            </svg>
+            Export
+          </button>
           <button className="btn" onClick={load} disabled={loading}>
             <RefreshIcon /> {loading ? '…' : 'Refresh'}
           </button>
@@ -747,6 +754,9 @@ export default function Orders({ token, role }) {
             <div className="card__title">All orders</div>
             <div className="card__sub">{filtered.length} matching · sorted newest first</div>
           </div>
+          <button className="btn btn--sm btn--ghost">
+            Sort: Date <ChevronDownIcon open={false} />
+          </button>
         </div>
         {loading && filtered.length === 0 ? (
           <div style={{ padding: 18 }}><Skeleton /></div>

@@ -1,149 +1,43 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import './dashboard.css'
-import './vendor.css'
+import { useState, useEffect, useCallback } from 'react'
+import './design-system.css'
+import './light-compat.css'
+import './handoff.css'
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
-import Marketplace from './Marketplace'
+import { I } from './icons'
 import Messages from './Messages'
-import CatchAlerts from './CatchAlerts'
-import Orders from './Orders'
-import GradientText from './components/GradientText/GradientText'
-import SpotlightCard from './components/SpotlightCard/SpotlightCard'
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts'
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
+// ─── Static demo data ─────────────────────────────────────────────────────────
 
-const DashIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/>
-    <rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>
-  </svg>
-)
-const ListIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/>
-    <line x1="8" x2="21" y1="18" y2="18"/>
-    <line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/>
-    <line x1="3" x2="3.01" y1="18" y2="18"/>
-  </svg>
-)
-const ShopIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" x2="21" y1="6" y2="6"/>
-    <path d="M16 10a4 4 0 0 1-8 0"/>
-  </svg>
-)
-const LogoutIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-    <polyline points="16 17 21 12 16 7"/>
-    <line x1="21" x2="9" y1="12" y2="12"/>
-  </svg>
-)
-const RefreshIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-    <path d="M21 3v5h-5"/>
-    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-    <path d="M8 16H3v5"/>
-  </svg>
-)
-const AlertIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-    <path d="M12 9v4"/><path d="M12 17h.01"/>
-  </svg>
-)
-const ShieldIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-)
-const AnchorIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/>
-    <path d="M5 12H2a10 10 0 0 0 20 0h-3"/>
-  </svg>
-)
-const PlusIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>
-  </svg>
-)
-const EditIcon = () => (
+const PRICE_INDEX = [
+  { species: 'Yellowfin Tuna', tag: 'YT', current: 420, change: 2.3, series: [395,400,405,408,412,418,420] },
+  { species: 'Skipjack',       tag: 'SK', current: 280, change: -1.5, series: [295,292,288,284,280,281,280] },
+  { species: 'Mahi-mahi',      tag: 'MM', current: 350, change: 0.8,  series: [342,344,346,348,350,349,350] },
+  { species: 'Spanish Mackerel', tag: 'SM', current: 310, change: 1.2, series: [300,302,304,306,308,309,310] },
+]
+
+const PROCUREMENT_14D = [20,35,55,45,70,30,80,50,65,40,90,75,60,95].map((kg, i) => ({
+  day: i < 13 ? `${13-i}d` : 'T', kg
+}))
+
+// ─── Inline SVGs not in I ─────────────────────────────────────────────────────
+
+const EditSvg = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
   </svg>
 )
-const CloseListingIcon = () => (
+const TrashSvg = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="10"/>
-    <line x1="4.93" x2="19.07" y1="4.93" y2="19.07"/>
-  </svg>
-)
-const TrashIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
     <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
   </svg>
 )
-const WavesIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
-    <path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
-    <path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
-  </svg>
-)
-const FishIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6z"/>
-    <path d="M18 12h.01"/><path d="M6.5 12C4 12 2.5 13.5 2 16c1-1 2.5-1.5 4.5-1.5"/>
-  </svg>
-)
-const ScaleIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/>
-    <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1z"/>
-    <path d="M7 21h10"/><path d="M12 3v18"/>
-    <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>
-  </svg>
-)
-const ClockIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+const CloseSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10"/>
-    <polyline points="12 6 12 12 16 14"/>
-  </svg>
-)
-const UserIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>
-  </svg>
-)
-const MessageIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-)
-const TrendIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
-    <polyline points="16 7 22 7 22 13"/>
-  </svg>
-)
-const BellIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-  </svg>
-)
-const ClipboardIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
-    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-    <path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>
+    <line x1="4.93" x2="19.07" y1="4.93" y2="19.07"/>
   </svg>
 )
 
@@ -156,11 +50,6 @@ function greeting() {
   return 'Good evening'
 }
 
-function fmtTime(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
-}
-
 function fmtDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -170,8 +59,8 @@ function fmtDeadline(iso) {
   if (!iso) return null
   const diff = Math.ceil((new Date(iso) - new Date()) / 86400000)
   if (diff < 0)   return { label: 'Overdue',      urgent: true }
-  if (diff === 0)  return { label: 'Due today',    urgent: true }
-  if (diff === 1)  return { label: 'Due tomorrow', urgent: true }
+  if (diff === 0) return { label: 'Due today',    urgent: true }
+  if (diff === 1) return { label: 'Due tomorrow', urgent: true }
   return { label: fmtDate(iso), urgent: false }
 }
 
@@ -183,29 +72,10 @@ function fmtKg(v) {
 function fmtRelative(iso) {
   if (!iso) return ''
   const diff = Math.floor((new Date() - new Date(iso)) / 60000)
-  if (diff < 1)   return 'just now'
-  if (diff < 60)  return `${diff}m ago`
+  if (diff < 1)    return 'just now'
+  if (diff < 60)   return `${diff}m ago`
   if (diff < 1440) return `${Math.floor(diff / 60)}h ago`
   return `${Math.floor(diff / 1440)}d ago`
-}
-
-function severityClass(sev) {
-  if (sev === 'LOW')    return 'low'
-  if (sev === 'MEDIUM') return 'medium'
-  if (sev === 'HIGH')   return 'high'
-  return 'critical'
-}
-
-function riskClass(level) {
-  if (level === 'SAFE')    return 'safe'
-  if (level === 'CAUTION') return 'caution'
-  return 'unsafe'
-}
-
-function riskColor(level) {
-  if (level === 'SAFE')    return 'var(--safe)'
-  if (level === 'CAUTION') return 'var(--caution)'
-  return 'var(--unsafe)'
 }
 
 function toLocalDatetimeInput(iso) {
@@ -215,415 +85,472 @@ function toLocalDatetimeInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// Supply outlook derived from advisories
-function supplyOutlook(advisories) {
-  if (!advisories?.length) return 'NORMAL'
-  if (advisories.some(a => a.severity === 'CRITICAL')) return 'CRITICAL'
-  if (advisories.some(a => a.severity === 'HIGH'))     return 'DISRUPTED'
-  return 'NORMAL'
+// ─── Skeleton ─────────────────────────────────────────────────────────────────
+
+function Sk({ h = 16, style }) {
+  return <div className="skeleton" style={{ height: h, borderRadius: 6, ...style }} />
 }
 
-// ─── useCountUp hook ──────────────────────────────────────────────────────────
+// ─── VendorRail ───────────────────────────────────────────────────────────────
 
-function useCountUp(target, duration = 1200, decimals = 0) {
-  const [val, setVal] = useState(0)
-  const rafRef = useRef(null)
-  const startRef = useRef(null)
-
-  useEffect(() => {
-    if (target == null || isNaN(target) || target === 0) { setVal(0); return }
-    startRef.current = null
-    const animate = (ts) => {
-      if (!startRef.current) startRef.current = ts
-      const p = Math.min((ts - startRef.current) / duration, 1)
-      const eased = 1 - Math.pow(1 - p, 3)
-      setVal(+(target * eased).toFixed(decimals))
-      if (p < 1) rafRef.current = requestAnimationFrame(animate)
-    }
-    rafRef.current = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [target, duration, decimals])
-
-  return val
-}
-
-// ─── Supply Outlook Hero Card ─────────────────────────────────────────────────
-
-function SupplyOutlookCard({ advisories, zones, loading }) {
-  const outlook = supplyOutlook(advisories)
-  const unsafeZones = zones?.filter(z => z.risk?.level === 'UNSAFE').length ?? 0
-  const cautionZones = zones?.filter(z => z.risk?.level === 'CAUTION').length ?? 0
-  const riskZones = unsafeZones + cautionZones
-
-  const meta = {
-    NORMAL:    {
-      label: 'SUPPLY NORMAL',
-      sub: 'Fishing conditions are favorable. Catch availability expected today.',
-      cls: 'safe',
-      colors: ['#00f5a0', '#00d9f5', '#00f5a0'],
-    },
-    DISRUPTED: {
-      label: 'SUPPLY DISRUPTED',
-      sub: 'High-priority advisory in effect. Expect reduced catch availability.',
-      cls: 'caution',
-      colors: ['#fbbf24', '#f59e0b', '#fbbf24'],
-    },
-    CRITICAL:  {
-      label: 'SUPPLY CRITICAL',
-      sub: 'Dangerous conditions detected. Fishermen may not be able to go out today.',
-      cls: 'unsafe',
-      colors: ['#ff4d4d', '#ff1744', '#ff4d4d'],
-    },
-  }
-
-  const m = meta[outlook]
+function VendorRail({ user, activeNav, onNav, onLogout }) {
+  const NAV = [
+    { id: 'dashboard', icon: 'Dashboard', label: 'Dashboard'   },
+    { id: 'listings',  icon: 'Store',     label: 'Listings'    },
+    { id: 'interests', icon: 'Users',     label: 'Interests'   },
+    { id: 'browse',    icon: 'Fish',      label: 'Browse'      },
+    { id: 'orders',    icon: 'Clipboard', label: 'Orders'      },
+    { id: 'messages',  icon: 'Message',   label: 'Messages'    },
+  ]
+  const initials = user?.fullName
+    ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'VE'
+  const firstName = user?.fullName?.split(' ')[0] || 'Vendor'
 
   return (
-    <div className={`hero-card hero-card--${m.cls}`} style={{ animation: 'fadeup 0.4s ease' }}>
-      <div className="hero-card__bg" />
-      <div className="hero-card__inner">
-        <div className="hero-card__icon">
-          {loading ? <WavesIcon /> : (outlook === 'NORMAL' ? <ShieldIcon /> : <AlertIcon />)}
-        </div>
-        <div>
-          <p className="hero-card__eyebrow">Supply Outlook Today</p>
-          {loading
-            ? <div className="skeleton" style={{ height: '2.2rem', width: '220px', marginBottom: '8px' }} />
-            : <h2 className="hero-card__status">
-                <GradientText colors={m.colors} animationSpeed={5}>{m.label}</GradientText>
-              </h2>
-          }
-          {!loading && <p className="hero-card__sub">{m.sub}</p>}
-        </div>
-        {!loading && (
-          <div className="vd-hero-stats">
-            <div className="vd-hero-stat">
-              <span className="vd-hero-stat__value">{advisories.length}</span>
-              <span className="vd-hero-stat__label">Advisories</span>
-            </div>
-            <div className="vd-hero-stat">
-              <span className="vd-hero-stat__value">{riskZones}</span>
-              <span className="vd-hero-stat__label">Zones at risk</span>
-            </div>
-          </div>
-        )}
+    <aside className="rail">
+      <div className="rail__logo">
+        <div className="rail__logo-mark">M</div>
       </div>
-    </div>
-  )
-}
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-function KPICard({ label, rawValue, unit = '', decimals = 0, icon, iconVariant, sub, loading }) {
-  const counted = useCountUp(loading ? 0 : (rawValue ?? 0), 1200, decimals)
-  const display = loading ? '—' : (rawValue == null || isNaN(rawValue) ? '—' : `${counted}${unit}`)
-
-  return (
-    <SpotlightCard className="kpi-card" spotlightColor="rgba(0, 210, 190, 0.08)">
-      <div className={`kpi-card__icon-wrap${iconVariant ? ` kpi-card__icon-wrap--${iconVariant}` : ''}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="kpi-card__label">{label}</p>
-        <p className="kpi-card__value">{display}</p>
-      </div>
-      {sub && <p className="kpi-card__sub">{sub}</p>}
-    </SpotlightCard>
-  )
-}
-
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
-
-function VdTooltip({ active, payload, label, unit = '' }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip__label">{label}</p>
-      {payload.map((p, i) => (
-        <div key={i} className="chart-tooltip__row">
-          <span className="chart-tooltip__dot" style={{ background: p.color }} />
-          <span>{p.name}: <strong>{p.value}{unit}</strong></span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Demand by Species Bar Chart ──────────────────────────────────────────────
-
-function SpeciesDemandChart({ listings }) {
-  const speciesMap = {}
-  listings.forEach(l => {
-    if (l.status !== 'OPEN') return
-    const name = l.fishSpecies?.commonName || 'Unknown'
-    speciesMap[name] = (speciesMap[name] || 0) + (l.quantityKg || 0)
-  })
-  const data = Object.entries(speciesMap)
-    .map(([name, kg]) => ({ name, kg }))
-    .sort((a, b) => b.kg - a.kg)
-    .slice(0, 8)
-
-  if (!data.length) return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Demand by Species</p>
-          <p className="chart-card__sub">Open listings only</p>
-        </div>
-      </div>
-      <div className="adv-panel__empty" style={{ borderStyle: 'none', paddingTop: 16, paddingBottom: 20 }}>
-        <div className="adv-panel__empty-icon"><FishIcon /></div>
-        <p className="adv-panel__empty-title">No Open Listings</p>
-        <p className="adv-panel__empty-sub">Post a listing to see demand data</p>
-      </div>
-    </div>
-  )
-
-  return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Demand by Species</p>
-          <p className="chart-card__sub">Total kg demanded across open listings</p>
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={Math.max(140, data.length * 40)}>
-        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 48, left: 8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
-          <XAxis
-            type="number"
-            tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
-            axisLine={false} tickLine={false} unit=" kg"
-          />
-          <YAxis
-            type="category" dataKey="name"
-            tick={{ fill: 'rgba(238,244,255,0.45)', fontSize: 11, fontFamily: 'Outfit' }}
-            axisLine={false} tickLine={false} width={100}
-          />
-          <Tooltip content={<VdTooltip unit=" kg" />} />
-          <Bar dataKey="kg" name="Demand" radius={[0, 6, 6, 0]}
-            fill="var(--accent)" fillOpacity={0.85}
-            label={{ position: 'right', fill: 'rgba(238,244,255,0.35)', fontSize: 11, formatter: v => `${v} kg` }}
-            isAnimationActive animationDuration={1200}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ─── Listing Status Donut ─────────────────────────────────────────────────────
-
-function ListingStatusDonut({ listings }) {
-  const open   = listings.filter(l => l.status === 'OPEN').length
-  const closed = listings.filter(l => l.status === 'CLOSED').length
-  const total  = listings.length
-
-  if (!total) return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Listing Status</p>
-          <p className="chart-card__sub">Open vs Closed</p>
-        </div>
-      </div>
-      <div className="adv-panel__empty" style={{ borderStyle: 'none', paddingTop: 16, paddingBottom: 20 }}>
-        <div className="adv-panel__empty-icon"><ListIcon /></div>
-        <p className="adv-panel__empty-title">No Listings</p>
-        <p className="adv-panel__empty-sub">Post your first demand listing</p>
-      </div>
-    </div>
-  )
-
-  const data = [
-    { name: 'Open',   value: open,   color: 'var(--safe)' },
-    { name: 'Closed', value: closed, color: 'rgba(238,244,255,0.15)' },
-  ].filter(d => d.value > 0)
-
-  return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Listing Status</p>
-          <p className="chart-card__sub">Open vs Closed</p>
-        </div>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <ResponsiveContainer width="100%" height={180}>
-          <PieChart>
-            <Pie data={data} cx="50%" cy="50%"
-              innerRadius={52} outerRadius={76}
-              paddingAngle={3} dataKey="value"
-              isAnimationActive animationDuration={1000}
+      <div className="rail__items">
+        <div className="rail__label">Workspace</div>
+        {NAV.map(it => {
+          const Icon = I[it.icon]
+          return (
+            <div
+              key={it.id}
+              className={`rail-item${activeNav === it.id ? ' rail-item--on' : ''}`}
+              onClick={() => onNav(it.id)}
+              data-tip={it.label}
             >
-              {data.map((entry, i) => (
-                <Cell key={i} fill={entry.color} stroke="transparent" />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(v, n) => [v, n]}
-              contentStyle={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-2)',
-                borderRadius: '10px',
-                fontFamily: 'Outfit',
-                fontSize: '12px',
-                color: 'var(--text-1)',
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center', pointerEvents: 'none',
-        }}>
-          <p style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.8rem', fontWeight: 900, lineHeight: 1, color: 'var(--text-1)' }}>{total}</p>
-          <p style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Total</p>
+              <div className="rail-item__icon"><Icon size={18} /></div>
+              <div className="rail-item__text">{it.label}</div>
+            </div>
+          )
+        })}
+        <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
+        <div className="rail-item" onClick={onLogout} data-tip="Sign out">
+          <div className="rail-item__icon"><I.Logout size={18} /></div>
+          <div className="rail-item__text">Sign Out</div>
+        </div>
+        <div className="rail-item" data-tip="Help">
+          <div className="rail-item__icon"><I.Help size={18} /></div>
+          <div className="rail-item__text">Help</div>
         </div>
       </div>
-      <div className="chart-legend" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
-        {data.map((d, i) => (
-          <div key={i} className="chart-legend__item">
-            <span className="chart-legend__dot" style={{ background: d.color }} />
-            {d.name}: {d.value}
+      <div className="rail__bottom">
+        <div className="rail__user">
+          <div className="rail__avatar">{initials}</div>
+          <div className="rail__user-info">
+            <span className="rail__user-name">{firstName}</span>
+            <span className="rail__user-role">VENDOR</span>
           </div>
-        ))}
+        </div>
       </div>
+    </aside>
+  )
+}
+
+// ─── VendorTopbar ─────────────────────────────────────────────────────────────
+
+function VendorTopbar({ page }) {
+  const labels = {
+    dashboard: 'Dashboard',
+    listings:  'My Listings',
+    interests: 'Interests',
+    browse:    'Browse Catch Alerts',
+    orders:    'Orders',
+    messages:  'Messages',
+  }
+  return (
+    <div className="topbar">
+      <div className="crumbs">
+        <span>Mermaid</span>
+        <span>/</span>
+        <strong>{labels[page] || page}</strong>
+      </div>
+      <div className="topbar__spacer" />
+      <div className="topbar__search">
+        <I.Search size={14} />
+        <input placeholder="Search listings, advisories…" />
+        <kbd>⌘K</kbd>
+      </div>
+      <button className="topbar__icon-btn" title="Notifications">
+        <I.Bell size={16} />
+      </button>
+      <button className="topbar__icon-btn" title="Help">
+        <I.Help size={16} />
+      </button>
     </div>
   )
 }
 
-// ─── Deadline Timeline ────────────────────────────────────────────────────────
+// ─── DashboardView ────────────────────────────────────────────────────────────
 
-function DeadlineTimeline({ listings }) {
-  const openListings = listings.filter(l => l.status === 'OPEN' && l.neededBy)
+function DashboardView({ user, listings, advisories, interests, loading, onNewListing, onNavigate }) {
+  const openListings   = listings.filter(l => l.status === 'OPEN')
+  const totalDemandKg  = openListings.reduce((s, l) => s + (l.quantityKg || 0), 0)
+  const firstName      = user?.fullName?.split(' ')[0] || 'Vendor'
+  const newInterests   = interests.length
+  const activeAdv      = advisories.length
 
-  // Build a 14-day timeline from today
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const days = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(d.getDate() + i)
-    const label = i === 0 ? 'Today' : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
-    const dateStr = d.toISOString().slice(0, 10)
-    return { label, dateStr, count: 0, kg: 0 }
-  })
+  // Build activity from interests + advisories
+  const activity = [
+    ...interests.slice(0, 3).map(i => ({
+      type: 'order',
+      who: i.fishermanName || 'Fisherman',
+      what: `expressed interest in your ${i.speciesName || 'listing'}`,
+      ts: fmtRelative(i.createdAt),
+    })),
+    ...advisories.slice(0, 2).map(a => ({
+      type: 'advisory',
+      who: 'MERMAID System',
+      what: a.title,
+      ts: fmtRelative(a.createdAt || a.activeFrom),
+    })),
+  ].slice(0, 5)
 
-  openListings.forEach(l => {
-    const dStr = new Date(l.neededBy).toISOString().slice(0, 10)
-    const day = days.find(d => d.dateStr === dStr)
-    if (day) {
-      day.count++
-      day.kg += l.quantityKg || 0
+  // Top suppliers from interests
+  const supplierMap = {}
+  interests.forEach(i => {
+    const key = String(i.fishermanId || i.fishermanName)
+    if (!supplierMap[key]) {
+      supplierMap[key] = {
+        id: key, name: i.fishermanName || '—',
+        vessel: '—', port: '—',
+        trades: 0, kg: 0, onTimePct: 93, rating: 4.7,
+        last: fmtRelative(i.createdAt),
+      }
     }
+    supplierMap[key].trades++
+    supplierMap[key].kg += 50
   })
+  const suppliers = Object.values(supplierMap).slice(0, 5)
 
-  if (!openListings.length) return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Upcoming Demand Deadlines</p>
-          <p className="chart-card__sub">Listings due in the next 14 days</p>
-        </div>
-      </div>
-      <div className="adv-panel__empty" style={{ borderStyle: 'none', paddingTop: 16, paddingBottom: 20 }}>
-        <div className="adv-panel__empty-icon"><ClockIcon /></div>
-        <p className="adv-panel__empty-title">No Upcoming Deadlines</p>
-        <p className="adv-panel__empty-sub">Open listings with deadlines will appear here</p>
-      </div>
-    </div>
-  )
+  const procMax = Math.max(...PROCUREMENT_14D.map(d => d.kg), 1)
+  const alertItems = interests.slice(0, 4)
 
   return (
-    <div className="chart-card">
-      <div className="chart-card__head">
+    <div className="page">
+      <div className="page__head">
         <div>
-          <p className="chart-card__title">Upcoming Demand Deadlines</p>
-          <p className="chart-card__sub">Listings due in the next 14 days</p>
+          <div className="eyebrow">Vendor · Procurement</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            {greeting()}, <em>{firstName}</em>
+          </h1>
+          <p className="page__sub">
+            {openListings.length} open listings · {newInterests} new offers from fishermen.
+          </p>
+        </div>
+        <div className="page__actions">
+          <button className="btn" onClick={() => onNavigate('interests')}><I.Filter size={14} /> View interests</button>
+          <button className="btn btn--primary" onClick={onNewListing}><I.Plus size={14} /> New demand listing</button>
         </div>
       </div>
-      <div className="chart-legend">
-        <div className="chart-legend__item">
-          <span className="chart-legend__dot" style={{ background: 'var(--accent)' }} />
-          Listings due
+
+      {/* Hero strip */}
+      <div className="orders-strip orders-strip--6">
+        <div className="stat"><div className="l">Open demand</div><div className="v">{loading ? '—' : totalDemandKg}<small>kg</small></div><div className="s">Across {openListings.length} listings</div></div>
+        <div className="stat"><div className="l">Committed</div><div className="v">0<small>kg</small></div><div className="s">0% fulfilled</div></div>
+        <div className="stat"><div className="l">New interests</div><div className="v">{loading ? '—' : newInterests}</div><div className="s">Awaiting your reply</div></div>
+        <div className="stat"><div className="l">Pending orders</div><div className="v">0</div><div className="s">Awaiting confirm</div></div>
+        <div className="stat"><div className="l">Handoffs</div><div className="v">0</div><div className="s">Need your confirmation</div></div>
+        <div className="stat"><div className="l">Advisories</div><div className="v" style={{ color: activeAdv > 0 ? 'var(--unsafe)' : 'var(--ink)' }}>{loading ? '—' : activeAdv}</div><div className="s">Active now</div></div>
+      </div>
+
+      <div className="grid grid--2-1" style={{ marginTop: 18 }}>
+        {/* Live fisherman interests / alerts */}
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Recent fisherman interests</div>
+              <div className="card__sub">{newInterests} fishermen offering to fulfill your listings</div>
+            </div>
+            <button className="btn btn--sm" onClick={() => onNavigate('interests')}>View all <I.Arrow size={11} /></button>
+          </div>
+          {loading ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {[...Array(4)].map((_, i) => <Sk key={i} h={130} />)}
+            </div>
+          ) : alertItems.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ink-3)', fontSize: 13 }}>
+              <p>No interests yet.</p>
+              <button className="btn btn--primary" style={{ marginTop: 12 }} onClick={onNewListing}>
+                <I.Plus size={13} /> Post a listing
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {alertItems.map((item, idx) => (
+                <div key={item.id || idx} className="alert-card">
+                  <div className="alert-card__head">
+                    <div>
+                      <div className="row" style={{ gap: 6 }}>
+                        <span className="kbd">INT-{String(item.id || idx + 1).padStart(3, '0')}</span>
+                      </div>
+                      <h3 className="alert-card__species" style={{ fontSize: 18 }}>{item.speciesName || '—'}</h3>
+                      <div className="alert-card__sub">{item.fishermanName || '—'}</div>
+                    </div>
+                  </div>
+                  <div className="alert-card__stats">
+                    <div><div className="l">Listing</div><div className="v" style={{ fontSize: 13, fontFamily: 'var(--font-mono)' }}>{item.listingId ? `#${item.listingId}` : '—'}</div></div>
+                    <div><div className="l">Status</div><div className="v" style={{ fontSize: 13 }}>{item.status || 'New'}</div></div>
+                  </div>
+                  <div className="alert-card__foot">
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)' }}>{fmtRelative(item.createdAt)}</span>
+                    <button className="btn btn--accent btn--sm">Reply</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="chart-legend__item">
-          <span className="chart-legend__dot" style={{ background: 'var(--amber)' }} />
-          kg demanded
+
+        {/* Price index */}
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Price index · 7-day</div>
+              <div className="card__sub">₱/kg · regional average</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {PRICE_INDEX.map(p => {
+              const min = Math.min(...p.series)
+              const max = Math.max(...p.series)
+              const range = max - min || 1
+              return (
+                <div key={p.species} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--line-soft)' }}>
+                  <div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{p.species}</div>
+                    <div style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2 }}>{p.tag}</div>
+                  </div>
+                  <svg width="64" height="22" style={{ flexShrink: 0 }}>
+                    <polyline
+                      fill="none"
+                      stroke={p.change > 0 ? 'var(--safe)' : p.change < 0 ? 'var(--unsafe)' : 'var(--ink-4)'}
+                      strokeWidth="1.5"
+                      points={p.series.map((v, i) => `${i / 6 * 60 + 2},${20 - (v - min) / range * 16}`).join(' ')} />
+                  </svg>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>₱{p.current}</div>
+                    <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: p.change > 0 ? 'var(--safe)' : p.change < 0 ? 'var(--unsafe)' : 'var(--ink-4)' }}>
+                      {p.change > 0 ? '↑' : p.change < 0 ? '↓' : '·'} {Math.abs(p.change).toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={190}>
-        <AreaChart data={days} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-          <defs>
-            <linearGradient id="countGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor="var(--accent)" stopOpacity={0.22} />
-              <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="kgGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor="var(--amber)" stopOpacity={0.15} />
-              <stop offset="95%" stopColor="var(--amber)" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-          <XAxis dataKey="label"
-            tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
-            axisLine={false} tickLine={false}
-            interval={1}
-          />
-          <YAxis
-            tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
-            axisLine={false} tickLine={false}
-          />
-          <Tooltip content={<VdTooltip />} />
-          <Area type="monotone" dataKey="count" name="Listings"
-            stroke="var(--accent)" strokeWidth={2} fill="url(#countGrad)"
-            dot={false} activeDot={{ r: 4, fill: 'var(--accent)', stroke: '#06090F', strokeWidth: 2 }}
-            isAnimationActive animationDuration={1200}
-          />
-          <Area type="monotone" dataKey="kg" name="kg"
-            stroke="var(--amber)" strokeWidth={2} fill="url(#kgGrad)"
-            dot={false} activeDot={{ r: 4, fill: 'var(--amber)', stroke: '#06090F', strokeWidth: 2 }}
-            isAnimationActive animationDuration={1400}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
 
-// ─── Zone Risk Chips ──────────────────────────────────────────────────────────
+      <div className="grid grid--2-1" style={{ marginTop: 18 }}>
+        {/* Procurement chart */}
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Procurement · 14 days</div>
+              <div className="card__sub">kg received per day</div>
+            </div>
+            <span className="chip chip--ink">{PROCUREMENT_14D.reduce((a, d) => a + d.kg, 0)}kg total</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 140, padding: '0 4px' }}>
+            {PROCUREMENT_14D.map((d, i) => {
+              const h = (d.kg / procMax) * 100
+              return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{
+                    width: '100%', height: `${h}%`,
+                    background: i === PROCUREMENT_14D.length - 1 ? 'var(--accent)' : 'var(--ink-soft)',
+                    borderRadius: '3px 3px 0 0', minHeight: 4,
+                  }} />
+                  <div style={{ fontSize: 9, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>{d.day}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
-function ZoneRiskChips({ zones, loading }) {
-  return (
-    <div className="adv-panel">
-      <div className="adv-panel__head">
-        <p className="adv-panel__title">Fishing Zone Status</p>
-        {!loading && zones.length > 0 && (
-          <span className="adv-panel__count">{zones.length}</span>
+        {/* Activity */}
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Activity</div>
+          </div>
+          {activity.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--ink-3)', padding: '8px 0' }}>No recent activity.</p>
+          ) : (
+            <ul className="activity">
+              {activity.map((a, i) => (
+                <li key={i} className="activity__item">
+                  <span className={`activity__dot activity__dot--${a.type}`} />
+                  <div className="activity__body">
+                    <div className="activity__line"><strong>{a.who}</strong> <span>{a.what}</span></div>
+                    <div className="activity__time">{a.ts}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Top suppliers */}
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="card__head">
+          <div>
+            <div className="card__title">Top suppliers</div>
+            <div className="card__sub">Fishermen who've expressed interest · ranked by volume</div>
+          </div>
+          <button className="btn btn--sm" onClick={() => onNavigate('interests')}>View all</button>
+        </div>
+        {suppliers.length === 0 ? (
+          <p style={{ fontSize: 13, color: 'var(--ink-3)', textAlign: 'center', padding: '16px 0' }}>
+            No suppliers yet. Post listings to receive offers from fishermen.
+          </p>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr><th>Fisherman</th><th>Vessel · Port</th><th>Interests</th><th>Est. Volume</th><th>On-time</th><th>Rating</th><th>Last contact</th><th></th></tr>
+            </thead>
+            <tbody>
+              {suppliers.map(s => (
+                <tr key={s.id} className="row--link">
+                  <td style={{ fontWeight: 500, color: 'var(--ink)' }}>{s.name}</td>
+                  <td><div style={{ fontSize: 13 }}>{s.vessel}</div><small style={{ color: 'var(--ink-4)' }}>{s.port}</small></td>
+                  <td className="data">{s.trades}</td>
+                  <td className="data">{s.kg}kg</td>
+                  <td>
+                    <div className="row" style={{ gap: 6 }}>
+                      <span className="data">{s.onTimePct}%</span>
+                      <div style={{ width: 50, height: 4, background: 'var(--line-soft)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ width: `${s.onTimePct}%`, height: '100%', background: s.onTimePct >= 90 ? 'var(--safe)' : 'var(--warn)' }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="data">★ {s.rating}</td>
+                  <td style={{ color: 'var(--ink-4)' }}>{s.last}</td>
+                  <td><button className="btn btn--sm">Message</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
-      <div style={{ padding: '10px 14px 14px' }}>
-        {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div className="skeleton" style={{ height: 36 }} />
-            <div className="skeleton" style={{ height: 36 }} />
+    </div>
+  )
+}
+
+// ─── ListingsView ─────────────────────────────────────────────────────────────
+
+function ListingsView({ listings, loading, error, onReload, onAdd, onEdit, onClose, onDelete }) {
+  const [filter, setFilter] = useState('all')
+  const open     = listings.filter(l => l.status === 'OPEN')
+  const filtered = filter === 'all' ? listings : listings.filter(l => l.status === (filter === 'open' ? 'OPEN' : 'CLOSED'))
+  const totalKg    = open.reduce((a, l) => a + (l.quantityKg || 0), 0)
+  const fulfilledKg = open.reduce((a, l) => a + (l.fulfilledKg || 0), 0)
+
+  return (
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Procurement</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>Demand <em>Listings</em></h1>
+          <p className="page__sub">Tell fishermen what species you need, the price you'll offer, and your timeline.</p>
+        </div>
+        <div className="page__actions">
+          <button className="btn btn--primary" onClick={onAdd}><I.Plus size={14} /> New listing</button>
+        </div>
+      </div>
+
+      <div className="orders-strip">
+        <div className="stat"><div className="l">Total listings</div><div className="v">{listings.length}</div><div className="s">{open.length} open · {listings.length - open.length} closed</div></div>
+        <div className="stat"><div className="l">Open demand</div><div className="v">{totalKg}<small>kg</small></div><div className="s">Across {open.length} active</div></div>
+        <div className="stat"><div className="l">Committed</div><div className="v">{fulfilledKg}<small>kg</small></div><div className="s">{totalKg > 0 ? Math.round(fulfilledKg / totalKg * 100) : 0}% fulfilled</div></div>
+        <div className="stat"><div className="l">Total interest</div><div className="v">0</div><div className="s">From fishermen</div></div>
+      </div>
+
+      {error && (
+        <div className="page-error">
+          <I.Alert size={16} /> {error}
+          <button className="page-error__retry" onClick={onReload}>Retry</button>
+        </div>
+      )}
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="card__head">
+          <div className="seg">
+            <button className={filter === 'all'    ? 'on' : ''} onClick={() => setFilter('all')}>All ({listings.length})</button>
+            <button className={filter === 'open'   ? 'on' : ''} onClick={() => setFilter('open')}>Open ({open.length})</button>
+            <button className={filter === 'closed' ? 'on' : ''} onClick={() => setFilter('closed')}>Closed ({listings.length - open.length})</button>
           </div>
-        ) : zones.length === 0 ? (
-          <div className="adv-panel__empty" style={{ borderStyle: 'none', padding: '8px 0 4px' }}>
-            <p className="adv-panel__empty-sub">Zone data unavailable</p>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn--ghost btn--sm">Sort: Newest</button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="listings-grid">
+            {[...Array(6)].map((_, i) => <Sk key={i} h={240} />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--ink-3)' }}>
+            <I.Store size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
+            <p style={{ fontSize: 14 }}>{filter === 'all' ? 'No listings yet.' : `No ${filter} listings.`}</p>
+            {filter === 'all' && <button className="btn btn--primary" style={{ marginTop: 16 }} onClick={onAdd}><I.Plus size={14} /> Post First Listing</button>}
           </div>
         ) : (
-          <div className="vd-zone-chips">
-            {zones.map((z, i) => {
-              const rc = riskClass(z.risk?.level || 'SAFE')
+          <div className="listings-grid">
+            {filtered.map(l => {
+              const dl    = fmtDeadline(l.neededBy)
+              const isOpen = l.status === 'OPEN'
               return (
-                <div key={i} className={`vd-zone-chip vd-zone-chip--${rc}`}>
-                  <span className={`risk-badge risk-badge--${rc}`} style={{ fontSize: '10px', padding: '2px 7px' }}>
-                    {z.risk?.level === 'SAFE' ? '✓' : z.risk?.level === 'CAUTION' ? '!' : '✕'}
-                    {' '}{z.risk?.level || 'SAFE'}
-                  </span>
-                  <span className="vd-zone-chip__name">{z.zoneName}</span>
+                <div key={l.id} className={`listing-card${dl?.urgent && isOpen ? ' listing-card--urgent' : ''}${!isOpen ? ' listing-card--closed' : ''}`}>
+                  <div className="listing-card__head">
+                    <div>
+                      <span className="kbd">#{l.id}</span>
+                      {dl?.urgent && isOpen && <span className="chip chip--unsafe" style={{ marginLeft: 6 }}>Urgent</span>}
+                      {!isOpen && <span className="chip" style={{ marginLeft: 6 }}>Closed</span>}
+                    </div>
+                    <div className="tbl-actions">
+                      {isOpen && <button className="tbl-btn" title="Edit" onClick={() => onEdit(l)}><EditSvg /></button>}
+                      {isOpen && <button className="tbl-btn" title="Close" onClick={() => onClose(l.id)}><CloseSvg /></button>}
+                      <button className="tbl-btn tbl-btn--danger" title="Delete" onClick={() => onDelete(l)}><TrashSvg /></button>
+                    </div>
+                  </div>
+                  <h3 className="listing-card__species">{l.fishSpecies?.commonName || '—'}</h3>
+                  <div className="listing-card__sci">{l.fishSpecies?.scientificName || ''}</div>
+                  <div className="listing-card__price">
+                    <span className="big">₱{l.offerPricePerKg}</span><span>/kg</span>
+                  </div>
+                  <div className="listing-card__meta">
+                    <div><div className="l">Quantity</div><div className="v">{l.quantityKg}<small>kg</small></div></div>
+                    <div><div className="l">Needed by</div><div className="v" style={{ fontSize: 14, color: dl?.urgent ? 'var(--unsafe)' : 'var(--ink)' }}>{dl?.label || '—'}</div></div>
+                    <div><div className="l">Interests</div><div className="v">0</div></div>
+                  </div>
+                  {isOpen && (l.fulfilledKg || 0) > 0 && (
+                    <div className="listing-card__progress">
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${(l.fulfilledKg / l.quantityKg) * 100}%` }} />
+                      </div>
+                      <div className="progress-label">
+                        <span>{l.fulfilledKg}/{l.quantityKg}kg committed</span>
+                        <span>{Math.round((l.fulfilledKg / l.quantityKg) * 100)}%</span>
+                      </div>
+                    </div>
+                  )}
+                  {l.notes && <div className="listing-card__notes">"{l.notes}"</div>}
+                  <div className="listing-card__foot">
+                    <span className="muted-data"><I.MapPin size={11} /> {l.marketLocation?.municipality || l.marketLocation?.name || '—'}</span>
+                    {isOpen ? (
+                      <div className="row" style={{ gap: 6 }}>
+                        <button className="btn btn--ghost btn--sm" onClick={() => onEdit(l)}>Edit</button>
+                        <button className="btn btn--sm">View interests</button>
+                      </div>
+                    ) : (
+                      <button className="btn btn--ghost btn--sm">Re-open</button>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -634,104 +561,194 @@ function ZoneRiskChips({ zones, loading }) {
   )
 }
 
-// ─── Advisories Panel ─────────────────────────────────────────────────────────
+// ─── VendorInterestsView ──────────────────────────────────────────────────────
 
-function AdvisoriesPanel({ advisories, loading }) {
-  const sevLabels = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical' }
+function VendorInterestsView({ interests, listings, loading, onNavigate }) {
+  const grouped = listings
+    .filter(l => l.status === 'OPEN')
+    .map(l => ({
+      listing: l,
+      items: interests.filter(i => String(i.listingId) === String(l.id)),
+    }))
+    .filter(g => g.items.length > 0)
 
   return (
-    <div className="adv-panel">
-      <div className="adv-panel__head">
-        <p className="adv-panel__title">Active Advisories</p>
-        {!loading && advisories.length > 0 && (
-          <span className="adv-panel__count">{advisories.length}</span>
-        )}
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Inbox</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>Listing <em>Interests</em></h1>
+          <p className="page__sub">{interests.length} fishermen offering to fulfill your demand listings.</p>
+        </div>
+        <div className="page__actions">
+          <button className="btn">Mark all read</button>
+        </div>
       </div>
-      <div className="adv-panel__list">
-        {loading ? (
-          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="skeleton" style={{ height: 72 }} />
-            <div className="skeleton" style={{ height: 72 }} />
-          </div>
-        ) : advisories.length > 0 ? (
-          advisories.map(a => (
-            <div key={a.id} className={`adv-item adv-item--${severityClass(a.severity)}`}>
-              <div className="adv-item__stripe" />
-              <div className="adv-item__body">
-                <div className="adv-item__header">
-                  <span className={`sev-chip sev-chip--${severityClass(a.severity)}`}>
-                    {sevLabels[a.severity] || a.severity}
-                  </span>
-                  <span className="adv-item__area">{a.affectedArea}</span>
-                </div>
-                <p className="adv-item__title">{a.title}</p>
-                <p className="adv-item__msg">{a.message}</p>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="adv-panel__empty">
-            <div className="adv-panel__empty-icon"><ShieldIcon /></div>
-            <p className="adv-panel__empty-title">All Clear</p>
-            <p className="adv-panel__empty-sub">No active advisories at this time.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
-// ─── Fisherman Interests Panel ────────────────────────────────────────────────
-
-function InterestsPanel({ interests, loading, onMessageFisherman }) {
-  return (
-    <div className="adv-panel">
-      <div className="adv-panel__head">
-        <p className="adv-panel__title">Fisherman Interests</p>
-        {!loading && interests.length > 0 && (
-          <span className="adv-panel__count">{interests.length}</span>
-        )}
-      </div>
-      <div className="adv-panel__list">
-        {loading ? (
-          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="skeleton" style={{ height: 68 }} />
-            <div className="skeleton" style={{ height: 68 }} />
-          </div>
-        ) : interests.length > 0 ? (
-          interests.slice(0, 8).map(item => (
-            <div key={item.id} className="vd-interest-item">
-              <div className="vd-interest-item__avatar">
-                <UserIcon />
-              </div>
-              <div className="vd-interest-item__body">
-                <div className="vd-interest-item__header">
-                  <span className="vd-interest-item__name">{item.fishermanName}</span>
-                  <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
-                    <span className="vd-interest-item__time">{fmtRelative(item.createdAt)}</span>
-                    <button 
-                      className="vd-btn" 
-                      style={{padding: '2px 6px', fontSize: '11px', background: 'var(--bg-3)'}}
-                      onClick={() => onMessageFisherman(item)}
-                    >
-                      Message
-                    </button>
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 18 }}>
+          {[...Array(3)].map((_, i) => <Sk key={i} h={80} />)}
+        </div>
+      ) : interests.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-3)' }}>
+          <I.Users size={36} style={{ marginBottom: 12, opacity: 0.3 }} />
+          <p>No interests yet. Post open listings to receive offers.</p>
+          <button className="btn btn--primary" style={{ marginTop: 16 }} onClick={() => onNavigate('listings')}>
+            <I.Plus size={14} /> Post a listing
+          </button>
+        </div>
+      ) : grouped.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 18 }}>
+          {grouped.map(g => (
+            <div className="card" key={g.listing.id}>
+              <div className="card__head">
+                <div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <span className="kbd">#{g.listing.id}</span>
+                    <span className="card__title">{g.listing.fishSpecies?.commonName || '—'}</span>
+                  </div>
+                  <div className="card__sub">
+                    {g.listing.quantityKg}kg @ ₱{g.listing.offerPricePerKg}/kg · {g.items.length} {g.items.length === 1 ? 'fisherman' : 'fishermen'} interested
                   </div>
                 </div>
-                <p className="vd-interest-item__species">{item.speciesName}</p>
-                {item.message && (
-                  <p className="vd-interest-item__msg">
-                    <MessageIcon /> {item.message}
-                  </p>
-                )}
+                <button className="btn btn--ghost btn--sm">View listing</button>
+              </div>
+              <div className="interests-list">
+                {g.items.map((item, idx) => (
+                  <div key={item.id || idx} className="interest-item">
+                    <div className="interest-item__avatar">
+                      {(item.fishermanName || '??').split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="interest-item__body">
+                      <div className="interest-item__head">
+                        <strong>{item.fishermanName || '—'}</strong>
+                        <span className="muted-data">{fmtRelative(item.createdAt)}</span>
+                      </div>
+                      {item.message && <p className="interest-item__msg">"{item.message}"</p>}
+                    </div>
+                    <div className="interest-item__actions">
+                      <button className="btn btn--ghost btn--sm">Message</button>
+                      <button className="btn btn--accent btn--sm">Place order</button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))
+          ))}
+        </div>
+      ) : (
+        <div className="card" style={{ marginTop: 18 }}>
+          <div className="interests-list">
+            {interests.map((item, idx) => (
+              <div key={item.id || idx} className="interest-item">
+                <div className="interest-item__avatar">
+                  {(item.fishermanName || '??').split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()}
+                </div>
+                <div className="interest-item__body">
+                  <div className="interest-item__head">
+                    <strong>{item.fishermanName || '—'}</strong>
+                    <span className="muted-data">{fmtRelative(item.createdAt)}</span>
+                  </div>
+                  {item.message && <p className="interest-item__msg">"{item.message}"</p>}
+                </div>
+                <div className="interest-item__actions">
+                  <button className="btn btn--ghost btn--sm">Message</button>
+                  <button className="btn btn--accent btn--sm">Place order</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── VendorBrowseView ─────────────────────────────────────────────────────────
+
+function VendorBrowseView({ token }) {
+  const [alerts, setAlerts]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter]   = useState('all')
+  const [sortBy, setSortBy]   = useState('match')
+
+  useEffect(() => {
+    apiGet('/buyer/marketplace/listings', token)
+      .then(d => setAlerts(d?.content || d || []))
+      .catch(() => setAlerts([]))
+      .finally(() => setLoading(false))
+  }, [token])
+
+  const sorted = [...alerts].sort((a, b) => {
+    if (sortBy === 'price') return (a.offerPricePerKg || 0) - (b.offerPricePerKg || 0)
+    if (sortBy === 'qty')   return (b.quantityKg || 0) - (a.quantityKg || 0)
+    return 0
+  })
+
+  return (
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Live marketplace</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>Catch <em>Alerts</em></h1>
+          <p className="page__sub">{alerts.length} active listings in your region.</p>
+        </div>
+        <div className="page__actions">
+          <button className="btn"><I.Filter size={14} /> Filter</button>
+          <button className="btn btn--primary"><I.MapPin size={14} /> Map view</button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="card__head">
+          <div className="seg">
+            <button className={filter === 'all'    ? 'on' : ''} onClick={() => setFilter('all')}>All ({alerts.length})</button>
+            <button className={filter === 'urgent' ? 'on' : ''} onClick={() => setFilter('urgent')}>Urgent</button>
+          </div>
+          <div className="seg">
+            <button className={sortBy === 'match' ? 'on' : ''} onClick={() => setSortBy('match')}>Match</button>
+            <button className={sortBy === 'price' ? 'on' : ''} onClick={() => setSortBy('price')}>Price</button>
+            <button className={sortBy === 'qty'   ? 'on' : ''} onClick={() => setSortBy('qty')}>Quantity</button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="alerts-grid">
+            {[...Array(4)].map((_, i) => <Sk key={i} h={160} />)}
+          </div>
+        ) : sorted.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink-3)' }}>
+            <I.Fish size={32} style={{ marginBottom: 12, opacity: 0.3 }} />
+            <p>No catch alerts available right now.</p>
+          </div>
         ) : (
-          <div className="adv-panel__empty">
-            <div className="adv-panel__empty-icon"><UserIcon /></div>
-            <p className="adv-panel__empty-title">No Interests Yet</p>
-            <p className="adv-panel__empty-sub">Fishermen who respond to your listings will appear here.</p>
+          <div className="alerts-grid">
+            {sorted.map(a => (
+              <div key={a.id} className="alert-card">
+                <div className="alert-card__head">
+                  <div>
+                    <div className="row" style={{ gap: 6 }}>
+                      <span className="kbd">#{a.id}</span>
+                    </div>
+                    <h3 className="alert-card__species">{a.fishSpecies?.commonName || '—'}</h3>
+                    <div className="alert-card__sub">{a.vendorName || '—'}</div>
+                  </div>
+                </div>
+                <div className="alert-card__stats">
+                  <div><div className="l">Quantity</div><div className="v">{a.quantityKg || '—'}<small>kg</small></div></div>
+                  <div><div className="l">Asking</div><div className="v">₱{a.offerPricePerKg || '—'}<small>/kg</small></div></div>
+                  <div><div className="l">Total</div><div className="v" style={{ fontSize: 14 }}>₱{((a.quantityKg || 0) * (a.offerPricePerKg || 0)).toLocaleString()}</div></div>
+                </div>
+                <div className="alert-card__bar">
+                  <span><I.MapPin size={11} /> {a.marketLocation?.name || '—'}</span>
+                  {a.neededBy && <span style={{ color: 'var(--ink-3)' }}><I.Clock size={11} /> {fmtDate(a.neededBy)}</span>}
+                </div>
+                <div className="alert-card__foot">
+                  <button className="btn btn--ghost btn--sm">Message</button>
+                  <button className="btn btn--accent btn--sm">Make offer</button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -739,95 +756,107 @@ function InterestsPanel({ interests, loading, onMessageFisherman }) {
   )
 }
 
-// ─── Status Chip ──────────────────────────────────────────────────────────────
+// ─── VendorOrdersView ─────────────────────────────────────────────────────────
 
-function StatusChip({ status }) {
-  return (
-    <span className={`vd-status vd-status--${status?.toLowerCase()}`}>
-      {status === 'OPEN' ? '● Open' : '○ Closed'}
-    </span>
-  )
-}
+function VendorOrdersView({ token }) {
+  const [orders, setOrders]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab]         = useState('active')
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    apiGet('/vendor/orders', token)
+      .then(d => setOrders(d?.content || d || []))
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false))
+  }, [token])
 
-function VendorSidebar({ user, activeNav, onNav, onLogout }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const navItems = [
-    { id: 'dashboard', icon: <DashIcon />,  label: 'Dashboard' },
-    { id: 'listings',     icon: <ListIcon />,      label: 'My Listings' },
-    { id: 'market',       icon: <ShopIcon />,      label: 'Marketplace' },
-    { id: 'catch-alerts', icon: <BellIcon />,      label: 'Catch Alerts' },
-    { id: 'orders',       icon: <ClipboardIcon />, label: 'Orders' },
-    { id: 'messages',     icon: <MessageIcon />,   label: 'Messages' },
-  ]
-  const initials = user?.fullName
-    ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'VE'
+  const active    = orders.filter(o => ['PENDING', 'CONFIRMED'].includes(o.status))
+  const completed = orders.filter(o => o.status === 'COMPLETED')
+  const issues    = orders.filter(o => ['DISPUTED', 'CANCELLED'].includes(o.status))
+  const filtered  = tab === 'active' ? active : tab === 'completed' ? completed : issues
 
   return (
-    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-      <div className="sidebar__header">
-        <img src="/logo.png" alt="MERMAID" className="sidebar__logo-img" style={{ width: 48, height: 48, objectFit: 'contain' }} />
-        <span className="sidebar__brand">Mermaid</span>
-        <button className="sidebar__toggle" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand' : 'Collapse'}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Purchase orders</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>My <em>Orders</em></h1>
+          <p className="page__sub">{orders.length} orders · {active.length} active.</p>
+        </div>
       </div>
 
-      <nav className="sidebar__nav">
-        <p className="sidebar__nav-label">Navigation</p>
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            className={`sidebar__link${activeNav === item.id ? ' sidebar__link--on' : ''}`}
-            onClick={() => onNav(item.id)}
-            title={collapsed ? item.label : undefined}
-          >
-            <span className="sidebar__link-icon">{item.icon}</span>
-            <span className="sidebar__link-text">{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="sidebar__bottom">
-        <button className="sidebar__link" onClick={() => onNav('profile')} title={collapsed ? 'Profile' : undefined}>
-          <span className="sidebar__avatar">{initials}</span>
-          <div className="sidebar__user-info">
-            <span className="sidebar__user-name">{user?.fullName?.split(' ')[0] || 'Profile'}</span>
-            <span className="sidebar__user-role">Vendor</span>
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="card__head">
+          <div className="seg">
+            <button className={tab === 'active'    ? 'on' : ''} onClick={() => setTab('active')}>Active ({active.length})</button>
+            <button className={tab === 'completed' ? 'on' : ''} onClick={() => setTab('completed')}>Completed ({completed.length})</button>
+            <button className={tab === 'issues'    ? 'on' : ''} onClick={() => setTab('issues')}>Issues ({issues.length})</button>
           </div>
-        </button>
-        <button className="sidebar__link sidebar__link--logout" onClick={onLogout} title={collapsed ? 'Sign Out' : undefined}>
-          <span className="sidebar__link-icon"><LogoutIcon /></span>
-          <span className="sidebar__link-text">Sign Out</span>
-        </button>
+        </div>
+
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[...Array(4)].map((_, i) => <Sk key={i} h={44} />)}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--ink-3)' }}>
+            <I.Clipboard size={32} style={{ marginBottom: 8, opacity: 0.3 }} />
+            <p>No {tab} orders.</p>
+          </div>
+        ) : (
+          <table className="tbl tbl--orders">
+            <thead>
+              <tr><th>Order</th><th>Seller</th><th>Species</th><th>Qty</th><th>Total</th><th>Dispatch</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(o => (
+                <tr key={o.id} className="row--link">
+                  <td>
+                    <div style={{ fontWeight: 500 }}>{o.orderCode || `#${o.id}`}</div>
+                    <small style={{ color: 'var(--ink-4)' }}>{fmtDate(o.createdAt)}</small>
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 500 }}>{o.seller?.fullName || '—'}</div>
+                    <small style={{ color: 'var(--ink-4)' }}>{o.seller?.vessel || ''}</small>
+                  </td>
+                  <td>{o.species?.commonName || o.fishSpecies?.commonName || '—'}</td>
+                  <td className="data">{o.orderedQtyKg || '—'}<small>kg</small></td>
+                  <td className="data">₱{((o.agreedPricePerKg || 0) * (o.orderedQtyKg || 0)).toLocaleString()}</td>
+                  <td><span className="chip">{o.dispatchMode || '—'}</span></td>
+                  <td>
+                    <span className={`status status--${(o.status || '').toLowerCase()}`}>
+                      <span className="status__dot" /> {o.status}
+                    </span>
+                  </td>
+                  <td><button className="btn btn--ghost btn--sm"><I.ChevR size={12} /></button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
-    </aside>
+    </div>
   )
 }
 
-// ─── Listing Form Modal ───────────────────────────────────────────────────────
+// ─── ListingFormModal ─────────────────────────────────────────────────────────
 
 function ListingFormModal({ listing, species, locations, token, onSuccess, onClose }) {
   const isEdit = !!listing
 
-  const [speciesId,       setSpeciesId]       = useState(listing?.fishSpecies?.id   ?? '')
-  const [locationId,      setLocationId]      = useState(listing?.marketLocation?.id ?? '')
-  const [quantityKg,      setQuantityKg]      = useState(listing?.quantityKg         ?? '')
-  const [offerPricePerKg, setOfferPricePerKg] = useState(listing?.offerPricePerKg    ?? '')
-  const [notes,           setNotes]           = useState(listing?.notes               ?? '')
+  const [speciesId,       setSpeciesId]       = useState(listing?.fishSpecies?.id    ?? '')
+  const [locationId,      setLocationId]      = useState(listing?.marketLocation?.id  ?? '')
+  const [quantityKg,      setQuantityKg]      = useState(listing?.quantityKg          ?? '')
+  const [offerPricePerKg, setOfferPricePerKg] = useState(listing?.offerPricePerKg     ?? '')
+  const [notes,           setNotes]           = useState(listing?.notes                ?? '')
   const [neededBy,        setNeededBy]        = useState(toLocalDatetimeInput(listing?.neededBy))
   const [submitting,      setSubmitting]      = useState(false)
   const [error,           setError]           = useState(null)
 
-  async function submit(e) {
-    e.preventDefault()
+  async function submit() {
     setError(null)
-    if (!speciesId)       { setError('Please select a fish species'); return }
-    if (!locationId)      { setError('Please select a market location'); return }
+    if (!speciesId)  { setError('Please select a fish species'); return }
+    if (!locationId) { setError('Please select a market location'); return }
     if (!quantityKg || Number(quantityKg) <= 0) { setError('Quantity must be greater than 0'); return }
     if (!offerPricePerKg || Number(offerPricePerKg) < 0) { setError('Price must be 0 or greater'); return }
 
@@ -837,17 +866,13 @@ function ListingFormModal({ listing, species, locations, token, onSuccess, onClo
       locationId:      Number(locationId),
       quantityKg:      Number(quantityKg),
       offerPricePerKg: Number(offerPricePerKg),
-      notes:    notes.trim()   || null,
-      neededBy: neededBy       ? new Date(neededBy).toISOString() : null,
+      notes:    notes.trim() || null,
+      neededBy: neededBy ? new Date(neededBy).toISOString() : null,
     }
-
     try {
-      let result
-      if (isEdit) {
-        result = await apiPut(`/vendor/demand-listings/${listing.id}`, token, body)
-      } else {
-        result = await apiPost('/vendor/demand-listings', token, body)
-      }
+      const result = isEdit
+        ? await apiPut(`/vendor/demand-listings/${listing.id}`, token, body)
+        : await apiPost('/vendor/demand-listings', token, body)
       onSuccess(result, isEdit)
     } catch (err) {
       setError(err.message || 'Something went wrong')
@@ -856,95 +881,84 @@ function ListingFormModal({ listing, species, locations, token, onSuccess, onClo
   }
 
   return (
-    <div className="vd-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="vd-modal">
-        <div className="vd-modal__header">
-          <h2 className="vd-modal__title">{isEdit ? 'Edit Listing' : 'New Demand Listing'}</h2>
-          <button className="vd-modal__close" onClick={onClose}>✕</button>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+        <div className="modal__head">
+          <div>
+            <div className="eyebrow">{isEdit ? 'Edit listing' : 'New demand listing'}</div>
+            <h2 className="modal__title" style={{ marginTop: 4 }}>{isEdit ? 'Edit listing' : 'What do you need?'}</h2>
+          </div>
+          <button className="btn btn--ghost btn--sm" onClick={onClose}><I.X size={14} /></button>
         </div>
-
-        <form className="vd-form" onSubmit={submit}>
-          {error && <p className="vd-form__error">{error}</p>}
-
-          <div className="vd-form__row">
-            <div className="vd-form__group">
-              <label className="vd-form__label">Fish Species *</label>
-              <select className="vd-form__select" value={speciesId} onChange={e => setSpeciesId(e.target.value)} required>
+        {error && <div style={{ fontSize: 12, color: 'var(--unsafe)', fontFamily: 'var(--font-mono)', padding: '0 0 12px' }}>{error}</div>}
+        <div className="form-grid">
+          <div className="form-row form-row--2col">
+            <div>
+              <label>Species *</label>
+              <select className="input" value={speciesId} onChange={e => setSpeciesId(e.target.value)}>
                 <option value="">Select species…</option>
                 {species.map(s => <option key={s.id} value={s.id}>{s.commonName}</option>)}
               </select>
             </div>
-            <div className="vd-form__group">
-              <label className="vd-form__label">Market Location *</label>
-              <select className="vd-form__select" value={locationId} onChange={e => setLocationId(e.target.value)} required>
+            <div>
+              <label>Drop-off location *</label>
+              <select className="input" value={locationId} onChange={e => setLocationId(e.target.value)}>
                 <option value="">Select location…</option>
                 {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
               </select>
             </div>
           </div>
-
-          <div className="vd-form__row">
-            <div className="vd-form__group">
-              <label className="vd-form__label">Quantity (kg) *</label>
-              <input className="vd-form__input" type="number" min="0.1" step="0.1"
-                placeholder="e.g. 200" value={quantityKg}
-                onChange={e => setQuantityKg(e.target.value)} required
-              />
+          <div className="form-row form-row--2col">
+            <div>
+              <label>Quantity (kg) *</label>
+              <input className="input" type="number" min="0.1" step="0.1" placeholder="e.g. 200"
+                value={quantityKg} onChange={e => setQuantityKg(e.target.value)} />
             </div>
-            <div className="vd-form__group">
-              <label className="vd-form__label">Offer Price (₱/kg) *</label>
-              <input className="vd-form__input" type="number" min="0" step="0.01"
-                placeholder="e.g. 85" value={offerPricePerKg}
-                onChange={e => setOfferPricePerKg(e.target.value)} required
-              />
+            <div>
+              <label>Offer price ₱/kg *</label>
+              <input className="input" type="number" min="0" step="0.01" placeholder="e.g. 85"
+                value={offerPricePerKg} onChange={e => setOfferPricePerKg(e.target.value)} />
             </div>
           </div>
-
-          <div className="vd-form__group">
-            <label className="vd-form__label">Needed By (optional)</label>
-            <input className="vd-form__input" type="datetime-local"
-              value={neededBy} onChange={e => setNeededBy(e.target.value)}
-            />
+          <div>
+            <label>Needed by (optional)</label>
+            <input className="input" type="datetime-local" value={neededBy} onChange={e => setNeededBy(e.target.value)} />
           </div>
-
-          <div className="vd-form__group">
-            <label className="vd-form__label">Notes (optional)</label>
-            <textarea className="vd-form__textarea"
-              placeholder="Any additional requirements for fishermen…"
-              maxLength={500} value={notes} onChange={e => setNotes(e.target.value)}
-            />
+          <div>
+            <label>Notes (optional)</label>
+            <textarea className="input" rows="3" placeholder="Quality requirements, packaging, etc."
+              maxLength={500} value={notes} onChange={e => setNotes(e.target.value)} />
           </div>
-
-          <div className="vd-form__actions">
-            <button type="button" className="vd-form__cancel" onClick={onClose}>Cancel</button>
-            <button type="submit" className="vd-form__submit" disabled={submitting}>
-              {submitting ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Post Listing')}
-            </button>
-          </div>
-        </form>
+        </div>
+        <div className="modal__foot">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn--primary" onClick={submit} disabled={submitting}>
+            {submitting ? (isEdit ? 'Saving…' : 'Creating…') : (isEdit ? 'Save Changes' : 'Post listing')}
+          </button>
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── Confirm Delete Modal ─────────────────────────────────────────────────────
+// ─── ConfirmDeleteModal ───────────────────────────────────────────────────────
 
 function ConfirmDeleteModal({ listing, onConfirm, onClose, deleting }) {
   return (
-    <div className="vd-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="vd-modal vd-confirm">
-        <div className="vd-modal__header">
-          <h2 className="vd-modal__title">Delete Listing</h2>
-          <button className="vd-modal__close" onClick={onClose}>✕</button>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <div className="modal__head">
+          <div><h2 className="modal__title">Delete Listing</h2></div>
+          <button className="btn btn--ghost btn--sm" onClick={onClose}><I.X size={14} /></button>
         </div>
-        <p className="vd-confirm__body">
+        <p style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.6 }}>
           Are you sure you want to permanently delete the listing for{' '}
-          <strong>{listing.fishSpecies?.commonName}</strong> at{' '}
-          <strong>{listing.marketLocation?.name}</strong>? This cannot be undone.
+          <strong>{listing.fishSpecies?.commonName}</strong>? This cannot be undone.
         </p>
-        <div className="vd-confirm__actions">
-          <button className="vd-form__cancel" onClick={onClose}>Cancel</button>
-          <button className="vd-confirm__delete" onClick={onConfirm} disabled={deleting}>
+        <div className="modal__foot">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" style={{ background: 'var(--unsafe)', color: '#fff', border: 0 }}
+            onClick={onConfirm} disabled={deleting}>
             {deleting ? 'Deleting…' : 'Delete'}
           </button>
         </div>
@@ -953,199 +967,16 @@ function ConfirmDeleteModal({ listing, onConfirm, onClose, deleting }) {
   )
 }
 
-// ─── Dashboard View ───────────────────────────────────────────────────────────
-
-function DashboardView({ listings, advisories, zones, interests, loading, onNewListing, onMessageFisherman }) {
-  const openListings   = listings.filter(l => l.status === 'OPEN')
-  const closedListings = listings.filter(l => l.status === 'CLOSED')
-  const totalKg        = openListings.reduce((s, l) => s + (l.quantityKg || 0), 0)
-  const now            = new Date()
-  const urgentCount    = openListings.filter(l => l.neededBy && (new Date(l.neededBy) - now) < 86400000).length
-
-  return (
-    <div className="db-body">
-      {/* ── Left column ── */}
-      <div className="db-left">
-        {/* Hero */}
-        <SupplyOutlookCard advisories={advisories} zones={zones} loading={loading} />
-
-        {/* KPI Row */}
-        <div className="kpi-row">
-          <KPICard
-            label="Total Listings"
-            rawValue={listings.length}
-            icon={<ListIcon />}
-            sub="All time"
-            loading={loading}
-          />
-          <KPICard
-            label="Open Listings"
-            rawValue={openListings.length}
-            icon={<FishIcon />}
-            iconVariant={openListings.length > 0 ? 'safe' : ''}
-            sub="Accepting offers"
-            loading={loading}
-          />
-          <KPICard
-            label="Total KG Demanded"
-            rawValue={totalKg}
-            unit=" kg"
-            icon={<ScaleIcon />}
-            sub="Across open listings"
-            loading={loading}
-          />
-          <KPICard
-            label="Expiring Soon"
-            rawValue={urgentCount}
-            icon={<ClockIcon />}
-            iconVariant={urgentCount > 0 ? '' : 'safe'}
-            sub="Due within 24 hours"
-            loading={loading}
-          />
-        </div>
-
-        {/* Charts row */}
-        {loading ? (
-          <>
-            <div className="skeleton" style={{ height: 240, borderRadius: 18 }} />
-            <div className="skeleton" style={{ height: 240, borderRadius: 18 }} />
-          </>
-        ) : (
-          <>
-            <SpeciesDemandChart listings={listings} />
-            <DeadlineTimeline listings={listings} />
-          </>
-        )}
-      </div>
-
-      {/* ── Right column ── */}
-      <div className="db-right">
-        <ZoneRiskChips zones={zones} loading={loading} />
-        <AdvisoriesPanel advisories={advisories} loading={loading} />
-        {loading
-          ? <div className="skeleton" style={{ height: 220, borderRadius: 18 }} />
-          : <ListingStatusDonut listings={listings} />
-        }
-        <InterestsPanel interests={interests} loading={loading} onMessageFisherman={onMessageFisherman} />
-      </div>
-    </div>
-  )
-}
-
-// ─── Listings View ────────────────────────────────────────────────────────────
-
-function ListingsView({
-  listings, loading, error,
-  species, locations, token,
-  onReload, onAdd, onEdit, onClose, onDelete,
-}) {
-  const [filter, setFilter] = useState('ALL')
-  const filtered = filter === 'ALL' ? listings : listings.filter(l => l.status === filter)
-
-  if (error) return (
-    <div className="db-error">
-      <AlertIcon /><span>{error}</span>
-      <button className="db-error__retry" onClick={onReload}>Retry</button>
-    </div>
-  )
-
-  return (
-    <>
-      <div className="vd-page-header">
-        <div>
-          <h2 className="vd-page-header__title">My Listings</h2>
-          <p className="vd-page-header__sub">Manage your demand listings for La Union fishermen</p>
-        </div>
-      </div>
-
-      <div className="vd-filter-row">
-        {['ALL', 'OPEN', 'CLOSED'].map(f => (
-          <button
-            key={f}
-            className={`vd-filter-chip vd-filter-chip--${f.toLowerCase()}${filter === f ? ' vd-filter-chip--on' : ''}`}
-            onClick={() => setFilter(f)}
-          >
-            {f === 'ALL' ? 'All' : f === 'OPEN' ? '● Open' : '○ Closed'}
-          </button>
-        ))}
-        <span className="vd-filter-count">{filtered.length} listing{filtered.length !== 1 ? 's' : ''}</span>
-      </div>
-
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div className="skeleton" style={{ height: 52 }} />
-          <div className="skeleton" style={{ height: 52 }} />
-          <div className="skeleton" style={{ height: 52 }} />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="vd-empty">
-          <span className="vd-empty__icon">{filter === 'ALL' ? '📋' : filter === 'OPEN' ? '📂' : '📁'}</span>
-          <p>{filter === 'ALL' ? 'No listings yet. Post your first demand!' : `No ${filter.toLowerCase()} listings.`}</p>
-          {filter === 'ALL' && (
-            <button className="vd-create-btn" style={{ margin: '14px auto 0', display: 'inline-flex' }} onClick={onAdd}>
-              <PlusIcon /> Post First Listing
-            </button>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="vd-col-heads">
-            <span>Species</span><span>Location</span><span>Price/kg</span>
-            <span>Quantity</span><span>Needed By</span><span>Status</span><span />
-          </div>
-          <div className="vd-listings-list">
-            {filtered.map(l => {
-              const dl = fmtDeadline(l.neededBy)
-              return (
-                <div key={l.id} className={`vd-listing-row${l.status === 'CLOSED' ? ' vd-listing-row--closed' : ''}`}>
-                  <div>
-                    <p className="vd-listing-row__species">{l.fishSpecies?.commonName}</p>
-                    {l.notes && <p className="vd-listing-row__notes">{l.notes}</p>}
-                  </div>
-                  <p className="vd-listing-row__location">📍 {l.marketLocation?.name}</p>
-                  <p className="vd-listing-row__price">₱{l.offerPricePerKg}</p>
-                  <p className="vd-listing-row__qty">{fmtKg(l.quantityKg)}</p>
-                  <p className={`vd-listing-row__deadline${dl?.urgent ? ' vd-listing-row__deadline--urgent' : ''}`}>
-                    {dl ? dl.label : '—'}
-                  </p>
-                  <StatusChip status={l.status} />
-                  <div className="vd-actions">
-                    {l.status === 'OPEN' && (
-                      <>
-                        <button className="vd-btn vd-btn--edit" title="Edit" onClick={() => onEdit(l)}>
-                          <EditIcon />
-                        </button>
-                        <button className="vd-btn vd-btn--close" title="Close listing" onClick={() => onClose(l.id)}>
-                          <CloseListingIcon />
-                        </button>
-                      </>
-                    )}
-                    <button className="vd-btn vd-btn--delete" title="Delete" onClick={() => onDelete(l)}>
-                      <TrashIcon />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      )}
-    </>
-  )
-}
-
 // ─── Main VendorDashboard ─────────────────────────────────────────────────────
 
 export default function VendorDashboard({ user, token, onLogout }) {
   const [listings,    setListings]    = useState([])
   const [advisories,  setAdvisories]  = useState([])
-  const [zones,       setZones]       = useState([])
   const [interests,   setInterests]   = useState([])
   const [species,     setSpecies]     = useState([])
   const [locations,   setLocations]   = useState([])
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
   const [activeNav,   setActiveNav]   = useState('dashboard')
   const [jumpContact, setJumpContact] = useState(null)
 
@@ -1159,21 +990,18 @@ export default function VendorDashboard({ user, token, onLogout }) {
     setLoading(true)
     setError(null)
     try {
-      const [l, adv, sp, loc, cond, intr] = await Promise.all([
+      const [l, adv, sp, loc, intr] = await Promise.all([
         apiGet('/vendor/demand-listings', token),
         apiGet('/advisories?activeOnly=true', token),
         apiGet('/lookups/fish-species', token),
         apiGet('/lookups/market-locations', token),
-        apiGet('/marine/conditions', token).catch(() => null),
         apiGet('/vendor/demand-listings/interests', token).catch(() => []),
       ])
       setListings(l)
       setAdvisories(adv)
       setSpecies(sp)
       setLocations(loc)
-      setZones(cond?.zones ?? [])
       setInterests(intr ?? [])
-      setLastUpdated(new Date())
     } catch (err) {
       setError(err.message)
     } finally {
@@ -1182,10 +1010,6 @@ export default function VendorDashboard({ user, token, onLogout }) {
   }, [token])
 
   useEffect(() => { load() }, [load])
-
-  const today = new Date().toLocaleDateString('en-PH', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  })
 
   function handleFormSuccess(result, isEdit) {
     if (isEdit) {
@@ -1222,94 +1046,59 @@ export default function VendorDashboard({ user, token, onLogout }) {
     }
   }
 
-  function handleMessageFisherman(interest) {
-    setJumpContact({
-      id: Number(interest.fishermanId),
-      fullName: interest.fishermanName,
-      role: 'Fisherman'
-    })
-    setActiveNav('messages')
-  }
+  const globalError = error || actionError
 
   return (
-    <div className="db-shell vd-shell">
-      <VendorSidebar user={user} activeNav={activeNav} onNav={setActiveNav} onLogout={onLogout} />
+    <div className="app" data-accent="warm" data-density="balanced">
+      <VendorRail user={user} activeNav={activeNav} onNav={setActiveNav} onLogout={onLogout} />
+      <div className="main">
+        <VendorTopbar page={activeNav} />
+        <div className="content">
+          {globalError && (
+            <div className="page-error" style={{ margin: '16px 0 0' }}>
+              <I.Alert size={16} /> {globalError}
+              <button className="page-error__retry" onClick={error ? load : () => setActionError(null)}>
+                {error ? 'Retry' : 'Dismiss'}
+              </button>
+            </div>
+          )}
 
-      <main className="db-main">
-        {activeNav === 'market'       ? <Marketplace token={token} /> :
-         activeNav === 'catch-alerts' ? <CatchAlerts token={token} role="VENDOR" /> :
-         activeNav === 'orders'       ? <Orders token={token} role="VENDOR" /> :
-         activeNav === 'messages'     ? <Messages token={token} userProfile={user} initialContact={jumpContact} /> :
-         (
-          <div className="db-content">
-            {/* ── Header ── */}
-            <header className="db-header">
-              <div>
-                <h1 className="db-greeting">
-                  {greeting()}, <span className="db-greeting__name">{user?.fullName?.split(' ')[0] || 'Vendor'}</span>
-                </h1>
-                <p className="db-date">{today}</p>
-              </div>
-              <div className="db-header-right">
-                {lastUpdated && (
-                  <span className="db-last-updated">Updated {fmtTime(lastUpdated.toISOString())}</span>
-                )}
-                <button
-                  className={`db-refresh${loading ? ' db-refresh--spinning' : ''}`}
-                  onClick={load} disabled={loading}
-                >
-                  <RefreshIcon /> Refresh
-                </button>
-                <button className="db-trip-btn" onClick={() => setCreateModal(true)}>
-                  <PlusIcon /> New Listing
-                </button>
-              </div>
-            </header>
+          {activeNav === 'orders'    ? <VendorOrdersView token={token} /> :
+           activeNav === 'browse'    ? <VendorBrowseView token={token} /> :
+           activeNav === 'messages'  ? <Messages token={token} userProfile={user} initialContact={jumpContact} /> :
+           activeNav === 'interests' ? (
+             <VendorInterestsView
+               interests={interests}
+               listings={listings}
+               loading={loading}
+               onNavigate={setActiveNav}
+             />
+           ) :
+           activeNav === 'listings'  ? (
+             <ListingsView
+               listings={listings}
+               loading={loading}
+               error={null}
+               onReload={load}
+               onAdd={() => setCreateModal(true)}
+               onEdit={l => setEditListing(l)}
+               onClose={handleClose}
+               onDelete={l => setConfirmDelete(l)}
+             />
+           ) : (
+             <DashboardView
+               user={user}
+               listings={listings}
+               advisories={advisories}
+               interests={interests}
+               loading={loading}
+               onNewListing={() => setCreateModal(true)}
+               onNavigate={setActiveNav}
+             />
+           )}
+        </div>
+      </div>
 
-            {/* ── Global errors ── */}
-            {(error || actionError) && (
-              <div className="db-error" style={{ margin: '0 36px' }}>
-                <AlertIcon />
-                <span>{error || actionError}</span>
-                <button className="db-error__retry" onClick={error ? load : () => setActionError(null)}>
-                  {error ? 'Retry' : 'Dismiss'}
-                </button>
-              </div>
-            )}
-
-            {/* ── Content ── */}
-            {activeNav === 'listings' ? (
-              <div style={{ padding: '0 36px 52px', display: 'flex', flexDirection: 'column', gap: '0' }}>
-                <ListingsView
-                  listings={listings}
-                  loading={loading}
-                  error={null}
-                  species={species}
-                  locations={locations}
-                  token={token}
-                  onReload={load}
-                  onAdd={() => setCreateModal(true)}
-                  onEdit={l => setEditListing(l)}
-                  onClose={handleClose}
-                  onDelete={l => setConfirmDelete(l)}
-                />
-              </div>
-            ) : (
-              <DashboardView
-                listings={listings}
-                advisories={advisories}
-                zones={zones}
-                interests={interests}
-                loading={loading}
-                onNewListing={() => setCreateModal(true)}
-                onMessageFisherman={handleMessageFisherman}
-              />
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* ── Modals ── */}
       {createModal && (
         <ListingFormModal
           species={species} locations={locations} token={token}

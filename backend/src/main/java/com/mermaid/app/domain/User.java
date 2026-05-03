@@ -85,6 +85,27 @@ public class User {
     @Column(name = "facebook_id", length = 255, unique = true)
     private String facebookId;
 
+    // ── Vendor review aggregates (Phase 2.2) ────────────────────────────────────
+
+    @Column(name = "avg_rating", precision = 3, scale = 2)
+    private java.math.BigDecimal avgRating;
+
+    @Column(name = "review_count", nullable = false)
+    private int reviewCount = 0;
+
+    // ── File upload fields (Phase 3.3) ───────────────────────────────────────────
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
+    public java.math.BigDecimal getAvgRating() { return avgRating; }
+    public void setAvgRating(java.math.BigDecimal avgRating) { this.avgRating = avgRating; }
+    public int getReviewCount() { return reviewCount; }
+    public void setReviewCount(int reviewCount) { this.reviewCount = reviewCount; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
     // ── Lifecycle callbacks ──────────────────────────────────────────────────────
 
     @PrePersist

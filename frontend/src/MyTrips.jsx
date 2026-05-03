@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import './design-system.css'
 import './light-compat.css'
 import { apiGet, apiPost, apiPut } from './api'
+import { I } from './icons'
 import StartTripModal from './components/StartTripModal'
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
@@ -112,8 +113,8 @@ function Skeleton({ height = '120px', radius = '14px' }) {
 function TripTabs({ active, onChange, hasActiveTrip, pastCount, plannedCount }) {
   const tabs = [
     { id: 'active',  label: 'Active',  count: hasActiveTrip ? 1 : null },
-    { id: 'past',    label: 'Past',    count: pastCount },
     { id: 'planned', label: 'Planned', count: plannedCount },
+    { id: 'past',    label: 'Past',    count: pastCount },
   ]
   return (
     <div className="row" style={{ gap: 4, marginBottom: 20, borderBottom: '1px solid var(--line)' }}>
@@ -443,9 +444,11 @@ function SettleCatchModal({ tripId, catchLog, token, onSettled, onCancel }) {
 
 // ── CatchLogsSection ──────────────────────────────────────────────────────────
 
-function CatchLogsSection({ trip, token, species, catches, loading, error, onAdded, onRetry }) {
+function CatchLogsSection({ trip, token, species, catches, loading, error, onAdded, onRetry, formTrigger = 0 }) {
   const [showForm, setShowForm]     = useState(false)
   const [settleCatch, setSettle]    = useState(null)
+
+  useEffect(() => { if (formTrigger > 0) setShowForm(true) }, [formTrigger])
 
   return (
     <div className="card">
@@ -579,6 +582,49 @@ function EndTripButton({ tripId, token, onEnded }) {
   )
 }
 
+// ── ZoneConditionsCard ────────────────────────────────────────────────────────
+
+function ZoneConditionsCard({ zones, targetArea }) {
+  if (!zones?.length || !targetArea) return null
+  const match = zones.find(z =>
+    z.zoneName?.toLowerCase().includes(targetArea.toLowerCase()) ||
+    targetArea.toLowerCase().includes(z.zoneName?.toLowerCase() ?? '')
+  ) ?? zones[0]
+
+  const r = match.risk?.level ?? 'SAFE'
+  const rCls = r === 'SAFE' ? 'safe' : r === 'CAUTION' ? 'caution' : 'unsafe'
+
+  return (
+    <div className="card">
+      <div className="card__head" style={{ marginBottom: 12 }}>
+        <div>
+          <div className="card__title">Right now at zone</div>
+          <div className="card__sub">{match.zoneName} · {match.region}</div>
+        </div>
+        <span className={`chip chip--${rCls} chip--dot`}>{r}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {[
+          { label: 'Wave', value: match.marine?.waveHeightM != null ? match.marine.waveHeightM.toFixed(1) : '—', unit: 'm' },
+          { label: 'Wind', value: match.weather?.windSpeedKmh != null ? Math.round(match.weather.windSpeedKmh) : '—', unit: 'km/h' },
+          { label: 'Air',  value: match.weather?.temperatureC != null ? Math.round(match.weather.temperatureC) : '—', unit: '°C' },
+          { label: 'Rain', value: match.weather?.precipitationMm != null ? match.weather.precipitationMm.toFixed(1) : '—', unit: 'mm' },
+        ].map(item => (
+          <div key={item.label} className="tile">
+            <div className="tile__label">{item.label}</div>
+            <div className="tile__value">{item.value}<small>{item.unit}</small></div>
+          </div>
+        ))}
+      </div>
+      {match.risk?.advisory && (
+        <p style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 12, lineHeight: 1.5 }}>
+          {match.risk.advisory}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ── ActiveTripView ────────────────────────────────────────────────────────────
 
 function TripHeroCard({ trip, catches, onEndTrip }) {
@@ -641,8 +687,10 @@ function TripHeroCard({ trip, catches, onEndTrip }) {
 }
 
 function ActiveTripView({ trip, token, species, catches, catchesLoading, catchesError,
-  onTripStarted, onTripEnded, onChecklistSaved, onCatchAdded, onCatchesRetry }) {
-  const [showModal, setShowModal] = useState(false)
+  onTripStarted, onTripEnded, onChecklistSaved, onCatchAdded, onCatchesRetry,
+  setPage, zones, pastTrips, plannedTrips }) {
+  const [showModal, setShowModal]     = useState(false)
+  const [formTrigger, setFormTrigger] = useState(0)
 
   if (!trip) return (
     <>
@@ -666,11 +714,30 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
 
   return (
     <div className="trips-grid">
+      {/* LEFT column */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <TripHeroCard trip={trip} catches={catches} />
-        <div className="row" style={{ gap: 8 }}>
+
+        {/* Action row */}
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn btn--accent" onClick={() => setFormTrigger(t => t + 1)}>
+            <FishIcon size={12} /> Log catch
+          </button>
+          {setPage && (
+            <button className="btn" onClick={() => setPage('catch-alerts')}>
+              <I.Bell size={12} /> Post catch alert
+            </button>
+          )}
+          <button className="btn" disabled title="Coming soon">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+            </svg>
+            Share location
+          </button>
+          <div style={{ flex: 1 }} />
           <EndTripButton tripId={trip.id} token={token} onEnded={onTripEnded} />
         </div>
+
         <CatchLogsSection
           trip={trip}
           token={token}
@@ -680,10 +747,20 @@ function ActiveTripView({ trip, token, species, catches, catchesLoading, catches
           error={catchesError}
           onAdded={onCatchAdded}
           onRetry={onCatchesRetry}
+          formTrigger={formTrigger}
         />
       </div>
+
+      {/* RIGHT column */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <SafetyChecklistSection trip={trip} token={token} onSaved={onChecklistSaved} />
+        <ZoneConditionsCard zones={zones} targetArea={trip.targetArea} />
+        <TripsPanel
+          activeTrip={trip}
+          pastTrips={pastTrips}
+          plannedTrips={plannedTrips}
+          catches={catches}
+        />
       </div>
     </div>
   )
@@ -917,7 +994,7 @@ function TripsPanel({ activeTrip, pastTrips, plannedTrips, catches }) {
   )
 }
 
-export default function MyTrips({ token }) {
+export default function MyTrips({ token, setPage, zones = [] }) {
   const [activeTab, setActiveTab]           = useState('active')
   const [activeTrip, setActiveTrip]         = useState(null)
   const [pastTrips, setPastTrips]           = useState([])
@@ -1011,8 +1088,11 @@ export default function MyTrips({ token }) {
           </p>
         </div>
         <div className="page__actions">
+          <button className="btn" disabled title="Coming soon">
+            <I.Receipt size={14} /> Export log
+          </button>
           <button className="btn btn--primary" onClick={() => setActiveTab('active')}>
-            <span>+</span> Start trip
+            <I.Plus size={14} /> Start trip
           </button>
         </div>
       </div>
@@ -1038,23 +1118,15 @@ export default function MyTrips({ token }) {
           onChecklistSaved={handleChecklistSaved}
           onCatchAdded={handleCatchAdded}
           onCatchesRetry={() => activeTrip && loadCatches(activeTrip.id)}
+          setPage={setPage}
+          zones={zones}
+          pastTrips={pastTrips}
+          plannedTrips={plannedTrips}
         />
-      ) : activeTab === 'past' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {pastTrips.length === 0 ? (
-            <p style={{ color: 'var(--ink-4)', fontSize: 14, padding: '20px 0' }}>No past trips yet.</p>
-          ) : (
-            pastTrips.map(t => <TripHistoryCard key={t.id} trip={t} token={token} />)
-          )}
-        </div>
+      ) : activeTab === 'planned' ? (
+        <TripHistoryList trips={plannedTrips} token={token} view="planned" />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {plannedTrips.length === 0 ? (
-            <p style={{ color: 'var(--ink-4)', fontSize: 14, padding: '20px 0' }}>No planned trips. Use the Trip Planner to schedule one.</p>
-          ) : (
-            plannedTrips.map(t => <TripHistoryCard key={t.id} trip={t} token={token} />)
-          )}
-        </div>
+        <TripHistoryList trips={pastTrips} token={token} view="past" />
       )}
     </div>
   )

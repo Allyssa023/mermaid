@@ -366,9 +366,18 @@ export default function Marketplace({ token }) {
           <p className="page__sub">{openCount} active vendor listings</p>
         </div>
         <div className="page__actions">
-          <div className="topbar__search" style={{ width: 200 }}>
+          <div className="topbar__search" style={{ width: 240 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
             <input placeholder="Search species, vendor…" style={{ background: 'none', border: 'none', outline: 'none', width: '100%', fontSize: 13 }} />
           </div>
+          <button className="btn btn--primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Post alert
+          </button>
         </div>
       </div>
 
@@ -456,6 +465,10 @@ export default function Marketplace({ token }) {
               style={{ width: '100%', accentColor: 'var(--accent)' }}
             />
           </div>
+
+          <h4>Urgency</h4>
+          <label className="mkt-check"><span><input type="checkbox" />Deadline within 48h</span></label>
+          <label className="mkt-check"><span><input type="checkbox" />New this week</span></label>
 
           {(filterSpeciesId || filterLocationId || maxPrice) && (
             <button className="btn btn--sm btn--ghost" style={{ width: '100%', marginTop: 4, justifyContent: 'center' }}

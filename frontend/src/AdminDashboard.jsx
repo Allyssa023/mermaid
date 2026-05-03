@@ -1,20 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import './dashboard.css'
-import './admin.css'
+import { useState, useEffect, useCallback } from 'react'
+import './design-system.css'
+import './light-compat.css'
+import './handoff.css'
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
-import GradientText from './components/GradientText/GradientText'
-import SpotlightCard from './components/SpotlightCard/SpotlightCard'
-import {
-  BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts'
+import { I } from './icons'
 
-const MOCK_AVATARS = [
-  '/avatars/1.jpg', '/avatars/2.jpg', '/avatars/3.jpg', '/avatars/4.jpg',
-]
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const LA_UNION_MUNICIPALITIES = [
-  'Agoo', 'Aringay', 'Bacnotan', 'Balaoan', 'Bangar', 'Bauang', 'Caba', 
+  'Agoo', 'Aringay', 'Bacnotan', 'Balaoan', 'Bangar', 'Bauang', 'Caba',
   'Luna', 'Rosario', 'San Fernando City', 'San Juan', 'Santo Tomas'
 ]
 
@@ -27,574 +21,126 @@ const ADVISORY_AREAS = [
   'San Fernando Bay'
 ]
 
-// ─── Icons ────────────────────────────────────────────────────────────────────
+const SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+const ROLES = ['FISHERMAN', 'VENDOR', 'BUYER', 'ADMIN']
 
-const OverviewIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/>
-    <rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>
-  </svg>
-)
-const CalendarIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-    <line x1="16" x2="16" y1="2" y2="6"/>
-    <line x1="8" x2="8" y1="2" y2="6"/>
-    <line x1="3" x2="21" y1="10" y2="10"/>
-  </svg>
-)
-const UsersIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-    <circle cx="9" cy="7" r="4"/>
-    <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
-    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-  </svg>
-)
-const AlertIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-    <path d="M12 9v4"/><path d="M12 17h.01"/>
-  </svg>
-)
-const FishIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.46-3.44 6-7 6s-7.56-2.54-8.5-6Z"/>
-    <path d="M18 12h.01"/>
-    <path d="M6.5 12C4 12 1.5 9.5 2 6c.5-3 3-4 5 0"/>
-  </svg>
-)
-const MapPinIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-    <circle cx="12" cy="10" r="3"/>
-  </svg>
-)
-const LogoutIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-    <polyline points="16 17 21 12 16 7"/>
-    <line x1="21" x2="9" y1="12" y2="12"/>
-  </svg>
-)
-const PlusIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-  </svg>
-)
-const EditIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-  </svg>
-)
-const TrashIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/>
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-  </svg>
-)
-const ShieldIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-)
-const ShieldLgIcon = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-)
-const AnchorIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/>
-    <path d="M5 12H2a10 10 0 0 0 20 0h-3"/>
-  </svg>
-)
-const RefreshIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-    <path d="M21 3v5h-5"/>
-    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-    <path d="M8 16H3v5"/>
-  </svg>
-)
-const XIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-  </svg>
-)
-const ChevronLeftIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="15 18 9 12 15 6"/>
-  </svg>
-)
+const EMPTY_USER_FORM = { fullName: '', email: '', password: '', role: 'FISHERMAN' }
+const EMPTY_ADV_FORM  = { title: '', message: '', severity: 'LOW', affectedArea: '', activeFrom: '', activeTo: '', isActive: true }
+const EMPTY_SPECIES_FORM   = { commonName: '' }
+const EMPTY_LOCATION_FORM  = { name: '', municipality: '' }
+
+// ─── Mock Data (TODO: Replace with real API endpoints) ────────────────────────
+
+const MOCK_DAU = (() => {
+  const out = []
+  for (let i = 0; i < 30; i++) {
+    const base = 220 + Math.sin(i / 4) * 35 + (i % 7 === 6 ? -40 : 0)
+    out.push({ day: i, dau: Math.round(base + Math.random() * 22) })
+  }
+  return out
+})()
+
+const MOCK_HEALTH = [
+  { name: 'API Gateway',             status: 'OK',   detail: '99.94% uptime · p95 142ms' },
+  { name: 'PostgreSQL',              status: 'OK',   detail: '24 connections · 0 slow queries' },
+  { name: 'Marine data (Open-Meteo)',status: 'OK',   detail: 'Last sync 4 min ago' },
+  { name: 'Mail queue',              status: 'WARN', detail: '12 pending · oldest 8 min' },
+  { name: 'WebSocket (chat)',        status: 'OK',   detail: '47 active connections' },
+  { name: 'Storage',                 status: 'OK',   detail: '38% of 100GB used' },
+]
+
+const MOCK_AUDIT = [
+  { ts: '08:42', actor: 'Admin',   action: 'updated advisory',  target: 'Small-craft advisory',     kind: 'advisory' },
+  { ts: '08:11', actor: 'System',  action: 'auto-expired',      target: '12 catch alerts',           kind: 'system' },
+  { ts: '07:55', actor: 'Admin',   action: 'created species',   target: 'Threadfin Bream',           kind: 'lookup' },
+  { ts: '07:30', actor: 'System',  action: 'flagged dispute',   target: 'ORD-7387 Bay City vs Mateo',kind: 'flag' },
+  { ts: '06:18', actor: 'Admin',   action: 'deactivated user',  target: 'Mateo Villar (id 106)',     kind: 'user' },
+  { ts: 'Yest.', actor: 'BFAR',    action: 'posted advisory',   target: 'Reef closure',              kind: 'advisory' },
+  { ts: 'Yest.', actor: 'System',  action: 'sync OK',           target: 'Marine data · Open-Meteo',  kind: 'system' },
+  { ts: 'Yest.', actor: 'Admin',   action: 'merged duplicate',  target: 'Yellowfin Tuna ↔ Tuna YF',  kind: 'lookup' },
+]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function greeting() {
   const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 18) return 'Good afternoon'
-  return 'Good evening'
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'
 }
 
 function fmtDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-PH', {
-    year: 'numeric', month: 'short', day: 'numeric',
-  })
+  return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function fmtTime(iso) {
-  if (!iso) return ''
-  return new Date(iso).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
+// ─── Inline edit/trash icons (not in I) ────────────────────────────────────────
+
+const EditSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+  </svg>
+)
+const TrashSvg = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+  </svg>
+)
+
+// ─── Small components ─────────────────────────────────────────────────────────
+
+function RolePill({ role }) {
+  const cls = { FISHERMAN: 'fisherman', VENDOR: 'vendor', ADMIN: 'admin', BUYER: 'buyer' }[role] || 'fisherman'
+  return <span className={`role-pill role-pill--${cls}`}>{role}</span>
 }
 
-function severityClass(sev) {
-  if (sev === 'LOW')    return 'low'
-  if (sev === 'MEDIUM') return 'medium'
-  if (sev === 'HIGH')   return 'high'
-  return 'critical'
-}
-
-function platformStatus(advisories) {
-  const active = advisories?.filter(a => a.isActive) ?? []
-  if (active.some(a => a.severity === 'CRITICAL')) return 'CRITICAL'
-  if (active.some(a => a.severity === 'HIGH'))     return 'ATTENTION'
-  return 'OPERATIONAL'
-}
-
-// ─── useCountUp ───────────────────────────────────────────────────────────────
-
-function useCountUp(target, duration = 1200) {
-  const [val, setVal] = useState(0)
-  const rafRef = useRef(null)
-  const startRef = useRef(null)
-
-  useEffect(() => {
-    if (!target) { setVal(0); return }
-    startRef.current = null
-    const animate = (ts) => {
-      if (!startRef.current) startRef.current = ts
-      const p = Math.min((ts - startRef.current) / duration, 1)
-      const eased = 1 - Math.pow(1 - p, 3)
-      setVal(Math.round(target * eased))
-      if (p < 1) rafRef.current = requestAnimationFrame(animate)
-    }
-    rafRef.current = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(rafRef.current)
-  }, [target, duration])
-
-  return val
-}
-
-// ─── Badges ───────────────────────────────────────────────────────────────────
-
-function SeverityBadge({ severity }) {
-  const cls = { LOW: 'low', MEDIUM: 'medium', HIGH: 'high', CRITICAL: 'critical' }[severity] || 'medium'
+function SevChip({ severity }) {
+  const cls = { LOW: 'low', MEDIUM: 'medium', HIGH: 'high', CRITICAL: 'critical' }[severity] || 'low'
   return <span className={`sev-chip sev-chip--${cls}`}>{severity}</span>
-}
-
-function RoleBadge({ role }) {
-  const cls = { ADMIN: 'admin', FISHERMAN: 'fisherman', VENDOR: 'vendor' }[role] || 'fisherman'
-  return <span className={`adm-role-badge adm-role-badge--${cls}`}>{role}</span>
 }
 
 function StatusChip({ active }) {
   return (
-    <span className={`vd-status ${active ? 'vd-status--open' : 'vd-status--closed'}`}>
-      {active ? '● Active' : '○ Inactive'}
+    <span className={`status-chip status-chip--${active ? 'active' : 'inactive'}`}>
+      <span className="status-chip__dot" />
+      {active ? 'Active' : 'Inactive'}
     </span>
   )
 }
 
-// ─── Platform Status Hero Card ────────────────────────────────────────────────
-
-function PlatformStatusCard({ advisories, users, loading }) {
-  const status = platformStatus(advisories)
-  const activeAdv = advisories?.filter(a => a.isActive).length ?? 0
-
-  const meta = {
-    OPERATIONAL: {
-      label: 'ALL SYSTEMS OPERATIONAL',
-      sub: 'No high-priority advisories. Platform running normally.',
-      cls: 'safe',
-      colors: ['#00f5a0', '#00d9f5', '#00f5a0'],
-    },
-    ATTENTION: {
-      label: 'ATTENTION REQUIRED',
-      sub: 'High-priority advisory active. Review and update affected users.',
-      cls: 'caution',
-      colors: ['#fbbf24', '#f59e0b', '#fbbf24'],
-    },
-    CRITICAL: {
-      label: 'CRITICAL ADVISORY ACTIVE',
-      sub: 'Critical advisory in effect. Immediate action may be required.',
-      cls: 'unsafe',
-      colors: ['#ff4d4d', '#ff1744', '#ff4d4d'],
-    },
-  }
-
-  const m = meta[status]
-
-  return (
-    <div className={`hero-card hero-card--${m.cls}`} style={{ animation: 'fadeup 0.4s ease' }}>
-      <div className="hero-card__bg" />
-      <div className="hero-card__inner">
-        <div className="hero-card__icon">
-          {loading ? <ShieldLgIcon /> : (status === 'OPERATIONAL' ? <ShieldLgIcon /> : <AlertIcon />)}
-        </div>
-        <div>
-          <p className="hero-card__eyebrow">Platform Status</p>
-          {loading
-            ? <div className="skeleton" style={{ height: '2.2rem', width: '260px', marginBottom: '8px' }} />
-            : <h2 className="hero-card__status">
-                <GradientText colors={m.colors} animationSpeed={5}>{m.label}</GradientText>
-              </h2>
-          }
-          {!loading && <p className="hero-card__sub">{m.sub}</p>}
-        </div>
-        {!loading && (
-          <div className="vd-hero-stats">
-            <div className="vd-hero-stat">
-              <span className="vd-hero-stat__value">{users?.length ?? 0}</span>
-              <span className="vd-hero-stat__label">Users</span>
-            </div>
-            <div className="vd-hero-stat">
-              <span className="vd-hero-stat__value">{activeAdv}</span>
-              <span className="vd-hero-stat__label">Active Advisories</span>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+function UserAvatar({ name }) {
+  const initials = name ? name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : '??'
+  return <div className="user-avatar">{initials}</div>
 }
 
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-function KPICard({ label, rawValue, icon, iconVariant, sub, loading }) {
-  const counted = useCountUp(loading ? 0 : (rawValue ?? 0))
-  const display = loading ? '—' : (rawValue == null ? '—' : counted)
-
-  return (
-    <SpotlightCard className="kpi-card" spotlightColor="rgba(245, 158, 11, 0.08)">
-      <div className={`kpi-card__icon-wrap${iconVariant ? ` kpi-card__icon-wrap--${iconVariant}` : ''}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="kpi-card__label">{label}</p>
-        <p className="kpi-card__value">{display}</p>
-      </div>
-      {sub && <p className="kpi-card__sub">{sub}</p>}
-    </SpotlightCard>
-  )
-}
-
-// ─── User Breakdown Donut ─────────────────────────────────────────────────────
-
-function UserBreakdownDonut({ users }) {
-  const fishermen = users?.filter(u => u.role === 'FISHERMAN').length ?? 0
-  const vendors   = users?.filter(u => u.role === 'VENDOR').length ?? 0
-  const admins    = users?.filter(u => u.role === 'ADMIN').length ?? 0
-  const total     = users?.length ?? 0
-
-  if (!total) return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">User Breakdown</p>
-          <p className="chart-card__sub">By role</p>
-        </div>
-      </div>
-      <div className="adv-panel__empty" style={{ borderStyle: 'none', paddingTop: 16, paddingBottom: 20 }}>
-        <div className="adv-panel__empty-icon"><UsersIcon /></div>
-        <p className="adv-panel__empty-title">No Users</p>
-        <p className="adv-panel__empty-sub">No registered accounts yet</p>
-      </div>
-    </div>
-  )
-
-  const data = [
-    { name: 'Fishermen', value: fishermen, color: 'var(--accent)' },
-    { name: 'Vendors',   value: vendors,   color: 'var(--safe)' },
-    { name: 'Admins',    value: admins,    color: 'var(--unsafe)' },
-  ].filter(d => d.value > 0)
-
-  return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">User Breakdown</p>
-          <p className="chart-card__sub">By role</p>
-        </div>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <ResponsiveContainer width="100%" height={180}>
-          <PieChart>
-            <Pie data={data} cx="50%" cy="50%"
-              innerRadius={52} outerRadius={76}
-              paddingAngle={3} dataKey="value"
-              isAnimationActive animationDuration={1000}
-            >
-              {data.map((entry, i) => (
-                <Cell key={i} fill={entry.color} stroke="transparent" />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(v, n) => [v, n]}
-              contentStyle={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-2)',
-                borderRadius: '10px',
-                fontFamily: 'Outfit',
-                fontSize: '12px',
-                color: 'var(--text-1)',
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          textAlign: 'center', pointerEvents: 'none',
-        }}>
-          <p style={{ fontFamily: 'Barlow Condensed, sans-serif', fontSize: '1.8rem', fontWeight: 900, lineHeight: 1, color: 'var(--text-1)' }}>{total}</p>
-          <p style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: 3, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Users</p>
-        </div>
-      </div>
-      <div className="chart-legend" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
-        {data.map((d, i) => (
-          <div key={i} className="chart-legend__item">
-            <span className="chart-legend__dot" style={{ background: d.color }} />
-            {d.name}: {d.value}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ─── Advisory Severity Bar ────────────────────────────────────────────────────
-
-function AdvisorySeverityBars({ advisories }) {
-  const SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-  const colors = {
-    LOW: 'var(--safe)', MEDIUM: 'var(--caution)', HIGH: 'var(--amber)', CRITICAL: 'var(--unsafe)',
-  }
-
-  const data = SEVERITIES.map(sev => ({
-    name: sev,
-    count: advisories?.filter(a => a.severity === sev).length ?? 0,
-    color: colors[sev],
-  }))
-
-  const total = data.reduce((s, d) => s + d.count, 0)
-
-  if (!total) return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Advisory Severity</p>
-          <p className="chart-card__sub">All advisories by severity</p>
-        </div>
-      </div>
-      <div className="adv-panel__empty" style={{ borderStyle: 'none', paddingTop: 16, paddingBottom: 20 }}>
-        <div className="adv-panel__empty-icon"><AlertIcon /></div>
-        <p className="adv-panel__empty-title">No Advisories</p>
-        <p className="adv-panel__empty-sub">Create an advisory to see the breakdown</p>
-      </div>
-    </div>
-  )
-
-  return (
-    <div className="chart-card">
-      <div className="chart-card__head">
-        <div>
-          <p className="chart-card__title">Advisory Severity</p>
-          <p className="chart-card__sub">All advisories by severity level</p>
-        </div>
-      </div>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 40, left: 8, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" horizontal={false} />
-          <XAxis type="number"
-            tick={{ fill: 'rgba(238,244,255,0.25)', fontSize: 10, fontFamily: 'Outfit' }}
-            axisLine={false} tickLine={false} allowDecimals={false}
-          />
-          <YAxis type="category" dataKey="name"
-            tick={{ fill: 'rgba(238,244,255,0.45)', fontSize: 11, fontFamily: 'Outfit' }}
-            axisLine={false} tickLine={false} width={70}
-          />
-          <Tooltip
-            formatter={(v) => [v, 'Advisories']}
-            contentStyle={{
-              background: 'var(--bg-elevated)', border: '1px solid var(--border-2)',
-              borderRadius: '10px', fontFamily: 'Outfit', fontSize: '12px', color: 'var(--text-1)',
-            }}
-          />
-          <Bar dataKey="count" radius={[0, 6, 6, 0]}
-            label={{ position: 'right', fill: 'rgba(238,244,255,0.35)', fontSize: 11, formatter: v => v || '' }}
-            isAnimationActive animationDuration={1200}
-          >
-            {data.map((entry, i) => (
-              <Cell key={i} fill={entry.color} fillOpacity={0.85} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ─── Recent Advisories Panel ──────────────────────────────────────────────────
-
-function RecentAdvisoriesPanel({ advisories, loading }) {
-  const recent = advisories?.slice(0, 6) ?? []
-
-  return (
-    <div className="adv-panel">
-      <div className="adv-panel__head">
-        <p className="adv-panel__title">Recent Advisories</p>
-        {!loading && advisories?.length > 0 && (
-          <span className="adv-panel__count">{advisories.length}</span>
-        )}
-      </div>
-      <div className="adv-panel__list">
-        {loading ? (
-          <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div className="skeleton" style={{ height: 72 }} />
-            <div className="skeleton" style={{ height: 72 }} />
-            <div className="skeleton" style={{ height: 72 }} />
-          </div>
-        ) : recent.length > 0 ? (
-          recent.map(a => (
-            <div key={a.id} className={`adv-item adv-item--${severityClass(a.severity)}`}>
-              <div className="adv-item__stripe" />
-              <div className="adv-item__body">
-                <div className="adv-item__header">
-                  <SeverityBadge severity={a.severity} />
-                  <span className="adv-item__area">{a.affectedArea}</span>
-                </div>
-                <p className="adv-item__title">{a.title}</p>
-                <p className="adv-item__msg" style={{ fontSize: '11px', color: 'var(--text-3)' }}>
-                  {a.isActive ? '● Active' : '○ Inactive'} · {fmtDate(a.createdAt)}
-                </p>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="adv-panel__empty">
-            <div className="adv-panel__empty-icon"><ShieldLgIcon /></div>
-            <p className="adv-panel__empty-title">No Advisories</p>
-            <p className="adv-panel__empty-sub">No advisories have been created yet.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
-
-const NAV_ITEMS = [
-  { id: 'overview',   icon: <OverviewIcon />, label: 'Overview' },
-  { id: 'users',      icon: <UsersIcon />,    label: 'Users' },
-  { id: 'advisories', icon: <AlertIcon />,    label: 'Advisories' },
-  { id: 'species',    icon: <FishIcon />,     label: 'Fish Species' },
-  { id: 'locations',  icon: <MapPinIcon />,   label: 'Market Locations' },
-]
-
-function AdminSidebar({ user, activeNav, onNav, onLogout }) {
-  const [collapsed, setCollapsed] = useState(false)
-
-  const initials = user?.fullName
-    ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'AD'
-
-  return (
-    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-      <div className="sidebar__header">
-        <img src="/logo.png" alt="MERMAID" className="sidebar__logo-img" style={{ width: 34, height: 34, objectFit: 'contain' }} />
-        <span className="sidebar__brand">Mermaid</span>
-        <button className="sidebar__toggle" onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          <ChevronLeftIcon />
-        </button>
-      </div>
-
-      <nav className="sidebar__nav">
-        <p className="sidebar__nav-label">Admin Console</p>
-        {NAV_ITEMS.map(item => (
-          <button
-            key={item.id}
-            className={`sidebar__link${activeNav === item.id ? ' sidebar__link--on' : ''}`}
-            onClick={() => onNav(item.id)}
-            title={collapsed ? item.label : undefined}
-          >
-            <span className="sidebar__link-icon">{item.icon}</span>
-            <span className="sidebar__link-text">{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      <div className="sidebar__bottom">
-        <button className="sidebar__link" title={collapsed ? (user?.fullName || 'Admin') : undefined}>
-          <span className="sidebar__avatar">{initials}</span>
-          <div className="sidebar__user-info">
-            <span className="sidebar__user-name">{user?.fullName?.split(' ')[0] || 'Admin'}</span>
-            <span className="sidebar__user-role">Administrator</span>
-          </div>
-        </button>
-        <button className="sidebar__link sidebar__link--logout" onClick={onLogout} title={collapsed ? 'Sign Out' : undefined}>
-          <span className="sidebar__link-icon"><LogoutIcon /></span>
-          <span className="sidebar__link-text">Sign Out</span>
-        </button>
-      </div>
-    </aside>
-  )
-}
-
-// ─── CRUD Table Shell ─────────────────────────────────────────────────────────
-// Shared wrapper for all CRUD section page headers
-
-function SectionHeader({ title, sub, action }) {
-  return (
-    <div className="vd-page-header">
-      <div>
-        <h2 className="vd-page-header__title">{title}</h2>
-        {sub && <p className="vd-page-header__sub">{sub}</p>}
-      </div>
-      {action && (
-        <button className="adm-create-btn" onClick={action.onClick}>
-          <PlusIcon /> {action.label}
-        </button>
-      )}
-    </div>
-  )
+function Skeleton({ height = 48, style }) {
+  return <div className="skeleton" style={{ height, borderRadius: 8, marginBottom: 6, ...style }} />
 }
 
 // ─── Shared Modal ─────────────────────────────────────────────────────────────
 
 function AdminModal({ title, onClose, onSubmit, saving, submitLabel, children, formError }) {
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    const handler = e => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
   return (
-    <div className="vd-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="vd-modal">
-        <div className="vd-modal__header">
-          <h2 className="vd-modal__title">{title}</h2>
-          <button className="vd-modal__close" onClick={onClose}><XIcon /></button>
+    <div className="lf-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="lf-modal">
+        <div className="lf-modal__head">
+          <div className="lf-modal__title">{title}</div>
+          <button className="lf-modal__close" onClick={onClose}><I.X size={16} /></button>
         </div>
-        <form className="vd-form" onSubmit={onSubmit}>
-          {children}
-          {formError && <p className="vd-form__error">{formError}</p>}
-          <div className="vd-form__actions">
-            <button type="button" className="vd-form__cancel" onClick={onClose}>Cancel</button>
-            <button type="submit" className="adm-form__submit" disabled={saving}>
+        <form onSubmit={onSubmit}>
+          <div className="lf-modal__body">
+            {children}
+          </div>
+          {formError && <div className="lf-modal__err">{formError}</div>}
+          <div className="lf-modal__foot">
+            <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn--primary" disabled={saving}>
               {saving ? 'Saving…' : submitLabel}
             </button>
           </div>
@@ -604,97 +150,209 @@ function AdminModal({ title, onClose, onSubmit, saving, submitLabel, children, f
   )
 }
 
-// ─── Section: Overview ────────────────────────────────────────────────────────
+// ─── Page section header ──────────────────────────────────────────────────────
 
-function OverviewSection({ token }) {
-  const [users,       setUsers]       = useState(null)
-  const [advisories,  setAdvisories]  = useState(null)
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState(null)
-  const [lastUpdated, setLastUpdated] = useState(null)
+function PageHead({ eyebrow, title, sub, action }) {
+  return (
+    <div className="page__head">
+      <div>
+        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
+        <h1 className="page__title" style={{ marginTop: 4 }}>{title}</h1>
+        {sub && <p className="page__sub">{sub}</p>}
+      </div>
+      {action && (
+        <div className="page__actions">
+          <button className="btn btn--primary" onClick={action.onClick}>
+            <I.Plus size={14} /> {action.label}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Overview Section ─────────────────────────────────────────────────────────
+
+function OverviewSection({ token, user, setPage }) {
+  const [users,      setUsers]      = useState(null)
+  const [advisories, setAdvisories] = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [error,      setError]      = useState(null)
+  const [dauMetric,  setDauMetric]  = useState('DAU')
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     try {
       const [u, a] = await Promise.all([
         apiGet('/admin/users', token),
         apiGet('/admin/advisories', token),
       ])
-      setUsers(u)
-      setAdvisories(a)
-      setLastUpdated(new Date())
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+      setUsers(u); setAdvisories(a)
+    } catch (err) { setError(err.message) }
+    finally { setLoading(false) }
   }, [token])
 
   useEffect(() => { load() }, [load])
 
-  const fishermen  = users?.filter(u => u.role === 'FISHERMAN').length ?? 0
-  const vendors    = users?.filter(u => u.role === 'VENDOR').length ?? 0
-  const activeAdv  = advisories?.filter(a => a.isActive).length ?? 0
+  const fishermen = users?.filter(u => u.role === 'FISHERMAN').length ?? 0
+  const vendors   = users?.filter(u => u.role === 'VENDOR').length ?? 0
+  const buyers    = users?.filter(u => u.role === 'BUYER').length ?? 0
+  const admins    = users?.filter(u => u.role === 'ADMIN').length ?? 0
+  const total     = users?.length ?? 0
+  const activeAdv = advisories?.filter(a => a.isActive).length ?? 0
+  const maxRole   = Math.max(fishermen, vendors, buyers, admins, 1)
+  const dauMax    = Math.max(...MOCK_DAU.map(d => d.dau))
+  const dauAvg    = Math.round(MOCK_DAU.reduce((a, d) => a + d.dau, 0) / MOCK_DAU.length)
 
   if (error) return (
-    <div className="db-error" style={{ margin: '0 28px' }}>
-      <AlertIcon /><span>{error}</span>
-      <button className="db-error__retry" onClick={load}>Retry</button>
+    <div className="page-error">
+      <I.Alert size={16} /> {error}
+      <button className="page-error__retry" onClick={load}>Retry</button>
     </div>
   )
 
   return (
-    <div className="db-body">
-      {/* Left column */}
-      <div className="db-left">
-        <PlatformStatusCard advisories={advisories ?? []} users={users} loading={loading} />
+    <div className="page">
+      <PageHead
+        eyebrow="Platform"
+        title={<>{greeting()}, <em>{user?.fullName?.split(' ')[0] || 'Admin'}</em></>}
+        sub={`${total || '—'} users · ${activeAdv} active advisories`}
+      />
 
-        <div className="kpi-row">
-          <KPICard label="Total Users"   rawValue={users?.length}  icon={<UsersIcon />}  sub="Registered accounts" loading={loading} />
-          <KPICard label="Fishermen"     rawValue={fishermen}       icon={<FishIcon />}   iconVariant="safe"        sub="FISHERMAN role"    loading={loading} />
-          <KPICard label="Vendors"       rawValue={vendors}         icon={<MapPinIcon />} sub="VENDOR role"         loading={loading} />
-          <KPICard
-            label="Active Advisories"
-            rawValue={activeAdv}
-            icon={<AlertIcon />}
-            iconVariant={activeAdv > 0 ? '' : 'safe'}
-            sub={activeAdv === 0 ? 'None active' : `${activeAdv} in effect`}
-            loading={loading}
-          />
-        </div>
-
-        {loading
-          ? <div className="skeleton" style={{ height: 220, borderRadius: 18 }} />
-          : <AdvisorySeverityBars advisories={advisories ?? []} />
-        }
+      {/* 6-stat metric strip */}
+      <div className="orders-strip orders-strip--6">
+        <div className="stat"><div className="l">Total users</div><div className="v">{loading ? '—' : total}</div><div className="s">All roles</div></div>
+        <div className="stat"><div className="l">Active now</div><div className="v">184</div><div className="s">{total > 0 ? Math.round(184/total*100) : 0}% of base</div></div>
+        <div className="stat"><div className="l">Trips today</div><div className="v">96</div><div className="s">47 live now</div></div>
+        <div className="stat"><div className="l">Orders today</div><div className="v">138</div><div className="s">₱4.1M MTD</div></div>
+        <div className="stat"><div className="l">Disputes</div><div className="v" style={{ color: 'var(--unsafe)' }}>7</div><div className="s">Need review</div></div>
+        <div className="stat"><div className="l">Uptime</div><div className="v">99.94%</div><div className="s">Last 30 days</div></div>
       </div>
 
-      {/* Right column */}
-      <div className="db-right">
-        {loading
-          ? <div className="skeleton" style={{ height: 280, borderRadius: 18 }} />
-          : <UserBreakdownDonut users={users} />
-        }
-        <RecentAdvisoriesPanel advisories={advisories ?? []} loading={loading} />
+      {/* Row 1: DAU chart + User mix */}
+      <div className="grid--2-1" style={{ marginTop: 18 }}>
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Daily active users · 30 days</div>
+              <div className="card__sub">Average {dauAvg} DAU</div>
+            </div>
+            <div className="seg seg--sm">
+              {['DAU', 'Trips', 'Orders'].map(m => (
+                <button key={m} className={dauMetric === m ? 'on' : ''} onClick={() => setDauMetric(m)}>{m}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, padding: '0 4px' }}>
+            {MOCK_DAU.map((d, i) => {
+              const h = (d.dau / dauMax) * 100
+              return (
+                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{
+                    width: '100%', height: `${h}%`,
+                    background: i === MOCK_DAU.length - 1 ? 'var(--accent)' : 'var(--ink-soft)',
+                    borderRadius: '3px 3px 0 0', minHeight: 4,
+                  }} />
+                </div>
+              )
+            })}
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
+            <span>30 days ago</span><span>Today</span>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">User mix</div>
+              <div className="card__sub">By role</div>
+            </div>
+          </div>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Skeleton height={36} /><Skeleton height={36} /><Skeleton height={36} />
+            </div>
+          ) : (
+            <div className="role-bars">
+              {[
+                { label: 'Fishermen', count: fishermen, color: 'oklch(0.55 0.09 220)' },
+                { label: 'Vendors',   count: vendors,   color: 'oklch(0.55 0.10 55)' },
+                { label: 'Buyers',    count: buyers,    color: 'oklch(0.50 0.10 150)' },
+                { label: 'Admins',    count: admins,    color: 'oklch(0.50 0.10 330)' },
+              ].map(r => (
+                <div key={r.label}>
+                  <div className="role-bar__head"><span>{r.label}</span><strong>{r.count}</strong></div>
+                  <div className="role-bar__track"><div className="role-bar__fill" style={{ width: `${(r.count / maxRole) * 100}%`, background: r.color }} /></div>
+                  <div className="role-bar__pct">{total > 0 ? Math.round((r.count / total) * 100) : 0}% of users</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Row 2: Health + Audit feed */}
+      <div className="grid--1-2" style={{ marginTop: 18 }}>
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">System health</div>
+              <div className="card__sub">{MOCK_HEALTH.filter(h => h.status === 'OK').length}/{MOCK_HEALTH.length} services nominal</div>
+            </div>
+          </div>
+          <div className="health-list">
+            {MOCK_HEALTH.map(h => (
+              <div key={h.name} className="health-item">
+                <span className={`health-dot health-dot--${h.status.toLowerCase()}`} />
+                <div>
+                  <div className="health-item__name">{h.name}</div>
+                  <div className="health-item__detail">{h.detail}</div>
+                </div>
+                <span className={`chip chip--${h.status === 'OK' ? 'safe' : h.status === 'WARN' ? 'warn' : 'unsafe'}`}>{h.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Recent activity</div>
+              <div className="card__sub">Audit log highlights</div>
+            </div>
+            <button className="btn btn--ghost btn--sm" onClick={() => setPage('audit')}>View all <I.Arrow size={11} /></button>
+          </div>
+          <table className="tbl tbl--audit">
+            <tbody>
+              {MOCK_AUDIT.map((a, i) => (
+                <tr key={i}>
+                  <td className="data" style={{ color: 'var(--ink-4)', width: 60 }}>{a.ts}</td>
+                  <td><span className={`audit-tag audit-tag--${a.kind}`}>{a.kind}</span></td>
+                  <td><strong>{a.actor}</strong> {a.action}</td>
+                  <td style={{ color: 'var(--ink-3)' }}>{a.target}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )
 }
 
-// ─── Section: Users ───────────────────────────────────────────────────────────
-
-const EMPTY_USER_FORM = { fullName: '', email: '', password: '', role: 'FISHERMAN' }
-const ROLES = ['FISHERMAN', 'VENDOR', 'ADMIN']
+// ─── Users Section ────────────────────────────────────────────────────────────
 
 function UsersSection({ token }) {
-  const [users,      setUsers]      = useState([])
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState(null)
-  const [modal,      setModal]      = useState(null)
-  const [form,       setForm]       = useState(EMPTY_USER_FORM)
-  const [formError,  setFormError]  = useState(null)
-  const [saving,     setSaving]     = useState(false)
+  const [users,     setUsers]     = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [error,     setError]     = useState(null)
+  const [modal,     setModal]     = useState(null)
+  const [form,      setForm]      = useState(EMPTY_USER_FORM)
+  const [formError, setFormError] = useState(null)
+  const [saving,    setSaving]    = useState(false)
+  const [tab,       setTab]       = useState('all')
+  const [search,    setSearch]    = useState('')
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -704,6 +362,12 @@ function UsersSection({ token }) {
   }, [token])
 
   useEffect(() => { load() }, [load])
+
+  const filtered = users.filter(u => {
+    const matchTab = tab === 'all' || u.role === tab.toUpperCase()
+    const matchSearch = !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
+    return matchTab && matchSearch
+  })
 
   function openCreate() { setForm(EMPTY_USER_FORM); setFormError(null); setModal({ mode: 'create' }) }
   function openEdit(u)  { setForm({ fullName: u.fullName, email: u.email, role: u.role, active: u.active }); setFormError(null); setModal({ mode: 'edit', data: u }) }
@@ -722,45 +386,67 @@ function UsersSection({ token }) {
     finally { setSaving(false) }
   }
 
-  if (error) return (
-    <div className="db-error" style={{ margin: '0 28px' }}>
-      <AlertIcon /><span>{error}</span>
-      <button className="db-error__retry" onClick={load}>Retry</button>
-    </div>
-  )
+  if (error) return <div className="page-error"><I.Alert size={16} /> {error}<button className="page-error__retry" onClick={load}>Retry</button></div>
+
+  const activeCount = users.filter(u => u.active).length
 
   return (
-    <div style={{ padding: '0 28px 52px' }}>
-      <SectionHeader
-        title="Users"
-        sub="Manage registered accounts across all roles"
+    <div className="page">
+      <PageHead
+        eyebrow="Users"
+        title={<>User <em>Management</em></>}
+        sub={`${users.length} accounts · ${activeCount} active`}
         action={{ label: 'Create User', onClick: openCreate }}
       />
 
-      <div className="adm-col-heads adm-users-cols">
-        <span>ID</span><span>Full Name</span><span>Email</span>
-        <span>Role</span><span>Status</span><span />
-      </div>
-
-      <div className="vd-listings-list">
-        {loading ? (
-          Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="skeleton" style={{ height: 52, borderRadius: 13, marginBottom: 6 }} />
-          ))
-        ) : users.length === 0 ? (
-          <div className="vd-empty"><p>No users found.</p></div>
-        ) : users.map(u => (
-          <div key={u.id} className="vd-listing-row adm-users-cols">
-            <p className="adm-id">#{u.id}</p>
-            <p className="vd-listing-row__species">{u.fullName}</p>
-            <p className="adm-email">{u.email}</p>
-            <RoleBadge role={u.role} />
-            <StatusChip active={u.active} />
-            <div className="vd-actions">
-              <button className="vd-btn vd-btn--edit" title="Edit" onClick={() => openEdit(u)}><EditIcon /></button>
-            </div>
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="card__head">
+          <div className="seg">
+            <button className={tab === 'all' ? 'on' : ''} onClick={() => setTab('all')}>All ({users.length})</button>
+            <button className={tab === 'fisherman' ? 'on' : ''} onClick={() => setTab('fisherman')}>Fishermen ({users.filter(u => u.role === 'FISHERMAN').length})</button>
+            <button className={tab === 'vendor' ? 'on' : ''} onClick={() => setTab('vendor')}>Vendors ({users.filter(u => u.role === 'VENDOR').length})</button>
+            <button className={tab === 'admin' ? 'on' : ''} onClick={() => setTab('admin')}>Admins ({users.filter(u => u.role === 'ADMIN').length})</button>
           </div>
-        ))}
+          <div className="search-input" style={{ minWidth: 220 }}>
+            <I.Search size={13} />
+            <input placeholder="Search name or email…" value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+        </div>
+
+        <table className="tbl tbl--users">
+          <thead>
+            <tr><th>Name</th><th>Role</th><th>Status</th><th>ID</th><th></th></tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i}><td colSpan={5}><Skeleton /></td></tr>
+              ))
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--ink-4)' }}>No users found.</td></tr>
+            ) : filtered.map(u => (
+              <tr key={u.id} className="row--link">
+                <td>
+                  <div className="row" style={{ gap: 10 }}>
+                    <UserAvatar name={u.fullName} />
+                    <div>
+                      <div style={{ fontWeight: 500, color: 'var(--ink)' }}>{u.fullName}</div>
+                      <small style={{ color: 'var(--ink-4)', fontSize: 11 }}>{u.email}</small>
+                    </div>
+                  </div>
+                </td>
+                <td><RolePill role={u.role} /></td>
+                <td><StatusChip active={u.active} /></td>
+                <td className="data" style={{ fontSize: 11, color: 'var(--ink-4)' }}>#{u.id}</td>
+                <td>
+                  <div className="tbl-actions">
+                    <button className="tbl-btn" title="Edit" onClick={() => openEdit(u)}><EditSvg /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {modal && (
@@ -770,37 +456,35 @@ function UsersSection({ token }) {
           saving={saving} submitLabel={modal.mode === 'create' ? 'Create User' : 'Save Changes'}
           formError={formError}
         >
-          <div className="vd-form__group">
-            <label className="vd-form__label">Full Name</label>
-            <input className="vd-form__input" type="text" required placeholder="e.g. Isidro Santos"
+          <div className="form-field">
+            <label className="form-label">Full Name</label>
+            <input className="form-input" type="text" required placeholder="e.g. Isidro Santos"
               value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} />
           </div>
-          <div className="vd-form__group">
-            <label className="vd-form__label">Email</label>
-            <input className="vd-form__input" type="email" required placeholder="user@example.com"
+          <div className="form-field">
+            <label className="form-label">Email</label>
+            <input className="form-input" type="email" required placeholder="user@example.com"
               value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
           </div>
           {modal.mode === 'create' && (
-            <div className="vd-form__group">
-              <label className="vd-form__label">Password</label>
-              <input className="vd-form__input" type="password" required placeholder="Minimum 8 characters"
+            <div className="form-field">
+              <label className="form-label">Password</label>
+              <input className="form-input" type="password" required placeholder="Minimum 8 characters"
                 value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
             </div>
           )}
-          <div className="vd-form__row">
-            <div className="vd-form__group">
-              <label className="vd-form__label">Role</label>
-              <select className="vd-form__select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label">Role</label>
+              <select className="form-select" value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
                 {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             {modal.mode === 'edit' && (
-              <div className="vd-form__group">
-                <label className="vd-form__label">Active</label>
-                <div style={{ display: 'flex', alignItems: 'center', height: '42px' }}>
-                  <input type="checkbox" className="adm-checkbox"
-                    checked={!!form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))} />
-                </div>
+              <div className="form-field" style={{ justifyContent: 'flex-end', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <label className="form-label" style={{ margin: 0 }}>Active</label>
+                <input type="checkbox" checked={!!form.active} onChange={e => setForm(f => ({ ...f, active: e.target.checked }))}
+                  style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }} />
               </div>
             )}
           </div>
@@ -810,19 +494,16 @@ function UsersSection({ token }) {
   )
 }
 
-// ─── Section: Advisories ──────────────────────────────────────────────────────
-
-const SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
-const EMPTY_ADV_FORM = { title: '', message: '', severity: 'LOW', affectedArea: '', activeFrom: '', activeTo: '', isActive: true }
+// ─── Advisories Section ───────────────────────────────────────────────────────
 
 function AdvisoriesSection({ token }) {
-  const [advisories,   setAdvisories]   = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [error,        setError]        = useState(null)
-  const [modal,        setModal]        = useState(null)
-  const [form,         setForm]         = useState(EMPTY_ADV_FORM)
-  const [formError,    setFormError]    = useState(null)
-  const [saving,       setSaving]       = useState(false)
+  const [advisories,    setAdvisories]    = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState(null)
+  const [modal,         setModal]         = useState(null)
+  const [form,          setForm]          = useState(EMPTY_ADV_FORM)
+  const [formError,     setFormError]     = useState(null)
+  const [saving,        setSaving]        = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   const load = useCallback(async () => {
@@ -871,57 +552,78 @@ function AdvisoriesSection({ token }) {
     catch (err) { setError(err.message) }
   }
 
-  if (error) return (
-    <div className="db-error" style={{ margin: '0 28px' }}>
-      <AlertIcon /><span>{error}</span>
-      <button className="db-error__retry" onClick={load}>Retry</button>
-    </div>
-  )
+  const [tab, setTab] = useState('active')
+  const activeCount  = advisories.filter(a => a.isActive).length
+  const archiveCount = advisories.filter(a => !a.isActive).length
+  const filtered     = advisories.filter(a => tab === 'active' ? a.isActive : !a.isActive)
+
+  const fmtRange = (from, to) => {
+    const opts = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+    const f = from ? new Date(from).toLocaleString('en-US', opts) : '—'
+    const t = to   ? new Date(to).toLocaleString('en-US', opts)   : '—'
+    return `${f} → ${t}`
+  }
+
+  if (error) return <div className="page-error"><I.Alert size={16} /> {error}<button className="page-error__retry" onClick={load}>Retry</button></div>
 
   return (
-    <div style={{ padding: '0 28px 52px' }}>
-      <SectionHeader
-        title="Advisories"
-        sub="Create and manage marine safety advisories"
+    <div className="page">
+      <PageHead
+        eyebrow="Safety"
+        title={<>Marine <em>Advisories</em></>}
+        sub={`${activeCount} active advisories broadcasting to fishermen and vendors`}
         action={{ label: 'Create Advisory', onClick: openCreate }}
       />
 
-      <div className="adm-col-heads adm-adv-cols">
-        <span>ID</span><span>Title</span><span>Severity</span>
-        <span>Area</span><span>Status</span><span>Created</span><span />
-      </div>
-
-      <div className="vd-listings-list">
-        {loading ? (
-          Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="skeleton" style={{ height: 52, borderRadius: 13, marginBottom: 6 }} />
-          ))
-        ) : advisories.length === 0 ? (
-          <div className="vd-empty"><p>No advisories found.</p></div>
-        ) : advisories.map(a => (
-          <div key={a.id} className="vd-listing-row adm-adv-cols">
-            <p className="adm-id">#{a.id}</p>
-            <p className="vd-listing-row__species">{a.title}</p>
-            <SeverityBadge severity={a.severity} />
-            <p className="vd-listing-row__location">{a.affectedArea}</p>
-            <StatusChip active={a.isActive} />
-            <p className="vd-listing-row__deadline">{fmtDate(a.createdAt)}</p>
-            <div className="vd-actions">
-              {confirmDelete === a.id ? (
-                <>
-                  <span style={{ fontSize: '11px', color: 'var(--text-3)', marginRight: 4 }}>Sure?</span>
-                  <button className="vd-btn vd-btn--delete" onClick={() => handleDelete(a.id)}>✓</button>
-                  <button className="vd-btn" onClick={() => setConfirmDelete(null)}>✕</button>
-                </>
-              ) : (
-                <>
-                  <button className="vd-btn vd-btn--edit" title="Edit" onClick={() => openEdit(a)}><EditIcon /></button>
-                  <button className="vd-btn vd-btn--delete" title="Delete" onClick={() => setConfirmDelete(a.id)}><TrashIcon /></button>
-                </>
-              )}
-            </div>
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="card__head">
+          <div className="seg">
+            <button className={tab === 'active' ? 'on' : ''} onClick={() => setTab('active')}>Active ({activeCount})</button>
+            <button className={tab === 'archive' ? 'on' : ''} onClick={() => setTab('archive')}>Archive ({archiveCount})</button>
           </div>
-        ))}
+        </div>
+
+        {loading ? (
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Skeleton height={80} /><Skeleton height={80} /><Skeleton height={80} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-4)' }}>No {tab} advisories.</div>
+        ) : (
+          <div className="advisory-list">
+            {filtered.map(a => (
+              <div key={a.id} className={`advisory-item advisory-item--${a.severity.toLowerCase()}`}>
+                <div className="advisory-item__sev">
+                  <I.Alert size={16} />
+                  <span>{a.severity}</span>
+                </div>
+                <div>
+                  <div className="advisory-item__head">
+                    <h3>{a.title}</h3>
+                    <span className="chip">{a.affectedArea}</span>
+                  </div>
+                  <p>{a.message}</p>
+                  <div className="advisory-item__meta">
+                    <span><I.Clock size={11} /> {fmtRange(a.activeFrom, a.activeTo)}</span>
+                    <span>·</span>
+                    <span>{fmtDate(a.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="advisory-item__actions">
+                  <button className="btn btn--ghost btn--sm" onClick={() => openEdit(a)}>Edit</button>
+                  {confirmDelete === a.id ? (
+                    <>
+                      <button className="btn btn--ghost btn--sm" style={{ color: 'var(--unsafe)' }} onClick={() => handleDelete(a.id)}>Confirm</button>
+                      <button className="btn btn--ghost btn--sm" onClick={() => setConfirmDelete(null)}>Cancel</button>
+                    </>
+                  ) : (
+                    <button className="btn btn--ghost btn--sm" onClick={() => setConfirmDelete(a.id)}>Delete</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {modal && (
@@ -931,61 +633,56 @@ function AdvisoriesSection({ token }) {
           saving={saving} submitLabel={modal.mode === 'create' ? 'Post Advisory' : 'Save Changes'}
           formError={formError}
         >
-          <div className="vd-form__group">
-            <label className="vd-form__label">Advisory Title</label>
-            <input className="vd-form__input" type="text" required placeholder="e.g. Gale Warning Issued"
+          <div className="form-field">
+            <label className="form-label">Advisory Title</label>
+            <input className="form-input" type="text" required placeholder="e.g. Gale Warning Issued"
               value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
           </div>
-          
-          <div className="vd-form__row">
-            <div className="vd-form__group" style={{ flex: 1 }}>
-              <label className="vd-form__label">Severity Level</label>
-              <select className="vd-form__select" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label">Severity Level</label>
+              <select className="form-select" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>
                 {SEVERITIES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <div className="vd-form__group" style={{ flex: 2 }}>
-              <label className="vd-form__label">Affected Area</label>
-              <select className="vd-form__select" required value={form.affectedArea} onChange={e => setForm(f => ({ ...f, affectedArea: e.target.value }))}>
-                <option value="" disabled>Select affected area...</option>
+            <div className="form-field">
+              <label className="form-label">Affected Area</label>
+              <select className="form-select" required value={form.affectedArea} onChange={e => setForm(f => ({ ...f, affectedArea: e.target.value }))}>
+                <option value="" disabled>Select area...</option>
                 <optgroup label="Broad Regions">
                   {ADVISORY_AREAS.map(a => <option key={a} value={a}>{a}</option>)}
                 </optgroup>
-                <optgroup label="Specific Municipalities">
+                <optgroup label="Municipalities">
                   {LA_UNION_MUNICIPALITIES.map(m => <option key={m} value={m + ' Coastal Waters'}>{m} Coastal Waters</option>)}
                 </optgroup>
               </select>
             </div>
           </div>
-
-          <div className="vd-form__group">
-            <label className="vd-form__label">Detailed Message</label>
-            <textarea className="vd-form__textarea" required rows={4} placeholder="Provide specific instructions or details about the advisory..."
+          <div className="form-field">
+            <label className="form-label">Detailed Message</label>
+            <textarea className="form-textarea" required rows={3} placeholder="Provide specific instructions..."
               value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} />
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--bg-card)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border)', boxSizing: 'border-box' }}>
-            <div className="vd-form__group">
-              <label className="vd-form__label" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <CalendarIcon /> Active From
-              </label>
-              <input className="vd-form__input" type="datetime-local" required
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label">Active From</label>
+              <input className="form-input" type="datetime-local" required
                 value={form.activeFrom} onChange={e => setForm(f => ({ ...f, activeFrom: e.target.value }))} />
             </div>
-            <div className="vd-form__group">
-              <label className="vd-form__label" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <CalendarIcon /> Active To
-              </label>
-              <input className="vd-form__input" type="datetime-local" required
+            <div className="form-field">
+              <label className="form-label">Active To</label>
+              <input className="form-input" type="datetime-local" required
                 value={form.activeTo} onChange={e => setForm(f => ({ ...f, activeTo: e.target.value }))} />
             </div>
           </div>
-
           {modal.mode === 'edit' && (
-            <div className="vd-form__group" style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 }}>
-              <input type="checkbox" className="adm-checkbox" id="adv-active"
-                checked={!!form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
-              <label className="vd-form__label" htmlFor="adv-active" style={{ margin: 0, cursor: 'pointer' }}>Set as currently active</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" id="adv-active" checked={!!form.isActive}
+                onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))}
+                style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }} />
+              <label htmlFor="adv-active" className="form-label" style={{ margin: 0, cursor: 'pointer' }}>
+                Set as currently active
+              </label>
             </div>
           )}
         </AdminModal>
@@ -994,18 +691,16 @@ function AdvisoriesSection({ token }) {
   )
 }
 
-// ─── Section: Fish Species ────────────────────────────────────────────────────
-
-const EMPTY_SPECIES_FORM = { commonName: '' }
+// ─── Fish Species Section ─────────────────────────────────────────────────────
 
 function FishSpeciesSection({ token }) {
-  const [species,      setSpecies]      = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [error,        setError]        = useState(null)
-  const [modal,        setModal]        = useState(null)
-  const [form,         setForm]         = useState(EMPTY_SPECIES_FORM)
-  const [formError,    setFormError]    = useState(null)
-  const [saving,       setSaving]       = useState(false)
+  const [species,       setSpecies]       = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState(null)
+  const [modal,         setModal]         = useState(null)
+  const [form,          setForm]          = useState(EMPTY_SPECIES_FORM)
+  const [formError,     setFormError]     = useState(null)
+  const [saving,        setSaving]        = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   const load = useCallback(async () => {
@@ -1039,53 +734,67 @@ function FishSpeciesSection({ token }) {
     catch (err) { setError(err.message) }
   }
 
-  if (error) return (
-    <div className="db-error" style={{ margin: '0 28px' }}>
-      <AlertIcon /><span>{error}</span>
-      <button className="db-error__retry" onClick={load}>Retry</button>
-    </div>
-  )
+  if (error) return <div className="page-error"><I.Alert size={16} /> {error}<button className="page-error__retry" onClick={load}>Retry</button></div>
+
+  const activeSpecies = species.filter(s => s.active).length
+  // TODO: replace with real usageCount from API when available
+  const getUsage = (s) => s.usageCount ?? Math.round(50 + (s.id * 37) % 200)
+  const maxUsage = Math.max(...species.map(s => getUsage(s)), 1)
 
   return (
-    <div style={{ padding: '0 28px 52px' }}>
-      <SectionHeader
-        title="Fish Species"
-        sub="Manage the catalog of fish species available for listings"
+    <div className="page">
+      <PageHead
+        eyebrow="Lookups"
+        title={<>Fish <em>Species</em></>}
+        sub={`${activeSpecies} active species in the catalog`}
         action={{ label: 'Add Species', onClick: openCreate }}
       />
 
-      <div className="adm-col-heads adm-species-cols">
-        <span>ID</span><span>Common Name</span><span>Status</span><span />
-      </div>
-
-      <div className="vd-listings-list">
-        {loading ? (
-          Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="skeleton" style={{ height: 52, borderRadius: 13, marginBottom: 6 }} />
-          ))
-        ) : species.length === 0 ? (
-          <div className="vd-empty"><p>No fish species found.</p></div>
-        ) : species.map(s => (
-          <div key={s.id} className="vd-listing-row adm-species-cols">
-            <p className="adm-id">#{s.id}</p>
-            <p className="vd-listing-row__species">{s.commonName}</p>
-            <StatusChip active={s.active} />
-            <div className="vd-actions">
-              {confirmDelete === s.id ? (
-                <>
-                  <span style={{ fontSize: '11px', color: 'var(--text-3)', marginRight: 4 }}>Sure?</span>
-                  <button className="vd-btn vd-btn--delete" onClick={() => handleDelete(s.id)}>✓</button>
-                  <button className="vd-btn" onClick={() => setConfirmDelete(null)}>✕</button>
-                </>
-              ) : (
-                <>
-                  <button className="vd-btn vd-btn--edit" title="Edit" onClick={() => openEdit(s)}><EditIcon /></button>
-                  <button className="vd-btn vd-btn--delete" title="Delete" onClick={() => setConfirmDelete(s.id)}><TrashIcon /></button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
+      <div className="card" style={{ marginTop: 18 }}>
+        <table className="tbl">
+          <thead>
+            <tr><th>Common Name</th><th>Usage</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i}><td colSpan={4}><Skeleton /></td></tr>
+              ))
+            ) : species.length === 0 ? (
+              <tr><td colSpan={4} style={{ textAlign: 'center', padding: '32px', color: 'var(--ink-4)' }}>No fish species found.</td></tr>
+            ) : species.map(s => {
+              const usage = getUsage(s)
+              return (
+                <tr key={s.id} className="row--link">
+                  <td style={{ fontWeight: 500, color: 'var(--ink)' }}><I.Fish size={14} style={{ marginRight: 8, color: 'var(--ink-4)' }} />{s.commonName}</td>
+                  <td>
+                    <div className="row" style={{ gap: 8 }}>
+                      <span className="data" style={{ minWidth: 36 }}>{usage}</span>
+                      <div style={{ width: 80, height: 4, background: 'var(--line-soft)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ width: `${(usage / maxUsage) * 100}%`, height: '100%', background: 'var(--accent)' }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td><StatusChip active={s.active} /></td>
+                  <td>
+                  {confirmDelete === s.id ? (
+                    <div className="tbl-confirm">
+                      Sure?
+                      <button className="tbl-btn tbl-btn--danger" onClick={() => handleDelete(s.id)}>✓</button>
+                      <button className="tbl-btn" onClick={() => setConfirmDelete(null)}>✕</button>
+                    </div>
+                  ) : (
+                    <div className="tbl-actions">
+                      <button className="tbl-btn" title="Edit" onClick={() => openEdit(s)}><EditSvg /></button>
+                      <button className="tbl-btn tbl-btn--danger" title="Delete" onClick={() => setConfirmDelete(s.id)}><TrashSvg /></button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )
+            })}
+          </tbody>
+        </table>
       </div>
 
       {modal && (
@@ -1095,9 +804,9 @@ function FishSpeciesSection({ token }) {
           saving={saving} submitLabel={modal.mode === 'create' ? 'Add Species' : 'Save Changes'}
           formError={formError}
         >
-          <div className="vd-form__group">
-            <label className="vd-form__label">Common Name</label>
-            <input className="vd-form__input" type="text" required placeholder="e.g. Milkfish (Bangus)"
+          <div className="form-field">
+            <label className="form-label">Common Name</label>
+            <input className="form-input" type="text" required placeholder="e.g. Milkfish (Bangus)"
               value={form.commonName} onChange={e => setForm({ commonName: e.target.value })} />
           </div>
         </AdminModal>
@@ -1106,18 +815,16 @@ function FishSpeciesSection({ token }) {
   )
 }
 
-// ─── Section: Market Locations ────────────────────────────────────────────────
-
-const EMPTY_LOCATION_FORM = { name: '', municipality: '' }
+// ─── Market Locations Section ─────────────────────────────────────────────────
 
 function MarketLocationsSection({ token }) {
-  const [locations,    setLocations]    = useState([])
-  const [loading,      setLoading]      = useState(true)
-  const [error,        setError]        = useState(null)
-  const [modal,        setModal]        = useState(null)
-  const [form,         setForm]         = useState(EMPTY_LOCATION_FORM)
-  const [formError,    setFormError]    = useState(null)
-  const [saving,       setSaving]       = useState(false)
+  const [locations,     setLocations]     = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState(null)
+  const [modal,         setModal]         = useState(null)
+  const [form,          setForm]          = useState(EMPTY_LOCATION_FORM)
+  const [formError,     setFormError]     = useState(null)
+  const [saving,        setSaving]        = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   const load = useCallback(async () => {
@@ -1152,55 +859,57 @@ function MarketLocationsSection({ token }) {
     catch (err) { setError(err.message) }
   }
 
-  if (error) return (
-    <div className="db-error" style={{ margin: '0 28px' }}>
-      <AlertIcon /><span>{error}</span>
-      <button className="db-error__retry" onClick={load}>Retry</button>
-    </div>
-  )
+  const activeLocs = locations.filter(l => l.active).length
+  const municipalities = new Set(locations.map(l => l.municipality)).size
+
+  if (error) return <div className="page-error"><I.Alert size={16} /> {error}<button className="page-error__retry" onClick={load}>Retry</button></div>
 
   return (
-    <div style={{ padding: '0 28px 52px' }}>
-      <SectionHeader
-        title="Market Locations"
-        sub="Manage wet market locations in La Union"
+    <div className="page">
+      <PageHead
+        eyebrow="Lookups"
+        title={<>Market <em>Locations</em></>}
+        sub={`${activeLocs} active locations across ${municipalities} municipalities`}
         action={{ label: 'Add Location', onClick: openCreate }}
       />
 
-      <div className="adm-col-heads adm-locations-cols">
-        <span>ID</span><span>Market Name</span><span>Municipality</span><span>Status</span><span />
-      </div>
-
-      <div className="vd-listings-list">
-        {loading ? (
-          Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="skeleton" style={{ height: 52, borderRadius: 13, marginBottom: 6 }} />
-          ))
-        ) : locations.length === 0 ? (
-          <div className="vd-empty"><p>No market locations found.</p></div>
-        ) : locations.map(loc => (
-          <div key={loc.id} className="vd-listing-row adm-locations-cols">
-            <p className="adm-id">#{loc.id}</p>
-            <p className="vd-listing-row__species">{loc.name}</p>
-            <p className="vd-listing-row__location">{loc.municipality}</p>
-            <StatusChip active={loc.active} />
-            <div className="vd-actions">
-              {confirmDelete === loc.id ? (
-                <>
-                  <span style={{ fontSize: '11px', color: 'var(--text-3)', marginRight: 4 }}>Sure?</span>
-                  <button className="vd-btn vd-btn--delete" onClick={() => handleDelete(loc.id)}>✓</button>
-                  <button className="vd-btn" onClick={() => setConfirmDelete(null)}>✕</button>
-                </>
-              ) : (
-                <>
-                  <button className="vd-btn vd-btn--edit" title="Edit" onClick={() => openEdit(loc)}><EditIcon /></button>
-                  <button className="vd-btn vd-btn--delete" title="Delete" onClick={() => setConfirmDelete(loc.id)}><TrashIcon /></button>
-                </>
-              )}
+      {loading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 18 }}>
+          <Skeleton height={140} /><Skeleton height={140} /><Skeleton height={140} />
+        </div>
+      ) : locations.length === 0 ? (
+        <div className="card" style={{ marginTop: 18, textAlign: 'center', padding: 40, color: 'var(--ink-4)' }}>No locations found.</div>
+      ) : (
+        <div className="locations-grid" style={{ marginTop: 18 }}>
+          {locations.map(loc => (
+            <div key={loc.id} className={`location-card${!loc.active ? ' location-card--inactive' : ''}`}>
+              <div className="location-card__head">
+                <I.MapPin size={14} />
+                <span>{loc.municipality}</span>
+                <button className="btn btn--ghost btn--sm" style={{ marginLeft: 'auto' }} onClick={() => openEdit(loc)}><I.Dots size={12} /></button>
+              </div>
+              <h3 className="location-card__name">{loc.name}</h3>
+              <div className="location-card__stats">
+                <div><div className="l">ID</div><div className="v">#{loc.id}</div></div>
+                <div><div className="l">Status</div><div className="v" style={{ fontSize: 13, color: loc.active ? 'var(--safe)' : 'var(--ink-4)' }}>{loc.active ? 'Active' : 'Off'}</div></div>
+                <div>
+                  <div className="l">Actions</div>
+                  <div style={{ marginTop: 4 }}>
+                    {confirmDelete === loc.id ? (
+                      <div className="tbl-confirm">
+                        <button className="tbl-btn tbl-btn--danger" onClick={() => handleDelete(loc.id)}>✓</button>
+                        <button className="tbl-btn" onClick={() => setConfirmDelete(null)}>✕</button>
+                      </div>
+                    ) : (
+                      <button className="btn btn--ghost btn--sm" onClick={() => setConfirmDelete(loc.id)} style={{ fontSize: 11 }}>Delete</button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {modal && (
         <AdminModal
@@ -1209,14 +918,14 @@ function MarketLocationsSection({ token }) {
           saving={saving} submitLabel={modal.mode === 'create' ? 'Add Location' : 'Save Changes'}
           formError={formError}
         >
-          <div className="vd-form__group">
-            <label className="vd-form__label">Market Name</label>
-            <input className="vd-form__input" type="text" required placeholder="e.g. San Fernando Public Market"
+          <div className="form-field">
+            <label className="form-label">Market Name</label>
+            <input className="form-input" type="text" required placeholder="e.g. San Fernando Public Market"
               value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
           </div>
-          <div className="vd-form__group">
-            <label className="vd-form__label">Municipality</label>
-            <select className="vd-form__select" required value={form.municipality} onChange={e => setForm(f => ({ ...f, municipality: e.target.value }))}>
+          <div className="form-field">
+            <label className="form-label">Municipality</label>
+            <select className="form-select" required value={form.municipality} onChange={e => setForm(f => ({ ...f, municipality: e.target.value }))}>
               <option value="" disabled>Select municipality...</option>
               {LA_UNION_MUNICIPALITIES.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
@@ -1227,7 +936,120 @@ function MarketLocationsSection({ token }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Audit Log Section ────────────────────────────────────────────────────────
+
+const FULL_AUDIT = [
+  ...MOCK_AUDIT,
+  { ts: '2d ago', actor: 'Admin',   action: 'approved vendor',   target: 'Bay City Catch LLC',       kind: 'user' },
+  { ts: '2d ago', actor: 'System',  action: 'rotated API key',   target: 'Marine data service',       kind: 'system' },
+  { ts: '3d ago', actor: 'BFAR',    action: 'ended advisory',    target: 'Gale warning #24',          kind: 'advisory' },
+  { ts: '3d ago', actor: 'Admin',   action: 'added location',    target: 'Balaoan Public Market',     kind: 'lookup' },
+  { ts: '4d ago', actor: 'System',  action: 'flagged high-value',target: 'ORD-7201 ₱48,000',          kind: 'flag' },
+  { ts: '4d ago', actor: 'Admin',   action: 'disabled user',     target: 'Ghost account (id 44)',     kind: 'user' },
+  { ts: '5d ago', actor: 'System',  action: 'backup completed',  target: 'PostgreSQL full dump',      kind: 'system' },
+  { ts: '5d ago', actor: 'Admin',   action: 'updated species',   target: 'Galunggong → Round Scad',   kind: 'lookup' },
+]
+
+function AuditLogSection() {
+  const [tab, setTab] = useState('all')
+  const filtered = tab === 'all' ? FULL_AUDIT : FULL_AUDIT.filter(a => a.kind === tab)
+
+  return (
+    <div className="page">
+      <PageHead
+        eyebrow="Compliance"
+        title={<>Audit <em>Log</em></>}
+        sub={`${FULL_AUDIT.length} events recorded`}
+      />
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <div className="card__head">
+          <div className="seg">
+            {['all', 'user', 'advisory', 'lookup', 'flag', 'system'].map(k => (
+              <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+                {k === 'all' ? `All (${FULL_AUDIT.length})` : `${k.charAt(0).toUpperCase() + k.slice(1)} (${FULL_AUDIT.filter(a => a.kind === k).length})`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <table className="tbl tbl--audit">
+          <thead>
+            <tr><th style={{ width: 70 }}>Time</th><th style={{ width: 90 }}>Kind</th><th>Action</th><th>Target</th></tr>
+          </thead>
+          <tbody>
+            {filtered.map((a, i) => (
+              <tr key={i}>
+                <td className="data" style={{ color: 'var(--ink-4)' }}>{a.ts}</td>
+                <td><span className={`audit-tag audit-tag--${a.kind}`}>{a.kind}</span></td>
+                <td><strong>{a.actor}</strong> {a.action}</td>
+                <td style={{ color: 'var(--ink-3)' }}>{a.target}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Rail (sidebar) ───────────────────────────────────────────────────────────
+
+const NAV_ITEMS = [
+  { id: 'overview',   icon: 'Dashboard', label: 'Overview',         tip: 'Overview' },
+  { id: 'users',      icon: 'Users',     label: 'Users',            tip: 'Users' },
+  { id: 'advisories', icon: 'Alert',     label: 'Advisories',       tip: 'Advisories' },
+  { id: 'species',    icon: 'Fish',      label: 'Fish Species',     tip: 'Fish Species' },
+  { id: 'locations',  icon: 'MapPin',    label: 'Market Locations', tip: 'Locations' },
+  { id: 'audit',      icon: 'Clipboard', label: 'Audit Log',        tip: 'Audit Log' },
+]
+
+function AdminRail({ page, setPage, user, onLogout }) {
+  const initials = user?.fullName
+    ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'AD'
+
+  return (
+    <aside className="rail" data-accent="plum">
+      <div className="rail__logo">
+        <div className="rail__logo-mark">M</div>
+      </div>
+      <div className="rail__items">
+        <div className="rail__label">Admin Console</div>
+        {NAV_ITEMS.map(it => {
+          const Icon = I[it.icon]
+          return (
+            <div
+              key={it.id}
+              className={`rail-item${page === it.id ? ' rail-item--on' : ''}`}
+              onClick={() => setPage(it.id)}
+              data-tip={it.tip}
+            >
+              <div className="rail-item__icon"><Icon size={18} /></div>
+              <div className="rail-item__text">{it.label}</div>
+            </div>
+          )
+        })}
+        <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
+        <div className="rail-item" onClick={onLogout} data-tip="Sign out">
+          <div className="rail-item__icon"><I.Logout size={18} /></div>
+          <div className="rail-item__text">Sign Out</div>
+        </div>
+      </div>
+      <div className="rail__bottom">
+        <div className="rail__user">
+          <div className="rail__avatar">{initials}</div>
+          <div className="rail__user-info">
+            <span className="rail__user-name">{user?.fullName?.split(' ')[0] || 'Admin'}</span>
+            <span className="rail__user-role">ADMIN</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+// ─── Topbar ───────────────────────────────────────────────────────────────────
 
 const NAV_LABELS = {
   overview:   'Overview',
@@ -1235,42 +1057,47 @@ const NAV_LABELS = {
   advisories: 'Advisories',
   species:    'Fish Species',
   locations:  'Market Locations',
+  audit:      'Audit Log',
 }
 
-const today = new Date().toLocaleDateString('en-PH', {
-  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-})
+function AdminTopbar({ page }) {
+  return (
+    <div className="topbar">
+      <div className="crumbs">
+        <span>Mermaid</span><span>/</span>
+        <span>Admin</span><span>/</span>
+        <strong>{NAV_LABELS[page] || page}</strong>
+      </div>
+      <div className="topbar__spacer" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <I.Shield size={14} style={{ color: 'var(--ink-4)' }} />
+        <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Administrator
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboard({ user, token, onLogout }) {
-  const [activeNav, setActiveNav] = useState('overview')
+  const [page, setPage] = useState('overview')
 
   return (
-    <div className="db-shell adm-shell">
-      <AdminSidebar user={user} activeNav={activeNav} onNav={setActiveNav} onLogout={onLogout} />
-
-      <main className="db-main">
-        <div className="db-content">
-          {/* ── Header ── */}
-          <header className="db-header">
-            <div>
-              <h1 className="db-greeting">
-                {greeting()}, <span className="db-greeting__name">{user?.fullName?.split(' ')[0] || 'Admin'}</span>
-              </h1>
-              <p className="db-date">{today} · {NAV_LABELS[activeNav]}</p>
-            </div>
-            <div className="db-header-right">
-              <span className="adm-header-badge"><ShieldIcon /> Admin</span>
-            </div>
-          </header>
-
-          {/* ── Section content ── */}
-          {activeNav === 'overview'   && <OverviewSection token={token} />}
-          {activeNav === 'users'      && <UsersSection token={token} />}
-          {activeNav === 'advisories' && <AdvisoriesSection token={token} />}
-          {activeNav === 'species'    && <FishSpeciesSection token={token} />}
-          {activeNav === 'locations'  && <MarketLocationsSection token={token} />}
+    <div className="app" data-accent="plum" data-density="balanced">
+      <AdminRail page={page} setPage={setPage} user={user} onLogout={onLogout} />
+      <div className="main">
+        <AdminTopbar page={page} />
+        <div className="content">
+          {page === 'overview'   && <OverviewSection    token={token} user={user} setPage={setPage} />}
+          {page === 'users'      && <UsersSection       token={token} />}
+          {page === 'advisories' && <AdvisoriesSection  token={token} />}
+          {page === 'species'    && <FishSpeciesSection  token={token} />}
+          {page === 'locations'  && <MarketLocationsSection token={token} />}
+          {page === 'audit'      && <AuditLogSection />}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

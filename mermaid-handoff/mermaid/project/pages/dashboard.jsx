@@ -181,26 +181,29 @@ function DashboardPage({ setPage }) {
               <button className="btn btn--sm btn--ghost">View map <I.Arrow size={12} /></button>
             </div>
             <div className="zone-list">
-              {ZONES.map(z => (
-                <div key={z.id} className="zone-row">
-                  <div>
-                    <div className="zone-row__name">{z.name}</div>
-                    <div className="zone-row__region">{z.region}</div>
+              {ZONES.map(z => {
+                const level = z.risk.level;
+                return (
+                  <div key={z.zoneId} className="zone-row">
+                    <div>
+                      <div className="zone-row__name">{z.zoneName}</div>
+                      <div className="zone-row__region">{z.region}</div>
+                    </div>
+                    <div className="zone-row__metric">
+                      {z.marine.waveHeightM}m<small>wave</small>
+                    </div>
+                    <div className="zone-row__metric">
+                      {z.weather.windSpeedKmh}<small>km/h</small>
+                    </div>
+                    <div className="zone-row__metric">
+                      {z.weather.temperatureC}°<small>air</small>
+                    </div>
+                    <span className={`chip chip--${level === 'SAFE' ? 'safe' : level === 'CAUTION' ? 'caution' : 'unsafe'} chip--dot`}>
+                      {level}
+                    </span>
                   </div>
-                  <div className="zone-row__metric">
-                    {z.wave}m<small>wave</small>
-                  </div>
-                  <div className="zone-row__metric">
-                    {z.wind}<small>km/h</small>
-                  </div>
-                  <div className="zone-row__metric">
-                    {z.temp}°<small>air</small>
-                  </div>
-                  <span className={`chip chip--${z.risk === 'SAFE' ? 'safe' : z.risk === 'CAUTION' ? 'caution' : 'unsafe'} chip--dot`}>
-                    {z.risk}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -251,14 +254,14 @@ function DashboardPage({ setPage }) {
             </div>
             <div className="adv-list">
               {ADVISORIES.map(a => {
-                const cls = a.sev === 'LOW' ? 'low' : a.sev === 'MED' ? 'med' : 'high';
+                const cls = a.severity === 'LOW' ? 'low' : a.severity === 'MEDIUM' ? 'med' : 'high';
                 return (
                   <div key={a.id} className="adv-item">
                     <div className={`adv-item__icon adv-item__icon--${cls}`}><I.Alert size={14} /></div>
                     <div>
                       <div className="adv-item__title">{a.title}</div>
-                      <div className="adv-item__msg">{a.msg}</div>
-                      <div className="adv-item__meta">{a.area}</div>
+                      <div className="adv-item__msg">{a.message}</div>
+                      <div className="adv-item__meta">{a.affectedArea}</div>
                     </div>
                     <div className="adv-item__time">{a.ts}</div>
                   </div>

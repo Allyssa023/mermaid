@@ -1,5 +1,4 @@
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import httpx
@@ -19,10 +18,11 @@ from conditions.serializers import (
     ZoneConditionsSerializer,
     ZoneForecastSerializer,
 )
-from services import open_meteo
+from services import open_meteo, snapshot_store
 
 logger = logging.getLogger(__name__)
 
+# Shared in-memory cache — also written by the background scheduler.
 _cache = TTLCache()
 
 
@@ -39,18 +39,15 @@ def _get_zone_or_404(zone_id: str) -> FishingZone:
     return zone
 
 
-def _fetch_zone_safe(zone: FishingZone, client: httpx.Client) -> object:
-    cache_key = f"conditions:{zone.id}"
-    cached = _cache.get(cache_key)
-    if cached:
-        return cached
-    try:
-        result = open_meteo.fetch_current_conditions(zone, client)
-        _cache.set(cache_key, result, settings.CONDITIONS_CACHE_TTL)
-        return result
-    except Exception as exc:
-        logger.warning("Failed to fetch zone %s: %s", zone.id, exc)
-        return None
+def _resolve_zone_conditions(zone_id: str):
+    """Return cached ZoneConditions, falling back to the DB snapshot. Never fetches live."""
+    data = _cache.get(f"conditions:{zone_id}")
+    if data is not None:
+        return data
+    data = snapshot_store.load_snapshot(zone_id)
+    if data is not None:
+        _cache.set(f"conditions:{zone_id}", data, settings.CONDITIONS_CACHE_TTL)
+    return data
 
 
 class HealthView(APIView):
@@ -82,23 +79,18 @@ class AllConditionsView(APIView):
     permission_classes = [HasValidApiKey]
 
     def get(self, request):
+        # Fast path: full aggregate already cached.
         cached_all = _cache.get("conditions:all")
         if cached_all:
             return Response(AllConditionsSerializer(cached_all).data)
 
-        client = _get_http_client()
+        # Assemble from per-zone cache / DB snapshots (never fetches live).
         zones = list(FishingZone.objects.filter(is_active=True))
-
-        # Fetch sequentially to avoid hitting Open-Meteo free tier burst rate limits
-        results = []
-        for zone in zones:
-            results.append(_fetch_zone_safe(zone, client))
-
-        zones_data = [r for r in results if r is not None]
+        zones_data = [d for d in (_resolve_zone_conditions(z.id) for z in zones) if d is not None]
 
         if not zones_data:
             return Response(
-                {"detail": "Marine data service temporarily unavailable"},
+                {"detail": "Marine data service temporarily unavailable — no cached data yet"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
@@ -106,8 +98,6 @@ class AllConditionsView(APIView):
             "zones": zones_data,
             "generated_at": datetime.now(timezone.utc),
         })()
-        # Only cache the aggregate when every zone succeeded — a partial result
-        # would get frozen in cache and future requests would return fewer zones.
         if len(zones_data) == len(zones):
             _cache.set("conditions:all", response_obj, settings.CONDITIONS_CACHE_TTL)
         return Response(AllConditionsSerializer(response_obj).data)
@@ -118,24 +108,14 @@ class ZoneConditionsView(APIView):
     permission_classes = [HasValidApiKey]
 
     def get(self, request, zone_id):
-        zone = _get_zone_or_404(zone_id)
-        cache_key = f"conditions:{zone_id}"
-        cached = _cache.get(cache_key)
-        if cached:
-            return Response(ZoneConditionsSerializer(cached).data)
-
-        client = _get_http_client()
-        try:
-            conditions = open_meteo.fetch_current_conditions(zone, client)
-        except (httpx.HTTPStatusError, httpx.RequestError) as exc:
-            logger.error("Open-Meteo error for %s: %s", zone_id, exc)
+        _get_zone_or_404(zone_id)
+        data = _resolve_zone_conditions(zone_id)
+        if data is None:
             return Response(
-                {"detail": "Marine data service temporarily unavailable"},
+                {"detail": f"No data available for zone '{zone_id}' yet — try again shortly"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-
-        _cache.set(cache_key, conditions, settings.CONDITIONS_CACHE_TTL)
-        return Response(ZoneConditionsSerializer(conditions).data)
+        return Response(ZoneConditionsSerializer(data).data)
 
 
 class ZoneForecastView(APIView):

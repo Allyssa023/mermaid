@@ -337,57 +337,64 @@ function AlertCard({ alert, role, token, onReload }) {
   const matchCount  = alert.matchedListingIds?.length ?? 0
 
   return (
-    <div className="ca-card">
-      <div className="ca-card__header">
-        <div className="ca-card__species">
-          <span className="ca-card__species-icon"><FishIcon size={16} /></span>
-          {speciesName}
+    <div className={`alert-card${urgent ? ' alert-card--urgent' : ''}${alert.status === 'MATCHED' ? ' alert-card--matched' : ''}`}>
+      <div className="alert-card__head">
+        <div>
+          <div className="row" style={{ gap: 6 }}>
+            <span className="kbd">CA-{alert.id}</span>
+            {urgent && <span className="chip chip--unsafe chip--dot">Expires soon</span>}
+          </div>
+          <h3 className="alert-card__species">{speciesName}</h3>
+          <div className="alert-card__sub">
+            {timeLeft ?? '—'}
+            {alert.landingSite ? ` · ${alert.landingSite}` : ''}
+          </div>
         </div>
-        <StatusChip status={alert.status} />
-      </div>
-
-      <div className="ca-card__meta">
-        {role === 'VENDOR' && (
-          <span className="ca-card__meta-item">Fisherman: <strong style={{ marginLeft: 4, color: 'var(--text-1)' }}>{alert.fisherman?.fullName ?? '—'}</strong></span>
-        )}
-        {alert.quantityEstimate && <span className="ca-card__meta-item">~{alert.quantityEstimate}</span>}
-        {alert.quantityKg != null && <span className="ca-card__meta-item">{alert.quantityKg} kg</span>}
-        {alert.landingSite && (
-          <span className="ca-card__meta-item"><MapPinIcon /> {alert.landingSite}</span>
-        )}
-        {alert.askingPricePerKg != null && (
-          <span className="ca-card__meta-item" style={{ fontWeight: 600, color: 'var(--text-1)' }}>₱{alert.askingPricePerKg}/kg</span>
+        {role === 'FISHERMAN' && alert.status === 'ACTIVE' && (
+          <button className="btn btn--sm btn--ghost" onClick={cancel} disabled={cancelling}>
+            {cancelling ? '…' : '✕'}
+          </button>
         )}
       </div>
 
-      <div className="ca-card__footer">
-        <div className="ca-card__expiry">
+      <div className="alert-card__stats">
+        <div>
+          <div className="l">Qty</div>
+          <div className="v">{alert.quantityKg ?? '—'}<small>kg</small></div>
+        </div>
+        <div>
+          <div className="l">Estimate</div>
+          <div className="v">{alert.quantityEstimate ?? '—'}</div>
+        </div>
+        <div>
+          <div className="l">Asking</div>
+          <div className="v">{alert.askingPricePerKg != null ? `₱${alert.askingPricePerKg}` : '—'}<small>/kg</small></div>
+        </div>
+      </div>
+
+      <div className="alert-card__foot">
+        <div className="row" style={{ gap: 6 }}>
           <ClockIcon />
-          <span className={expired ? 'ca-card__expiry--expired' : urgent ? 'ca-card__expiry--urgent' : ''}>
+          <span style={{ color: urgent ? 'var(--unsafe)' : expired ? 'var(--ink-4)' : 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
             {timeLeft ?? '—'}
           </span>
         </div>
-        <div className="ca-card__badges">
-          <span className="ca-badge-bfar">
-            <ShieldIcon />
-            BFAR {alert.bfarMinPrice ? `₱${alert.bfarMinPrice}–${alert.bfarMaxPrice}/kg` : '—'}
-          </span>
-          {role === 'FISHERMAN' && (
-            <span className="ca-badge-match">
-              {matchCount} match{matchCount !== 1 ? 'es' : ''}
-            </span>
+        <div className="row" style={{ gap: 8 }}>
+          {matchCount > 0 && (
+            <div className="alert-card__offers">
+              {Array.from({ length: Math.min(3, matchCount) }, (_, i) => (
+                <div key={i} className="alert-card__offer-avatar">
+                  {String.fromCharCode(65 + i)}{String.fromCharCode(66 + i)}
+                </div>
+              ))}
+              {matchCount > 3 && <div className="alert-card__offer-avatar">+{matchCount - 3}</div>}
+            </div>
           )}
-        </div>
-        <div className="ca-card__actions">
-          {role === 'FISHERMAN' && alert.status === 'ACTIVE' && (
-            <button className="trip-btn trip-btn--ghost" style={{ fontSize: 12, padding: '3px 10px', color: 'var(--unsafe)' }}
-              onClick={cancel} disabled={cancelling}>
-              {cancelling ? '…' : 'Cancel'}
-            </button>
+          {role === 'FISHERMAN' && matchCount > 0 && (
+            <button className="btn btn--accent btn--sm">{matchCount} offer{matchCount !== 1 ? 's' : ''}</button>
           )}
           {role === 'VENDOR' && alert.status === 'ACTIVE' && (
-            <button className="trip-btn trip-btn--primary" style={{ fontSize: 12, padding: '5px 14px' }}
-              onClick={() => setOfferModal(true)}>
+            <button className="btn btn--accent btn--sm" onClick={() => setOfferModal(true)}>
               Make Offer
             </button>
           )}
@@ -756,58 +763,89 @@ export default function CatchAlerts({ token, role }) {
         <VendorGroupedView alerts={alerts} token={token} onReload={load} />
       ) : (
         <>
+          {/* Active alerts */}
           {activeAlerts.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                Active · {activeAlerts.length}
+            <div className="card" style={{ marginBottom: 18 }}>
+              <div className="card__head">
+                <div>
+                  <div className="card__title">Active alerts</div>
+                  <div className="card__sub">{activeAlerts.length} live · vendors notified in real-time</div>
+                </div>
+                <div className="row" style={{ gap: 4 }}>
+                  <button className="btn btn--sm">Sort: Newest</button>
+                </div>
               </div>
-              <div className="alerts-grid" style={{ marginBottom: 24 }}>
+              <div className="alerts-grid">
                 {activeAlerts.map(a => (
                   <AlertCard key={a.id} alert={a} role={role} token={token} onReload={load} />
                 ))}
               </div>
-            </>
+            </div>
           )}
+
+          {/* Matched alerts */}
           {matchedAlerts.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-                Matched · {matchedAlerts.length}
+            <div className="card" style={{ marginBottom: 18 }}>
+              <div className="card__head">
+                <div>
+                  <div className="card__title">Matched · waiting to finalize</div>
+                  <div className="card__sub">{matchedAlerts.length} ready to convert to orders</div>
+                </div>
               </div>
-              <div className="tbl" style={{ marginBottom: 24 }}>
-                <table>
-                  <tbody>
-                    {matchedAlerts.map(a => (
-                      <tr key={a.id}>
-                        <td style={{ fontWeight: 500 }}>{a.species?.commonName ?? '—'}</td>
-                        <td style={{ color: 'var(--ink-4)', fontSize: 12 }}>{a.quantityKg != null ? `${a.quantityKg}kg` : a.quantityEstimate ?? '—'}</td>
-                        <td>{a.askingPricePerKg != null ? `₱${a.askingPricePerKg}/kg` : '—'}</td>
-                        <td><span className="chip chip--safe chip--dot">MATCHED</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Species</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matchedAlerts.map(a => (
+                    <tr key={a.id} className="row--link">
+                      <td><span className="kbd">CA-{a.id}</span></td>
+                      <td style={{ fontWeight: 500, color: 'var(--ink)' }}>{a.species?.commonName ?? '—'}</td>
+                      <td className="data">{a.quantityKg != null ? `${a.quantityKg}kg` : a.quantityEstimate ?? '—'}</td>
+                      <td className="data">{a.askingPricePerKg != null ? `₱${a.askingPricePerKg}/kg` : '—'}</td>
+                      <td><span className="chip chip--safe chip--dot">MATCHED</span></td>
+                      <td><button className="btn btn--sm btn--accent">Create order</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
+
+          {/* Expired alerts */}
           {expiredAlerts.length > 0 && (
-            <>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-                Expired / Cancelled · {expiredAlerts.length}
+            <div className="card">
+              <div className="card__head">
+                <div>
+                  <div className="card__title">Expired</div>
+                  <div className="card__sub">Past alerts · relist with one click</div>
+                </div>
               </div>
-              <div className="tbl">
-                <table>
-                  <tbody>
-                    {expiredAlerts.map(a => (
-                      <tr key={a.id} style={{ opacity: 0.6 }}>
-                        <td style={{ fontWeight: 500 }}>{a.species?.commonName ?? '—'}</td>
-                        <td style={{ color: 'var(--ink-4)', fontSize: 12 }}>{a.quantityKg != null ? `${a.quantityKg}kg` : a.quantityEstimate ?? '—'}</td>
-                        <td><span className="chip chip--dot">{a.status}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+              <table className="tbl">
+                <thead>
+                  <tr><th>ID</th><th>Species</th><th>Qty</th><th>Ask</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {expiredAlerts.map(a => (
+                    <tr key={a.id}>
+                      <td><span className="kbd">CA-{a.id}</span></td>
+                      <td style={{ fontWeight: 500 }}>{a.species?.commonName ?? '—'}</td>
+                      <td className="data">{a.quantityKg != null ? `${a.quantityKg}kg` : a.quantityEstimate ?? '—'}</td>
+                      <td className="data">{a.askingPricePerKg != null ? `₱${a.askingPricePerKg}/kg` : '—'}</td>
+                      <td><span className="chip chip--dot">{a.status}</span></td>
+                      <td><button className="btn btn--sm">Relist</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}

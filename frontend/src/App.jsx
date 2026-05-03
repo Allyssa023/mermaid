@@ -2,6 +2,7 @@ import './index.css'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { CartProvider } from './context/CartContext'
+import { FavoritesProvider } from './context/FavoritesContext'
 import { LoginPage, RoleSetupPage } from './pages/LoginPage'
 import FishermanDashboard from './FishermanDashboard'
 import BuyerDashboard from './BuyerDashboard'
@@ -36,8 +37,10 @@ function AppInner() {
   if (user.role === 'BUYER') {
     return (
       <CartProvider>
-        <BuyerDashboard user={user} token={null} onLogout={logout} />
-        <ThemeToggle />
+        <FavoritesProvider>
+          <BuyerDashboard user={user} token={null} onLogout={logout} />
+          <ThemeToggle />
+        </FavoritesProvider>
       </CartProvider>
     )
   }

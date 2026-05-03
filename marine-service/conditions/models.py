@@ -1,6 +1,18 @@
 from django.db import models
 
 
+class ZoneConditionsSnapshot(models.Model):
+    zone_id = models.CharField(max_length=50, primary_key=True)
+    data_json = models.TextField()
+    fetched_at = models.DateTimeField()
+
+    class Meta:
+        db_table = "conditions_snapshot"
+
+    def __str__(self):
+        return f"Snapshot({self.zone_id} @ {self.fetched_at})"
+
+
 class FishingZone(models.Model):
     id = models.CharField(max_length=50, primary_key=True)
     name = models.CharField(max_length=100)

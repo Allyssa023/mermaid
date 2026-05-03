@@ -81,3 +81,7 @@ FORECAST_CACHE_TTL = int(os.environ.get("FORECAST_CACHE_TTL", "3600"))
 HTTP_TIMEOUT = float(os.environ.get("HTTP_TIMEOUT", "8.0"))
 OPEN_METEO_MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
 OPEN_METEO_WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
+
+# Background scheduler
+SCHEDULER_ENABLED = os.environ.get("SCHEDULER_ENABLED", "True") == "True"
+SCHEDULER_INTERVAL_MINUTES = int(os.environ.get("SCHEDULER_INTERVAL_MINUTES", "10"))

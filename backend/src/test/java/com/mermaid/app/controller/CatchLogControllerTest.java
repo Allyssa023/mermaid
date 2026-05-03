@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(CatchLogController.class)
-@Import(CatchLogControllerTest.TestConfig.class)
+@Import({CatchLogControllerTest.TestConfig.class, com.mermaid.app.config.JacksonConfig.class})
 class CatchLogControllerTest {
 
     @TestConfiguration

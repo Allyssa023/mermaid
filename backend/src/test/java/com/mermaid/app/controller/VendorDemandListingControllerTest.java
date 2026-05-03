@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(VendorDemandListingController.class)
-@Import(VendorDemandListingControllerTest.TestConfig.class)
+@Import({VendorDemandListingControllerTest.TestConfig.class, com.mermaid.app.config.JacksonConfig.class})
 class VendorDemandListingControllerTest {
 
     @TestConfiguration
@@ -49,6 +49,7 @@ class VendorDemandListingControllerTest {
         .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     @MockitoBean DemandListingService demandListingService;
+    @MockitoBean com.mermaid.app.service.ListingInterestService listingInterestService;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor asVendor(long userId) {
