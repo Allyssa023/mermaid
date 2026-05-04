@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Routes, Route, Navigate, NavLink, Outlet, useNavigate, useParams, useLocation } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
@@ -9,7 +10,7 @@ import './design-system.css'
 import './light-compat.css'
 import './handoff.css'
 import './buyer.css'
-import { apiGet, apiPost, apiPatch } from './api'
+import { apiGet, apiPost, apiPatch, apiPut, apiUpload } from './api'
 import { I } from './icons'
 import Messages from './Messages'
 import { useCart } from './context/CartContext'
@@ -321,7 +322,11 @@ function SavedCountBadge() {
 
 // ── Vendor Storefront View ────────────────────────────────────────────────────
 
-function VendorStorefrontView({ vendorId, onBack, onSelectListing }) {
+function VendorStorefrontView() {
+  const { vendorId } = useParams()
+  const navigate = useNavigate()
+  const onBack = () => navigate(-1)
+  const onSelectListing = (id) => navigate(`/buyer/listing/${id}`)
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
@@ -466,13 +471,20 @@ function VendorStorefrontView({ vendorId, onBack, onSelectListing }) {
 
 // ── Listing Detail View ───────────────────────────────────────────────────────
 
-function ListingDetailView({ listingId, onBack, onOrder, onSelectRelated, onCartAdded, onSelectVendor }) {
+function ListingDetailView() {
+  const { listingId } = useParams()
+  const navigate = useNavigate()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
   const [adding, setAdding]   = useState(false)
   const [addNotice, setAddNotice] = useState('')
+  const [orderListing, setOrderListing] = useState(null)
   const { addItem } = useCart()
+  const onBack = () => navigate('/buyer/browse')
+  const onOrder = (l) => setOrderListing(l)
+  const onSelectRelated = (id) => navigate(`/buyer/listing/${id}`)
+  const onSelectVendor = (id) => navigate(`/buyer/vendor/${id}`)
 
   useEffect(() => {
     let cancelled = false
@@ -624,7 +636,6 @@ function ListingDetailView({ listingId, onBack, onOrder, onSelectRelated, onCart
                 setAdding(false)
                 if (res?.ok) {
                   setAddNotice('Added to cart.')
-                  if (onCartAdded) onCartAdded()
                   setTimeout(() => setAddNotice(''), 2000)
                 } else {
                   setAddNotice(res?.error || 'Could not add to cart.')
@@ -642,6 +653,14 @@ function ListingDetailView({ listingId, onBack, onOrder, onSelectRelated, onCart
           )}
         </div>
       </div>
+
+      {orderListing && (
+        <OrderModal
+          listing={orderListing}
+          onClose={() => setOrderListing(null)}
+          onSuccess={() => { setOrderListing(null); navigate('/buyer/orders') }}
+        />
+      )}
 
       {/* Related listings */}
       {related.length > 0 && (
@@ -680,6 +699,7 @@ function ListingDetailView({ listingId, onBack, onOrder, onSelectRelated, onCart
 // ── Browse View ───────────────────────────────────────────────────────────────
 
 function BrowseView() {
+  const navigate = useNavigate()
   const [listings, setListings]       = useState([])
   const [species, setSpecies]         = useState([])
   const [locations, setLocations]     = useState([])
@@ -699,8 +719,6 @@ function BrowseView() {
   const [showMap, setShowMap]         = useState(false)
   const [loading, setLoading]         = useState(false)
   const [orderListing, setOrderListing] = useState(null)
-  const [selectedListingId, setSelectedListingId] = useState(null)
-  const [selectedVendorId, setSelectedVendorId] = useState(null)
   const [highlighted, setHighlighted] = useState(null)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const cardRefs = useRef({})
@@ -777,36 +795,6 @@ function BrowseView() {
   const advancedActive = speciesId || locationId || minPrice || maxPrice || (sort && sort !== 'RECENT')
   const canLoadMore = !loading && page + 1 < totalPages
 
-  if (selectedVendorId) {
-    return (
-      <VendorStorefrontView
-        vendorId={selectedVendorId}
-        onBack={() => setSelectedVendorId(null)}
-        onSelectListing={(id) => { setSelectedVendorId(null); setSelectedListingId(id) }}
-      />
-    )
-  }
-
-  if (selectedListingId) {
-    return (
-      <>
-        <ListingDetailView
-          listingId={selectedListingId}
-          onBack={() => setSelectedListingId(null)}
-          onOrder={(l) => setOrderListing(l)}
-          onSelectRelated={(id) => setSelectedListingId(id)}
-          onSelectVendor={(id) => { setSelectedListingId(null); setSelectedVendorId(id) }}
-        />
-        {orderListing && (
-          <OrderModal
-            listing={orderListing}
-            onClose={() => setOrderListing(null)}
-            onSuccess={() => { setOrderListing(null); setSelectedListingId(null); setPage(0); setRefreshTick(t => t + 1) }}
-          />
-        )}
-      </>
-    )
-  }
 
   function handleMarkerClick(listing) {
     setHighlighted(listing.id)
@@ -971,7 +959,7 @@ function BrowseView() {
                 key={l.id}
                 ref={el => { cardRefs.current[l.id] = el }}
                 className={`buyer-card${highlighted === l.id ? ' buyer-card--highlighted' : ''}`}
-                onClick={() => setSelectedListingId(l.id)}
+                onClick={() => navigate(`/buyer/listing/${l.id}`)}
               >
                 <div className="buyer-card__hero" data-tag={tag} style={{ position: 'relative' }}>
                   <div className="buyer-card__species-tag">{tag}</div>
@@ -1004,7 +992,7 @@ function BrowseView() {
                   </div>
                 </div>
                 <div className="buyer-card__foot">
-                  <button className="btn btn--ghost btn--sm" onClick={e => { e.stopPropagation(); setSelectedListingId(l.id) }}>Details</button>
+                  <button className="btn btn--ghost btn--sm" onClick={e => { e.stopPropagation(); navigate(`/buyer/listing/${l.id}`) }}>Details</button>
                   <button
                     className="btn btn--accent btn--sm"
                     disabled={!inStock}
@@ -1040,15 +1028,163 @@ function BrowseView() {
   )
 }
 
+// ── Order Timeline Modal ──────────────────────────────────────────────────────
+
+const STATUS_META = {
+  PENDING:          { label: 'Order placed',       icon: 'Clipboard' },
+  CONFIRMED:        { label: 'Vendor confirmed',   icon: 'Check' },
+  PROCESSING:       { label: 'Being prepared',     icon: 'Box' },
+  READY_FOR_PICKUP: { label: 'Ready for pickup',   icon: 'Store' },
+  OUT_FOR_DELIVERY: { label: 'Out for delivery',   icon: 'Truck' },
+  COMPLETED:        { label: 'Order completed',    icon: 'CheckCircle' },
+  CANCELLED:        { label: 'Order cancelled',    icon: 'Alert' },
+  DISPUTED:         { label: 'Order disputed',     icon: 'Alert' },
+}
+
+function fmtDateTime(dt) {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleString('en-PH', {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  })
+}
+
+function OrderTimelineModal({ order, onClose }) {
+  const [events, setEvents]   = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState('')
+
+  function load() {
+    setLoading(true)
+    apiGet(`/buyer/orders/${order.id}/timeline`)
+      .then(d => { setEvents(Array.isArray(d) ? d : []); setError('') })
+      .catch(e => setError(e?.message || 'Failed to load timeline.'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
+    // Light polling so buyers see vendor-driven status changes without WebSocket.
+    const t = setInterval(load, 15000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.id])
+
+  const speciesName = order.species?.commonName || order.fishSpecies?.commonName || `Order #${order.id}`
+  const orderCode   = order.orderCode || `ORD-${order.id}`
+
+  return (
+    <div className="modal" role="dialog" aria-modal="true">
+      <div className="modal__backdrop" onClick={onClose} />
+      <div className="modal__panel" style={{ maxWidth: 560 }}>
+        <div className="modal__head">
+          <div>
+            <div className="eyebrow">{orderCode}</div>
+            <h2 style={{ marginTop: 2 }}>Order timeline</h2>
+            <div className="muted-data" style={{ fontSize: 12 }}>{speciesName}</div>
+          </div>
+          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close">×</button>
+        </div>
+
+        <div style={{ padding: '0 18px 18px' }}>
+          {loading && events.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 0' }}>
+              {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 48 }} />)}
+            </div>
+          ) : error ? (
+            <div style={{ color: 'var(--unsafe)', fontSize: 13, padding: '8px 0' }}>{error}</div>
+          ) : events.length === 0 ? (
+            <div className="muted-data" style={{ fontSize: 13, padding: '8px 0' }}>
+              No timeline events recorded yet.
+            </div>
+          ) : (
+            <ol style={{
+              listStyle: 'none', padding: 0, margin: '4px 0 0',
+              display: 'flex', flexDirection: 'column', gap: 0,
+            }}>
+              {events.map((ev, idx) => {
+                const meta   = STATUS_META[ev.status] || { label: ev.status, icon: 'Clock' }
+                const Icon   = I[meta.icon] || I.Clock
+                const isLast = idx === events.length - 1
+                const isCurrent = isLast
+                return (
+                  <li key={ev.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      alignSelf: 'stretch', minWidth: 28,
+                    }}>
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%',
+                        background: isCurrent ? 'var(--accent, #f5a524)' : 'var(--surface-2)',
+                        color: isCurrent ? '#fff' : 'var(--ink-3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}>
+                        <Icon size={14} />
+                      </div>
+                      {!isLast && (
+                        <div style={{
+                          flex: 1, width: 2, background: 'var(--border, #e5e5e5)',
+                          marginTop: 2, marginBottom: 2,
+                        }} />
+                      )}
+                    </div>
+                    <div style={{ flex: 1, paddingBottom: isLast ? 0 : 18 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{meta.label}</div>
+                      <div className="muted-data" style={{ fontSize: 11, marginTop: 2 }}>
+                        {fmtDateTime(ev.createdAt)}
+                        {ev.actorName ? ` · ${ev.actorName}` : ''}
+                      </div>
+                      {ev.note && (
+                        <div style={{ fontSize: 13, marginTop: 4, color: 'var(--ink-2)' }}>
+                          {ev.note}
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Orders View ───────────────────────────────────────────────────────────────
 
 function OrdersView() {
+  const navigate = useNavigate()
+  const onNavigate = (id) => navigate(`/buyer/${id}`)
+  const { orderId: orderIdParam } = useParams()
+  const { addItem } = useCart()
   const [tab, setTab]         = useState('active')
   const [orders, setOrders]   = useState([])
   const [loading, setLoading] = useState(false)
   const [reviewedOrderIds, setReviewedOrderIds] = useState(new Set())
   const [reviewOrder, setReviewOrder] = useState(null)
   const [reviewExisting, setReviewExisting] = useState(null)
+  const [timelineOrder, setTimelineOrder] = useState(null)
+  const [reorderingId, setReorderingId] = useState(null)
+  const [reorderError, setReorderError] = useState('')
+
+  async function handleReorder(o) {
+    if (!o.demandListingId && !o.listingId) {
+      setReorderError('Original listing reference is missing on this order.')
+      return
+    }
+    const listingId = o.demandListingId || o.listingId
+    const qty = o.orderedQtyKg || o.qtyKg || 1
+    setReorderingId(o.id); setReorderError('')
+    const res = await addItem({ listingId, quantityKg: Number(qty) })
+    setReorderingId(null)
+    if (res?.ok) {
+      onNavigate?.('cart')
+    } else {
+      // Listing likely closed — fall back to species-filtered browse
+      setReorderError(res?.error || 'Listing no longer available. Browse similar items.')
+    }
+  }
 
   function loadOrders() {
     setLoading(true)
@@ -1067,6 +1203,22 @@ function OrdersView() {
   }
 
   useEffect(() => { loadOrders() }, [])
+
+  // Deep-link: /buyer/orders/:orderId opens the timeline modal for that order
+  useEffect(() => {
+    if (!orderIdParam) return
+    const id = Number(orderIdParam)
+    if (Number.isNaN(id)) return
+    const found = orders.find(o => o.id === id)
+    if (found) {
+      setTimelineOrder(found)
+    } else {
+      // Order not in current list — fetch directly so modal still opens
+      apiGet(`/buyer/orders/${id}`)
+        .then(o => o && setTimelineOrder(o))
+        .catch(() => {})
+    }
+  }, [orderIdParam, orders])
 
   const filtered = orders.filter(o => {
     if (tab === 'active') return ['PENDING', 'CONFIRMED'].includes(o.status)
@@ -1132,6 +1284,17 @@ function OrdersView() {
           <div className="s">Across {totals.completed} orders</div>
         </div>
       </div>
+
+      {reorderError && (
+        <div className="card" style={{ marginTop: 12, padding: 12, color: 'var(--unsafe)', fontSize: 13 }}>
+          {reorderError}
+          <button
+            className="btn btn--ghost btn--sm"
+            style={{ marginLeft: 12 }}
+            onClick={() => { setReorderError(''); onNavigate?.('browse') }}
+          >Browse similar</button>
+        </div>
+      )}
 
       {/* Orders table with tabs */}
       <div className="card" style={{ marginTop: 18 }}>
@@ -1230,10 +1393,17 @@ function OrdersView() {
                          o.cancelReason ? o.cancelReason : 'Awaiting next step'}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button className="btn btn--ghost btn--sm" onClick={() => setTimelineOrder(o)}>Timeline</button>
                         <button className="btn btn--ghost btn--sm">Message vendor</button>
                         {o.status === 'PENDING' && <button className="btn btn--ghost btn--sm">Cancel</button>}
                         {o.status === 'CONFIRMED' && <button className="btn btn--accent btn--sm">Confirm receipt</button>}
-                        {o.status === 'COMPLETED' && <button className="btn btn--ghost btn--sm">Re-order</button>}
+                        {o.status === 'COMPLETED' && (
+                          <button
+                            className="btn btn--ghost btn--sm"
+                            disabled={reorderingId === o.id}
+                            onClick={() => handleReorder(o)}
+                          >{reorderingId === o.id ? 'Adding…' : 'Re-order'}</button>
+                        )}
                         {o.status === 'COMPLETED' && (
                           reviewedOrderIds.has(o.id) ? (
                             <button
@@ -1274,13 +1444,25 @@ function OrdersView() {
           }}
         />
       )}
+
+      {timelineOrder && (
+        <OrderTimelineModal
+          order={timelineOrder}
+          onClose={() => {
+            setTimelineOrder(null)
+            if (orderIdParam) navigate('/buyer/orders', { replace: true })
+          }}
+        />
+      )}
     </div>
   )
 }
 
 // ── Saved Vendors View ────────────────────────────────────────────────────────
 
-function SavedVendorsView({ onNavigate, onSelectListing }) {
+function SavedVendorsView() {
+  const navigate = useNavigate()
+  const onNavigate = (id) => navigate(`/buyer/${id}`)
   const { vendorFavorites, listingFavorites, loading } = useFavorites()
   const [tab, setTab] = useState('vendors')
 
@@ -1343,7 +1525,7 @@ function SavedVendorsView({ onNavigate, onSelectListing }) {
                   </div>
                   <div className="vendor-card__foot">
                     <button className="btn btn--ghost btn--sm" style={{ flex: 1 }}>Message</button>
-                    <button className="btn btn--accent btn--sm" style={{ flex: 1 }} onClick={() => onNavigate('browse')}>View listings</button>
+                    <button className="btn btn--accent btn--sm" style={{ flex: 1 }} onClick={() => navigate(`/buyer/vendor/${v.id}`)}>View storefront</button>
                   </div>
                 </div>
               )
@@ -1377,7 +1559,7 @@ function SavedVendorsView({ onNavigate, onSelectListing }) {
               }
               const tag = l.fishSpecies?.tag || (l.fishSpecies?.commonName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
               return (
-                <div key={f.id} className="buyer-card" onClick={() => onSelectListing && onSelectListing(l.id)}>
+                <div key={f.id} className="buyer-card" onClick={() => navigate(`/buyer/listing/${l.id}`)}>
                   <div className="buyer-card__hero" data-tag={tag} style={{ position: 'relative' }}>
                     <div className="buyer-card__species-tag">{tag}</div>
                     <div style={{ position: 'absolute', top: 8, right: 8 }}>
@@ -1404,13 +1586,19 @@ function SavedVendorsView({ onNavigate, onSelectListing }) {
 
 // ── Dashboard View ────────────────────────────────────────────────────────────
 
-function DashboardView({ user, onNavigate, onOrderListing }) {
+function DashboardView({ user, onOrderListing }) {
+  const navigate = useNavigate()
+  const onNavigate = (id) => navigate(`/buyer/${id}`)
   const [pendingCount,   setPendingCount]   = useState(null)
   const [confirmedCount, setConfirmedCount] = useState(null)
   const [recentOrders,   setRecentOrders]   = useState([])
   const [featuredListings, setFeaturedListings] = useState([])
   const [listingCount,   setListingCount]   = useState(null)
   const [loading,        setLoading]        = useState(true)
+  const [activity,       setActivity]       = useState([])
+  const [activityLoading, setActivityLoading] = useState(true)
+  const [recommendations, setRecommendations] = useState([])
+  const [recsLoading,    setRecsLoading]    = useState(true)
 
   useEffect(() => {
     setLoading(true)
@@ -1426,6 +1614,20 @@ function DashboardView({ user, onNavigate, onOrderListing }) {
       setFeaturedListings(listings.slice(0, 4))
       setListingCount(listings.length)
     }).finally(() => setLoading(false))
+
+    // Phase 4.1 — activity feed sourced from notifications stream
+    setActivityLoading(true)
+    apiGet('/notifications?size=15')
+      .then(d => setActivity(Array.isArray(d) ? d : []))
+      .catch(() => setActivity([]))
+      .finally(() => setActivityLoading(false))
+
+    // Phase 4.3 — personalized recommendations
+    setRecsLoading(true)
+    apiGet('/buyer/recommendations?limit=6')
+      .then(d => setRecommendations(Array.isArray(d) ? d : []))
+      .catch(() => setRecommendations([]))
+      .finally(() => setRecsLoading(false))
   }, [])
 
   const firstName = user?.fullName?.split(' ')[0] || 'Buyer'
@@ -1583,13 +1785,126 @@ function DashboardView({ user, onNavigate, onOrderListing }) {
           )}
         </div>
       </div>
+
+      {/* Activity + Recommendations (Phase 4.1 + 4.3) */}
+      <div className="grid--2-1" style={{ marginTop: 18 }}>
+        {/* LEFT: Activity feed */}
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Recent Activity</div>
+              <div className="card__sub">Updates across your orders & saved vendors</div>
+            </div>
+          </div>
+          {activityLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="skeleton" style={{ height: 44, borderRadius: 6 }} />
+              ))}
+            </div>
+          ) : activity.length === 0 ? (
+            <div style={{ color: 'var(--ink-3)', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
+              You're all caught up — activity will appear here as your orders progress.
+            </div>
+          ) : (
+            <div>
+              {activity.slice(0, 8).map(a => {
+                const isUnread = !a.readAt
+                return (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: 'flex', gap: 10, padding: '10px 0',
+                      borderBottom: '1px solid var(--line-soft)',
+                      cursor: a.link ? 'pointer' : 'default',
+                    }}
+                    onClick={() => { if (a.link) navigate(a.link) }}
+                  >
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: isUnread ? 'var(--accent, #f5a524)' : 'var(--ink-4, #ccc)',
+                      marginTop: 6, flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: isUnread ? 600 : 500, fontSize: 13 }}>{a.title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>
+                        {a.body}
+                      </div>
+                      <div className="muted-data" style={{ fontSize: 11, marginTop: 4 }}>
+                        {timeAgo(a.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: Recommendations */}
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Recommended for you</div>
+              <div className="card__sub">Based on what you've bought before</div>
+            </div>
+            <button className="btn btn--sm btn--ghost" onClick={() => onNavigate('browse')}>
+              Browse All <I.Arrow size={11} />
+            </button>
+          </div>
+          {recsLoading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="skeleton" style={{ height: 64, borderRadius: 6 }} />
+              ))}
+            </div>
+          ) : recommendations.length === 0 ? (
+            <div style={{ color: 'var(--ink-3)', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
+              No recommendations yet — place your first order to personalize this feed.
+            </div>
+          ) : (
+            <div>
+              {recommendations.slice(0, 5).map(l => (
+                <div key={l.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 0', borderBottom: '1px solid var(--line-soft)',
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 500, fontSize: 13, color: 'var(--ink)' }}>
+                      {l.fishSpecies?.commonName || l.species?.commonName || '—'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                      <I.MapPin size={10} style={{ marginRight: 3 }} />
+                      {l.marketLocation?.name || l.location?.name || '—'}
+                      {l.vendorName ? ` · ${l.vendorName}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)' }}>
+                    {fmtPrice(l.offerPricePerKg)}
+                    <small style={{ fontSize: 11, color: 'var(--ink-3)', fontFamily: 'var(--font-ui)' }}>/kg</small>
+                  </div>
+                  <button
+                    className="btn btn--primary btn--sm"
+                    onClick={() => onOrderListing(l)}
+                  >
+                    Order
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
 // ── Cart View ─────────────────────────────────────────────────────────────────
 
-function CartView({ onContinueShopping, onCheckout }) {
+function CartView() {
+  const navigate = useNavigate()
+  const onContinueShopping = () => navigate('/buyer/browse')
+  const onCheckout = () => navigate('/buyer/checkout')
   const { cart, loading, error, updateItem, removeItem, clearCart } = useCart()
   const [busy, setBusy] = useState(null)
 
@@ -1752,7 +2067,10 @@ function CartView({ onContinueShopping, onCheckout }) {
 
 // ── Checkout View ─────────────────────────────────────────────────────────────
 
-function CheckoutView({ onBack, onSuccess }) {
+function CheckoutView() {
+  const navigate = useNavigate()
+  const onBack = () => navigate('/buyer/cart')
+  const onSuccess = () => navigate('/buyer/orders')
   const { cart, refresh } = useCart()
   const [addresses, setAddresses] = useState([])
   const [loadingAddrs, setLoadingAddrs] = useState(true)
@@ -2018,16 +2336,393 @@ function CheckoutView({ onBack, onSuccess }) {
   )
 }
 
+// ── Image Upload (Phase 3.3) ──────────────────────────────────────────────────
+
+function ImageUpload({ value, onChange, subDir = 'general', label = 'Upload image', size = 96 }) {
+  const inputRef = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleFile(file) {
+    if (!file) return
+    if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+      setError('Only JPEG, PNG, or WebP images.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Max 5MB.')
+      return
+    }
+    setBusy(true); setError('')
+    try {
+      const res = await apiUpload('/uploads', file, { subDir })
+      onChange?.(res?.url || null)
+    } catch (e) {
+      setError(e?.message || 'Upload failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div
+        onClick={() => !busy && inputRef.current?.click()}
+        style={{
+          width: size, height: size, borderRadius: '50%',
+          background: 'var(--surface-2)', overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: busy ? 'wait' : 'pointer', border: '1px dashed var(--border, #d4d4d4)',
+          flexShrink: 0,
+        }}
+        title={label}
+      >
+        {value ? (
+          <img src={value} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <I.Plus size={20} />
+        )}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          style={{ display: 'none' }}
+          onChange={e => handleFile(e.target.files?.[0])}
+        />
+        <button
+          type="button"
+          className="btn btn--ghost btn--sm"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+        >
+          {busy ? 'Uploading…' : value ? 'Change image' : label}
+        </button>
+        {value && !busy && (
+          <button
+            type="button"
+            className="btn btn--ghost btn--sm"
+            onClick={() => onChange?.(null)}
+            style={{ color: 'var(--unsafe)' }}
+          >Remove</button>
+        )}
+        {error && <div style={{ color: 'var(--unsafe)', fontSize: 12 }}>{error}</div>}
+      </div>
+    </div>
+  )
+}
+
+// ── Notifications Bell (Phase 3.2) ────────────────────────────────────────────
+
+function timeAgo(dt) {
+  if (!dt) return ''
+  const diff = (Date.now() - new Date(dt).getTime()) / 1000
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`
+  return new Date(dt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+}
+
+function NotificationsBell() {
+  const navigate = useNavigate()
+  const [open, setOpen]         = useState(false)
+  const [items, setItems]       = useState([])
+  const [unread, setUnread]     = useState(0)
+  const [loading, setLoading]   = useState(false)
+  const wrapRef = useRef(null)
+
+  async function refreshCount() {
+    try {
+      const r = await apiGet('/notifications/unread-count')
+      setUnread(r?.count || 0)
+    } catch { /* ignore */ }
+  }
+
+  async function loadList() {
+    setLoading(true)
+    try {
+      const list = await apiGet('/notifications?size=10')
+      setItems(Array.isArray(list) ? list : [])
+    } catch {
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    refreshCount()
+    const t = setInterval(refreshCount, 60000)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    if (open) loadList()
+  }, [open])
+
+  // Click-outside to close
+  useEffect(() => {
+    function onDocClick(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  async function handleClickItem(n) {
+    if (!n.readAt) {
+      try {
+        await apiPut(`/notifications/${n.id}/read`)
+        setItems(prev => prev.map(x => x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x))
+        setUnread(c => Math.max(0, c - 1))
+      } catch { /* ignore */ }
+    }
+    if (n.link) navigate(n.link)
+    setOpen(false)
+  }
+
+  async function handleMarkAll() {
+    try {
+      await apiPut('/notifications/read-all')
+      setItems(prev => prev.map(x => ({ ...x, readAt: x.readAt || new Date().toISOString() })))
+      setUnread(0)
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <button className="topbar__icon-btn" title="Notifications" onClick={() => setOpen(o => !o)}>
+        <I.Bell size={16} />
+        {unread > 0 && (
+          <span style={{
+            position: 'absolute', top: 2, right: 2,
+            minWidth: 14, height: 14, borderRadius: 99,
+            background: 'var(--unsafe)', color: '#fff',
+            fontSize: 9, fontWeight: 700, fontFamily: 'var(--font-mono)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 3px', lineHeight: 1,
+          }}>{unread > 9 ? '9+' : unread}</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="card" style={{
+          position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+          width: 360, maxHeight: 480, overflow: 'hidden',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          zIndex: 100,
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '12px 14px', borderBottom: '1px solid var(--border, #eee)',
+          }}>
+            <strong style={{ fontSize: 14 }}>Notifications</strong>
+            {unread > 0 && (
+              <button className="btn btn--ghost btn--sm" onClick={handleMarkAll}>
+                Mark all read
+              </button>
+            )}
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {loading && items.length === 0 ? (
+              <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 48 }} />)}
+              </div>
+            ) : items.length === 0 ? (
+              <div className="muted-data" style={{ padding: 24, textAlign: 'center', fontSize: 13 }}>
+                You're all caught up.
+              </div>
+            ) : (
+              items.map(n => {
+                const isUnread = !n.readAt
+                return (
+                  <div
+                    key={n.id}
+                    onClick={() => handleClickItem(n)}
+                    style={{
+                      padding: '12px 14px',
+                      borderBottom: '1px solid var(--border, #eee)',
+                      cursor: 'pointer',
+                      background: isUnread ? 'var(--surface-2, #fafafa)' : 'transparent',
+                      display: 'flex', gap: 10,
+                    }}
+                  >
+                    <div style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: isUnread ? 'var(--accent, #f5a524)' : 'transparent',
+                      marginTop: 6, flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: isUnread ? 600 : 500, fontSize: 13 }}>
+                        {n.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>
+                        {n.body}
+                      </div>
+                      <div className="muted-data" style={{ fontSize: 11, marginTop: 4 }}>
+                        {timeAgo(n.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Profile View (Phase 3.4) ──────────────────────────────────────────────────
+
+function ProfileView({ user, onProfileUpdated }) {
+  const [profile, setProfile]   = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState(false)
+  const [error, setError]       = useState('')
+  const [success, setSuccess]   = useState('')
+  const [fullName, setFullName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState(null)
+
+  function load() {
+    setLoading(true)
+    apiGet('/buyer/profile')
+      .then(p => {
+        setProfile(p)
+        setFullName(p.fullName || '')
+        setAvatarUrl(p.avatarUrl || null)
+      })
+      .catch(e => setError(e?.message || 'Failed to load profile.'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function handleSave() {
+    setSaving(true); setError(''); setSuccess('')
+    try {
+      const updated = await apiPatch('/buyer/profile', null, {
+        fullName: fullName.trim() || undefined,
+        avatarUrl,
+      })
+      setProfile(updated)
+      setSuccess('Profile saved.')
+      onProfileUpdated?.(updated)
+      setTimeout(() => setSuccess(''), 2500)
+    } catch (e) {
+      setError(e?.message || 'Could not save profile.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleAvatarChange(url) {
+    setAvatarUrl(url)
+    // Auto-persist avatar so the upload feels immediate.
+    setSaving(true); setError('')
+    try {
+      const updated = await apiPatch('/buyer/profile', null, { avatarUrl: url })
+      setProfile(updated)
+      onProfileUpdated?.(updated)
+    } catch (e) {
+      setError(e?.message || 'Could not update avatar.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="page">
+        <div className="page__head">
+          <div>
+            <div className="eyebrow">Account</div>
+            <h1 className="page__title" style={{ marginTop: 4 }}>My <em>Profile</em></h1>
+          </div>
+        </div>
+        <div className="card" style={{ marginTop: 18, padding: 20 }}>
+          <div className="skeleton" style={{ height: 24, width: '40%' }} />
+          <div className="skeleton" style={{ height: 96, marginTop: 12, width: 96, borderRadius: '50%' }} />
+          <div className="skeleton" style={{ height: 16, marginTop: 16 }} />
+        </div>
+      </div>
+    )
+  }
+
+  const dirty = (fullName.trim() !== (profile?.fullName || '').trim())
+
+  return (
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Account</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>My <em>Profile</em></h1>
+          <p className="page__sub">
+            Member since {profile?.memberSince ? fmt(profile.memberSince) : '—'} · {profile?.totalOrders || 0} orders ·{' '}
+            {profile?.totalReviews || 0} reviews · {profile?.totalFavorites || 0} saved
+          </p>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 18, padding: 20 }}>
+        <div className="label">Avatar</div>
+        <div style={{ marginTop: 8 }}>
+          <ImageUpload
+            value={avatarUrl}
+            onChange={handleAvatarChange}
+            subDir="avatars"
+            label="Upload avatar"
+          />
+        </div>
+
+        <div className="label" style={{ marginTop: 18 }}>Full name</div>
+        <input
+          className="input"
+          value={fullName}
+          onChange={e => setFullName(e.target.value)}
+          maxLength={200}
+          style={{ marginTop: 6 }}
+        />
+
+        <div className="label" style={{ marginTop: 14 }}>Email</div>
+        <input
+          className="input"
+          value={profile?.email || ''}
+          disabled
+          style={{ marginTop: 6, opacity: 0.65 }}
+        />
+        <div className="muted-data" style={{ fontSize: 11, marginTop: 4 }}>
+          Email changes are not supported yet.
+        </div>
+
+        {error && <div style={{ color: 'var(--unsafe)', fontSize: 13, marginTop: 12 }}>{error}</div>}
+        {success && <div style={{ color: 'var(--safe, #22a37e)', fontSize: 13, marginTop: 12 }}>{success}</div>}
+
+        <div className="row" style={{ gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
+          <button className="btn btn--accent" disabled={!dirty || saving} onClick={handleSave}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Rail ──────────────────────────────────────────────────────────────────────
 
-function Rail({ page, setPage, user, onLogout, badges = {} }) {
+function Rail({ user, onLogout, badges = {} }) {
   const items = [
-    { id: 'dashboard', icon: 'Dashboard', label: 'Dashboard' },
-    { id: 'browse',    icon: 'Store',     label: 'Browse Market' },
-    { id: 'cart',      icon: 'Receipt',   label: 'Cart',           badge: badges.cart },
-    { id: 'orders',    icon: 'Clipboard', label: 'My Orders',      badge: badges.orders },
-    { id: 'saved',     icon: 'Star',      label: 'Saved Vendors' },
-    { id: 'messages',  icon: 'Message',   label: 'Messages',       badge: badges.messages },
+    { to: '/buyer/dashboard', icon: 'Dashboard', label: 'Dashboard' },
+    { to: '/buyer/browse',    icon: 'Store',     label: 'Browse Market' },
+    { to: '/buyer/cart',      icon: 'Receipt',   label: 'Cart',           badge: badges.cart },
+    { to: '/buyer/orders',    icon: 'Clipboard', label: 'My Orders',      badge: badges.orders },
+    { to: '/buyer/saved',     icon: 'Star',      label: 'Saved Vendors' },
+    { to: '/buyer/messages',  icon: 'Message',   label: 'Messages',       badge: badges.messages },
+    { to: '/buyer/profile',   icon: 'Settings',  label: 'My Profile' },
   ]
 
   const initials = user?.fullName
@@ -2046,11 +2741,12 @@ function Rail({ page, setPage, user, onLogout, badges = {} }) {
         {items.map(it => {
           const Icon = I[it.icon]
           return (
-            <div
-              key={it.id}
-              className={`rail-item${page === it.id ? ' rail-item--on' : ''}`}
-              onClick={() => setPage(it.id)}
+            <NavLink
+              key={it.to}
+              to={it.to}
+              className={({ isActive }) => `rail-item${isActive ? ' rail-item--on' : ''}`}
               data-tip={it.label}
+              style={{ textDecoration: 'none', color: 'inherit' }}
             >
               <div className="rail-item__icon" style={{ position: 'relative' }}>
                 <Icon size={18} />
@@ -2068,7 +2764,7 @@ function Rail({ page, setPage, user, onLogout, badges = {} }) {
                 )}
               </div>
               <div className="rail-item__text">{it.label}</div>
-            </div>
+            </NavLink>
           )
         })}
 
@@ -2098,21 +2794,29 @@ function Rail({ page, setPage, user, onLogout, badges = {} }) {
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
 
-function Topbar({ page }) {
-  const labels = {
-    dashboard: 'Dashboard',
-    browse:    'Browse Market',
-    cart:      'Cart',
-    orders:    'My Orders',
-    saved:     'Saved Vendors',
-    messages:  'Messages',
-  }
+const PAGE_LABELS = {
+  dashboard: 'Dashboard',
+  browse:    'Browse Market',
+  cart:      'Cart',
+  checkout:  'Checkout',
+  orders:    'My Orders',
+  saved:     'Saved Vendors',
+  messages:  'Messages',
+  profile:   'My Profile',
+  listing:   'Listing',
+  vendor:    'Vendor',
+}
+
+function Topbar() {
+  const location = useLocation()
+  const segment = location.pathname.split('/')[2] || 'dashboard'
+  const label = PAGE_LABELS[segment] || segment
   return (
     <div className="topbar">
       <div className="crumbs">
         <span>Mermaid</span>
         <span>/</span>
-        <strong>{labels[page] || page}</strong>
+        <strong>{label}</strong>
       </div>
       <div className="topbar__spacer" />
       <div className="topbar__search">
@@ -2120,9 +2824,7 @@ function Topbar({ page }) {
         <input placeholder="Search listings, orders…" />
         <kbd>⌘K</kbd>
       </div>
-      <button className="topbar__icon-btn" title="Notifications">
-        <I.Bell size={16} />
-      </button>
+      <NotificationsBell />
       <button className="topbar__icon-btn" title="Help">
         <I.Help size={16} />
       </button>
@@ -2132,24 +2834,43 @@ function Topbar({ page }) {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
+function BuyerLayout({ user, onLogout, badges, quickOrderListing, setQuickOrderListing, onOrderSuccess }) {
+  const location = useLocation()
+
+  // Scroll content to top on every route change
+  useEffect(() => {
+    const el = document.querySelector('.content')
+    if (el) el.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' })
+  }, [location.pathname])
+
+  return (
+    <div className="app" data-density="balanced" data-accent="sage">
+      <Rail user={user} onLogout={onLogout} badges={badges} />
+      <div className="main">
+        <Topbar />
+        <div className="content" style={{ flex: 1, overflowY: 'auto' }}>
+          <Outlet context={{ setQuickOrderListing }} />
+        </div>
+      </div>
+
+      {quickOrderListing && (
+        <OrderModal
+          listing={quickOrderListing}
+          onClose={() => setQuickOrderListing(null)}
+          onSuccess={onOrderSuccess}
+        />
+      )}
+    </div>
+  )
+}
+
 export default function BuyerDashboard({ user, onLogout }) {
-  const [page, setPage]           = useState('dashboard')
   const [badges, setBadges]       = useState({ orders: 0, messages: 0 })
   const [quickOrderListing, setQuickOrderListing] = useState(null)
   const { cart } = useCart()
   const railBadges = { ...badges, cart: cart.itemCount }
 
-  useEffect(() => {
-    apiGet('/buyer/orders?status=PENDING')
-      .then(d => {
-        const arr = d?.content || d || []
-        setBadges(prev => ({ ...prev, orders: arr.length }))
-      })
-      .catch(() => {})
-  }, [])
-
-  function handleOrderSuccess() {
-    setQuickOrderListing(null)
+  function loadPendingBadge() {
     apiGet('/buyer/orders?status=PENDING')
       .then(d => {
         const arr = d?.content || d || []
@@ -2158,35 +2879,41 @@ export default function BuyerDashboard({ user, onLogout }) {
       .catch(() => {})
   }
 
-  return (
-    <div className="app" data-density="balanced" data-accent="sage">
-      <Rail page={page} setPage={setPage} user={user} onLogout={onLogout} badges={railBadges} />
-      <div className="main">
-        <Topbar page={page} />
-        <div className="content" style={{ flex: 1, overflowY: 'auto' }}>
-          {page === 'dashboard' && (
-            <DashboardView
-              user={user}
-              onNavigate={setPage}
-              onOrderListing={setQuickOrderListing}
-            />
-          )}
-          {page === 'browse'   && <BrowseView />}
-          {page === 'cart'     && <CartView onContinueShopping={() => setPage('browse')} onCheckout={() => setPage('checkout')} />}
-          {page === 'checkout' && <CheckoutView onBack={() => setPage('cart')} onSuccess={() => setPage('orders')} />}
-          {page === 'orders'   && <OrdersView />}
-          {page === 'saved'    && <SavedVendorsView onNavigate={setPage} />}
-          {page === 'messages' && <Messages user={user} />}
-        </div>
-      </div>
+  useEffect(() => { loadPendingBadge() }, [])
 
-      {quickOrderListing && (
-        <OrderModal
-          listing={quickOrderListing}
-          onClose={() => setQuickOrderListing(null)}
-          onSuccess={handleOrderSuccess}
+  function handleOrderSuccess() {
+    setQuickOrderListing(null)
+    loadPendingBadge()
+  }
+
+  return (
+    <Routes>
+      <Route element={
+        <BuyerLayout
+          user={user}
+          onLogout={onLogout}
+          badges={railBadges}
+          quickOrderListing={quickOrderListing}
+          setQuickOrderListing={setQuickOrderListing}
+          onOrderSuccess={handleOrderSuccess}
         />
-      )}
-    </div>
+      }>
+        <Route path="/buyer" element={<Navigate to="/buyer/dashboard" replace />} />
+        <Route path="/buyer/dashboard" element={
+          <DashboardView user={user} onOrderListing={setQuickOrderListing} />
+        } />
+        <Route path="/buyer/browse" element={<BrowseView />} />
+        <Route path="/buyer/listing/:listingId" element={<ListingDetailView />} />
+        <Route path="/buyer/vendor/:vendorId" element={<VendorStorefrontView />} />
+        <Route path="/buyer/cart" element={<CartView />} />
+        <Route path="/buyer/checkout" element={<CheckoutView />} />
+        <Route path="/buyer/orders" element={<OrdersView />} />
+        <Route path="/buyer/orders/:orderId" element={<OrdersView />} />
+        <Route path="/buyer/saved" element={<SavedVendorsView />} />
+        <Route path="/buyer/messages" element={<Messages user={user} />} />
+        <Route path="/buyer/profile" element={<ProfileView user={user} />} />
+        <Route path="*" element={<Navigate to="/buyer/dashboard" replace />} />
+      </Route>
+    </Routes>
   )
 }

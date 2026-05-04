@@ -1,4 +1,5 @@
 import './index.css'
+import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { CartProvider } from './context/CartContext'
@@ -38,7 +39,9 @@ function AppInner() {
     return (
       <CartProvider>
         <FavoritesProvider>
-          <BuyerDashboard user={user} token={null} onLogout={logout} />
+          <BrowserRouter>
+            <BuyerDashboard user={user} token={null} onLogout={logout} />
+          </BrowserRouter>
           <ThemeToggle />
         </FavoritesProvider>
       </CartProvider>
