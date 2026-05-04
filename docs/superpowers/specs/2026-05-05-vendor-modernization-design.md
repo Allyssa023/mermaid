@@ -64,7 +64,7 @@ This spec also corrects a latent bug from buyer modernization: the buyer marketp
 - `InventoryService` — source of truth for vendor stock; lots are immutable, movements are append-only. Methods: `addLotFromProcurement(orderId)`, `recordAdjustment(lotId, deltaKg, reason)`, `availableKg(vendorId, speciesId)`, `lotsForVendor(vendorId, filters)`, `deductForOrder(orderId)` (FIFO by `received_at`, row-locked via `SELECT … FOR UPDATE`), `lowStockAlerts(vendorId)`.
 - `StorefrontListingService` — vendor-published listings backed by inventory lots. Replaces `demand_listings` as the source of buyer marketplace browsing.
 - `ProcurementOrderService` — vendor checkout against fisherman `CatchAlert`s. Reuses `Order` with new `order_kind = PROCUREMENT | RETAIL` discriminator. On `COMPLETED`, calls `InventoryService.addLotFromProcurement`.
-- `ShopProfileService` — per-vendor public profile (logo, banner, hours, pickup pin, slug; slug regex `^[a-z0-9][a-z0-9-]{2,49}$`, displayName length 2-80).
+- `ShopProfileService` — per-vendor public profile (logo, banner, hours, pickup pin, slug; slug regex `^[a-z][a-z0-9-]{2,49}$` — must start with a letter, prevents collision with numeric IDs on the `:vendorIdOrSlug` route; displayName length 2-80).
 - `AnalyticsService` — read-only aggregates (sales summary, revenue-by-species, repeat buyers, procurement spend). Hard cap: requested range ≤ 365 days (rejected with `IllegalArgumentException` → 400).
 - `CatchAlertFanoutService` — `@TransactionalEventListener(AFTER_COMMIT)` on `CatchAlert.created`. Matches alert against `vendor_watchlists` (species OR market-location proximity); writes `Notification` rows. Idempotent on `(catchAlertId, vendorId)`. On `CatchAlert` cancel, no compensating action — there is nothing to retract.
 - `WatchlistService` — vendor manages their own watchlist (species subscribe/unsubscribe; optional area filter by `market_location_id`).
@@ -86,16 +86,15 @@ This spec also corrects a latent bug from buyer modernization: the buyer marketp
 
 ### 5.3 Migrations (new files only)
 
-- `V35__create_inventory.sql` — `inventory_lots`, `inventory_movements` with indexes on (vendor_id, species_id) and (lot_id, created_at).
-- `V36__create_storefront_listings.sql` — `storefront_listings` + `storefront_listing_lots`. Index `(vendor_id, status) WHERE is_deleted = false`.
-- `V37__create_shop_profile.sql` — `shop_profiles` with unique slug index.
-- `V38__extend_orders.sql` —
+- `V35__create_inventory.sql` — `inventory_lots`, `inventory_movements` with indexes on (vendor_id, species_id) and (lot_id, created_at). `inventory_lots` has no `is_deleted` column (removal via `ADJUSTMENT_LOSS` to zero — see §5.2); soft-delete convention does not apply to immutable lot rows.
+- `V36__create_storefront_listings.sql` — `storefront_listings` + `storefront_listing_lots`. Index `(vendor_id, status) WHERE is_deleted = false`. **Also:** `ALTER TABLE orders ADD COLUMN storefront_listing_id BIGINT REFERENCES storefront_listings(id)` so all retail orders created from Phase 1 onward carry the linkage. Phase 2 inventory deduction depends on this being non-null for retail orders; orders created via the Phase 1 buyer marketplace cutover will populate it from day one.
+- `V37__create_shop_profile.sql` — `shop_profiles` with unique slug index. Includes `is_deleted BOOLEAN NOT NULL DEFAULT false` per soft-delete convention.
+- `V38__extend_orders_status_and_kind.sql` —
   - `ALTER TABLE orders ADD COLUMN order_kind VARCHAR(16) NOT NULL DEFAULT 'RETAIL'` with CHECK in (`RETAIL`,`PROCUREMENT`).
   - `ALTER TABLE orders DROP CONSTRAINT chk_orders_status, ADD CONSTRAINT chk_orders_status CHECK (status IN ('PENDING','CONFIRMED','ACCEPTED','READY','COMPLETED','CANCELLED','DISPUTED'))`. `CONFIRMED` retained for existing data; new vendor flow uses ACCEPTED → READY → COMPLETED.
-  - `ALTER TABLE orders ADD COLUMN storefront_listing_id BIGINT REFERENCES storefront_listings(id)`.
-- `V39__create_vendor_watchlists.sql` — `vendor_watchlists` with check `(species_id IS NOT NULL OR market_location_id IS NOT NULL)`.
-- `V40__add_catch_alert_coords.sql` — adds `lat`, `lng` to `catch_alerts` so distance filter on `ProcurementFeed` is real (default null; backfill best-effort from `landing_site → market_locations` join where deterministic).
-- `V41__migrate_buyer_marketplace_source.sql` — **data migration only**: seeds `storefront_listings` from a subset of `demand_listings` if any are flagged "vendor-as-seller" (likely empty in production); leaves `demand_listings` table intact since it still has a legitimate use as vendor demand requests. Backend code switch is the actual cutover (no destructive SQL).
+  - `orders.catch_alert_id` already exists (V18) — no change needed.
+- `V39__create_vendor_watchlists.sql` — `vendor_watchlists` with check `(species_id IS NOT NULL OR market_location_id IS NOT NULL)`. Includes `is_deleted BOOLEAN NOT NULL DEFAULT false` per soft-delete convention.
+- `V40__catch_alert_coords_and_claim.sql` — adds `lat`, `lng` to `catch_alerts` (distance filter); adds `claimed_kg NUMERIC(10,2) NOT NULL DEFAULT 0` to enforce procurement claim accounting. See §6 Flow B for use. Backfill `lat/lng` best-effort from `landing_site → market_locations` join where deterministic.
 
 ### 5.4 Frontend — `frontend/src/vendor/`
 
@@ -138,15 +137,21 @@ This spec also corrects a latent bug from buyer modernization: the buyer marketp
 
 ### Flow B — Procurement purchase (vendor → fisherman)
 
-1. Vendor browses `ProcurementFeed` (data source: `catch_alerts` with status `ACTIVE`) → adds to `ProcurementCart` → checkout.
-2. `CheckoutService` creates `Order(kind=PROCUREMENT, buyer=vendor, seller=fisherman, catch_alert_id=Y)`.
+1. Vendor browses `ProcurementFeed` (data source: `catch_alerts` with status `ACTIVE` AND `claimed_kg < quantity_kg`) → adds to `ProcurementCart` → checkout.
+2. `ProcurementOrderService.checkout` runs in a single `@Transactional` with `SELECT … FOR UPDATE` on each `catch_alert` row referenced by the cart. For each line:
+   - assert `claimed_kg + line.qty <= quantity_kg`; otherwise throw `ListingClosedException` (409) — first-come-first-served.
+   - `UPDATE catch_alerts SET claimed_kg = claimed_kg + line.qty WHERE id = Y`.
+   - create `Order(kind=PROCUREMENT, buyer=vendor, seller=fisherman, catch_alert_id=Y)`.
 3. Fisherman sees it in their procurement-requests tab → `Accept` (status `ACCEPTED`) → handoff at shore → `Complete`.
-4. On `COMPLETED` → `InventoryService.addLotFromProcurement(orderId)`:
+4. On `CANCELLED` (vendor-initiated before fisherman accepts, or fisherman-initiated): atomically restore `claimed_kg -= line.qty` so the alert becomes shoppable again by other vendors.
+5. On `COMPLETED` → `InventoryService.addLotFromProcurement(orderId)`:
    - one `InventoryLot` per order line.
    - `InventoryMovement(PROCUREMENT_RECEIVED)`.
-5. Vendor sees lot in `Inventory`; can publish a `StorefrontListing` against it.
+6. Vendor sees lot in `Inventory`; can publish a `StorefrontListing` against it.
 
 FIFO on sale-side because of wet-market freshness — older lots must move first.
+
+**Overcommit prevention:** `claimed_kg` + row-lock prevents two vendors from buying the same kilogram. The `CatchAlert.status` itself does NOT transition to `CLAIMED` on first claim because partial procurement is normal (vendor A takes 30kg of a 50kg landing, vendor B takes the remaining 20kg).
 
 ### Flow C — CatchAlert fan-out + vendor push
 
@@ -182,6 +187,7 @@ Reuse existing `GlobalExceptionHandler` mapping (CLAUDE.md). Add one new excepti
 | Mark COMPLETED on already-COMPLETED/CANCELLED order | `IllegalArgumentException` | 400 |
 | Inventory deduction would go negative | `InsufficientStockException` *(new)* | 409 |
 | Procurement checkout against expired/cancelled CatchAlert | `ListingClosedException` (existing) | 409 |
+| Procurement checkout would exceed CatchAlert.quantity_kg | `ListingClosedException` (existing) | 409 |
 | Duplicate `(catchAlertId, vendorId)` notification | swallowed by listener — idempotent | — |
 | Push permission denied / unsupported | client falls back to in-dashboard toast + bell badge | — |
 | Polling failure | exponential backoff (`useVendorPolling`), max 60s; stale indicator after 2 consecutive failures | — |
@@ -198,7 +204,7 @@ Reuse existing `GlobalExceptionHandler` mapping (CLAUDE.md). Add one new excepti
 Service unit tests (mock repositories):
 - `InventoryServiceTest` — addLot; FIFO deduction across multiple lots; low-stock threshold + 12h debounce; race-safe deduction (verify lock invocation); adjustment movements.
 - `StorefrontListingServiceTest` — publish gates on lots>0; `SOLD_OUT` transition on full drain; vendor scoping; soft-delete behavior.
-- `ProcurementOrderServiceTest` — checkout creates `Order(kind=PROCUREMENT)`; `COMPLETED` triggers `addLotFromProcurement`; cancel paths; can't checkout expired/cancelled alert.
+- `ProcurementOrderServiceTest` — checkout creates `Order(kind=PROCUREMENT)` and increments `claimed_kg`; `COMPLETED` triggers `addLotFromProcurement`; cancel paths restore `claimed_kg`; can't checkout expired/cancelled alert; can't overcommit (concurrent-checkout test verifies row lock).
 - `ShopProfileServiceTest` — slug regex enforcement; uniqueness collision; public-view DTO excludes private fields.
 - `AnalyticsServiceTest` — date-range bound (365d); vendor scoping; repeat-buyer aggregation correctness with fixture orders.
 - `CatchAlertFanoutServiceTest` — fan-out matches species; fan-out matches location radius; idempotent on duplicate event; no compensating notification on alert cancel.
@@ -239,9 +245,9 @@ Each phase has a measurable exit criterion and can ship independently.
 
 **Phase 0 — Refactor + scaffold.** Buyer monolith split into `frontend/src/buyer/`. Vendor folder scaffolded with `VendorLayout` + empty pages and route registrations. *Exit:* existing buyer tests pass with no new tests added; vendor routes return placeholder pages; clean diff with no behavior changes.
 
-**Phase 1 — Inventory + Storefront editor + Buyer marketplace cutover.** V35, V36, V41 migrations. `InventoryService`, `StorefrontListingService`, vendor controllers + `Inventory.jsx` + `StorefrontEditor.jsx`. Switch `BuyerMarketplaceController`/`MarketplaceService` data source from `demand_listings` to `storefront_listings`. *Exit:* a vendor can manually seed a lot via API or admin script, publish a storefront listing, and that listing appears in the buyer marketplace. Service tests for Inventory + StorefrontListing green. Existing buyer marketplace tests adapted and green.
+**Phase 1 — Inventory + Storefront editor + Buyer marketplace cutover.** V35, V36 migrations (V36 also adds `orders.storefront_listing_id` so the linkage exists from day one). `InventoryService`, `StorefrontListingService`, vendor controllers + `Inventory.jsx` + `StorefrontEditor.jsx`. Switch `BuyerMarketplaceController`/`MarketplaceService` data source from `demand_listings` to `storefront_listings`; new buyer orders created from this point populate `storefront_listing_id`. Demo seed (V25 successor or one-shot script) inserts at least one storefront listing so the buyer marketplace is not empty post-cutover. *Exit:* a vendor can seed a lot, publish a storefront listing, and that listing appears in the buyer marketplace. Service tests for Inventory + StorefrontListing green. Existing buyer marketplace tests adapted and green.
 
-**Phase 2 — Orders inbox.** V38 migration (status extension + `order_kind` + `storefront_listing_id`). `OrdersInbox.jsx` consuming existing `Order` + `OrderStatusEvent`. Status flow `PENDING → ACCEPTED → READY → COMPLETED/CANCELLED`. On `COMPLETED`, `InventoryService.deductForOrder` runs. `useVendorPolling` introduced here for inbox refresh. *Exit:* end-to-end retail order from buyer to vendor completion drains the lot; integration test green.
+**Phase 2 — Orders inbox.** V38 migration (status extension + `order_kind`). `OrdersInbox.jsx` consuming existing `Order` + `OrderStatusEvent`. Status flow `PENDING → ACCEPTED → READY → COMPLETED/CANCELLED`. On `COMPLETED`, `InventoryService.deductForOrder` runs. `useVendorPolling` introduced here for inbox refresh. *Exit:* end-to-end retail order from buyer to vendor completion drains the lot; integration test green.
 
 **Phase 3 — Procurement (browse + cart + checkout + orders).** `ProcurementOrderService`; `ProcurementFeed` (over `CatchAlert`s) / `ProcurementCart` / `ProcurementOrders`; **fisherman side: a single new tab** on the existing fisherman dashboard listing PROCUREMENT orders with the same status actions, reusing the existing order-status API. On `COMPLETED`, `addLotFromProcurement` runs. *Exit:* vendor can shop a CatchAlert, fisherman accepts and completes, lot appears in Inventory; integration test green.
 
@@ -276,3 +282,4 @@ Each phase has a measurable exit criterion and can ship independently.
 ## 13. Revision log
 
 - **2026-05-05 r2** — Removed fictional `marketplace_listings` table; vendors shop `CatchAlert` directly. Renamed `AutoListingFromAlertService` → `CatchAlertFanoutService` (no entity materialization). Added `vendor_watchlists` (V39) and `catch_alerts` lat/lng (V40). Order status flow extends existing constraint (V38) to add `ACCEPTED`/`READY`. Added Phase 1 buyer marketplace cutover from `demand_listings` to `storefront_listings` (latent buyer-modernization bug, confirmed by user). Added explicit phase exit criteria, slug constraints, 365d analytics cap, integration tests for Flows B and C, bounded fisherman-side scope. Verified `orders.buyer_id`/`seller_id` are role-agnostic.
+- **2026-05-05 r3** — Dropped V41 (no-op data migration; demo seed handled inline). Moved `orders.storefront_listing_id` column add from V38 to V36 so all retail orders carry the linkage from Phase 1. Added overcommit prevention to Flow B: `catch_alerts.claimed_kg` (V40) + row-locked `SELECT FOR UPDATE` in `ProcurementOrderService.checkout`; cancel restores `claimed_kg`. Tightened slug regex to require leading letter (avoids numeric collision on `/shop/:vendorIdOrSlug`). Added `is_deleted` to `shop_profiles` and `vendor_watchlists` per soft-delete convention. Verified `orders.catch_alert_id` already exists (V18); no new column needed.
