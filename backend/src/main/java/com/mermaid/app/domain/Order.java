@@ -3,6 +3,7 @@ package com.mermaid.app.domain;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "orders")
@@ -49,6 +50,9 @@ public class Order {
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;
 
+    @Column(name = "cart_checkout_id")
+    private UUID cartCheckoutId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -93,6 +97,8 @@ public class Order {
     public void setNotes(String notes) { this.notes = notes; }
     public String getDeliveryAddress() { return deliveryAddress; }
     public void setDeliveryAddress(String deliveryAddress) { this.deliveryAddress = deliveryAddress; }
+    public UUID getCartCheckoutId() { return cartCheckoutId; }
+    public void setCartCheckoutId(UUID cartCheckoutId) { this.cartCheckoutId = cartCheckoutId; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

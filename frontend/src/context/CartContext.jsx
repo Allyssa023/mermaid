@@ -40,12 +40,15 @@ export function CartProvider({ children }) {
     try {
       const data = await apiPost('/buyer/cart/items', null, { listingId, quantityKg, notes });
       setCart(data || EMPTY);
+      // Safety-net refresh to guarantee sidebar badge + cart views are in sync
+      // even if the POST response shape doesn't match the expected cart envelope.
+      refresh();
       return { ok: true };
     } catch (e) {
       setError(e?.message || 'Could not add to cart.');
       return { ok: false, error: e?.message };
     }
-  }, []);
+  }, [refresh]);
 
   const updateItem = useCallback(async (itemId, { quantityKg, notes }) => {
     setError(null);

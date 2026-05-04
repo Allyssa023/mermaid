@@ -1,12 +1,20 @@
 package com.mermaid.app.mapper;
 
 import com.mermaid.app.domain.Order;
+import com.mermaid.app.domain.User;
 import com.mermaid.app.model.UserRef;
+import com.mermaid.app.repository.UserRepository;
 import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.stereotype.Component;
 
 @Component
 public class BuyerOrderMapper {
+
+    private final UserRepository userRepo;
+
+    public BuyerOrderMapper(UserRepository userRepo) {
+        this.userRepo = userRepo;
+    }
 
     public com.mermaid.app.model.Order toModel(Order entity) {
         com.mermaid.app.model.Order m = new com.mermaid.app.model.Order();
@@ -18,9 +26,15 @@ public class BuyerOrderMapper {
 
         UserRef seller = new UserRef();
         seller.setId(entity.getSellerId());
+        userRepo.findById(entity.getSellerId())
+                .map(User::getFullName)
+                .ifPresent(seller::setFullName);
         m.setSeller(seller);
 
         m.setDemandListingId(JsonNullable.of(entity.getDemandListingId()));
+        if (entity.getCartCheckoutId() != null) {
+            m.setCartCheckoutId(JsonNullable.of(entity.getCartCheckoutId()));
+        }
 
         if (entity.getSpecies() != null) {
             com.mermaid.app.model.FishSpecies speciesModel = new com.mermaid.app.model.FishSpecies();

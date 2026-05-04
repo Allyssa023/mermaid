@@ -153,6 +153,78 @@ public class CartService {
         return getCart(buyerId);
     }
 
+    /**
+     * Re-add a past order's listing to the cart. Returns warnings (not exceptions)
+     * for closed listings or capped quantities so the buyer can see what changed.
+     */
+    @Transactional
+    public ReorderResult reorder(Long buyerId, com.mermaid.app.domain.Order order) {
+        java.util.List<String> warnings = new java.util.ArrayList<>();
+        Long listingId = order.getDemandListingId();
+        BigDecimal desiredQty = order.getOrderedQtyKg() != null
+                ? order.getOrderedQtyKg() : BigDecimal.ONE;
+
+        if (listingId == null) {
+            warnings.add("Original order has no linked listing — nothing to re-add.");
+            return new ReorderResult(getCart(buyerId), warnings);
+        }
+
+        Optional<DemandListing> listingOpt = listingRepo.findById(listingId);
+        if (listingOpt.isEmpty() || listingOpt.get().isDeleted()) {
+            warnings.add("This listing is no longer available.");
+            return new ReorderResult(getCart(buyerId), warnings);
+        }
+        DemandListing listing = listingOpt.get();
+        if (listing.getStatus() != DemandListingStatus.OPEN) {
+            warnings.add("This listing has closed and can't be re-ordered.");
+            return new ReorderResult(getCart(buyerId), warnings);
+        }
+
+        BigDecimal cap = listing.getQuantityKg();
+        BigDecimal qty = desiredQty;
+        if (cap != null && qty.compareTo(cap) > 0) {
+            qty = cap;
+            warnings.add("Quantity reduced to " + cap + "kg — the vendor has less available than your last order.");
+        }
+
+        Cart cart = cartRepo.findByBuyerId(buyerId).orElseGet(() -> {
+            Cart c = new Cart();
+            c.setBuyerId(buyerId);
+            return cartRepo.save(c);
+        });
+
+        Optional<CartItem> existing = itemRepo.findByCart_IdAndListing_Id(cart.getId(), listing.getId());
+        if (existing.isPresent()) {
+            CartItem ci = existing.get();
+            BigDecimal merged = ci.getQuantityKg().add(qty);
+            if (cap != null && merged.compareTo(cap) > 0) {
+                merged = cap;
+                warnings.add("Cart quantity capped at vendor's available " + cap + "kg.");
+            }
+            ci.setQuantityKg(merged);
+            itemRepo.save(ci);
+        } else {
+            CartItem ci = new CartItem();
+            ci.setCart(cart);
+            ci.setListing(listing);
+            ci.setQuantityKg(qty);
+            ci.setUnitPriceSnapshot(listing.getOfferPricePerKg());
+            itemRepo.save(ci);
+        }
+
+        if (listing.getOfferPricePerKg() != null
+                && order.getAgreedPricePerKg() != null
+                && listing.getOfferPricePerKg().compareTo(order.getAgreedPricePerKg()) != 0) {
+            warnings.add("Price has changed since your last order (was ₱"
+                    + order.getAgreedPricePerKg() + "/kg, now ₱"
+                    + listing.getOfferPricePerKg() + "/kg).");
+        }
+
+        return new ReorderResult(getCart(buyerId), warnings);
+    }
+
+    public record ReorderResult(BuyerCartView cart, java.util.List<String> warnings) {}
+
     private Map<Long, User> batchVendors(Cart cart) {
         List<Long> vendorIds = cart.getItems().stream()
                 .map(ci -> ci.getListing() != null ? ci.getListing().getVendorId() : null)

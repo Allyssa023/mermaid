@@ -19,4 +19,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
            "u.id IN (SELECT m.recipient.id FROM Message m WHERE m.sender.id = :userId) " +
            "OR u.id IN (SELECT m.sender.id FROM Message m WHERE m.recipient.id = :userId)")
     List<User> findUsersWithConversations(Long userId);
+
+    @Query("SELECT m FROM Message m WHERE m.recipient.id = :userId ORDER BY m.sentAt DESC")
+    List<Message> findRecentReceived(Long userId, org.springframework.data.domain.Pageable pageable);
 }

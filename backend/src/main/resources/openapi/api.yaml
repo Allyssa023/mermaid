@@ -1665,6 +1665,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /buyer/orders/{orderId}/reorder:
+    post:
+      tags: [Buyer Orders]
+      summary: Re-add a past order's listing to the cart ("Buy Again")
+      operationId: reorderBuyerOrder
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Reorder result with cart and warnings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReorderResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /buyer/activity:
+    get:
+      tags: [Buyer Orders]
+      summary: Unified activity feed (notifications + order events + messages)
+      operationId: getBuyerActivity
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Activity feed items, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityFeedItem'
+
   /trips:
     get:
       tags: [Trips]
@@ -4069,6 +4118,11 @@ components:
         deliveryAddress:
           type: string
           nullable: true
+        cartCheckoutId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Groups orders that originated from the same cart checkout
         handoff:
           $ref: '#/components/schemas/HandoffConfirmation'
           nullable: true
@@ -4425,3 +4479,43 @@ components:
         gateway:
           type: string
           enum: [PAYMONGO, STUB]
+
+    ActivityFeedItem:
+      type: object
+      required: [id, kind, title, body, occurredAt]
+      properties:
+        id:
+          type: string
+          description: Composite id "{kind}:{sourceId}" — stable per source row
+        kind:
+          type: string
+          enum: [NOTIFICATION, ORDER_STATUS, MESSAGE]
+        title:
+          type: string
+        body:
+          type: string
+        link:
+          type: string
+          nullable: true
+        unread:
+          type: boolean
+          default: false
+        occurredAt:
+          type: string
+          format: date-time
+        meta:
+          type: object
+          additionalProperties: true
+          description: Kind-specific extras (orderId, status, fromUserId, etc.)
+
+    ReorderResponse:
+      type: object
+      required: [cart, warnings]
+      properties:
+        cart:
+          $ref: '#/components/schemas/BuyerCartView'
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Human-readable issues (closed listing, reduced qty, etc.)

@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class CheckoutService {
@@ -91,7 +92,9 @@ public class CheckoutService {
             }
         }
 
-        // Create one Order per cart item.
+        // Create one Order per cart item, all tagged with the same checkout id
+        // so My Orders can group them under one header.
+        UUID cartCheckoutId = UUID.randomUUID();
         List<Long> orderIds = new ArrayList<>();
         BigDecimal grandTotal = BigDecimal.ZERO;
         for (CartItem ci : cart.getItems()) {
@@ -106,6 +109,7 @@ public class CheckoutService {
             order.setAgreedPricePerKg(listing.getOfferPricePerKg());
             order.setOrderedQtyKg(ci.getQuantityKg());
             order.setDispatchMode(spec.getDispatchMode().getValue());
+            order.setCartCheckoutId(cartCheckoutId);
             if ("DELIVERY".equals(spec.getDispatchMode().getValue())) {
                 order.setDeliveryAddress(addrsByVendor.get(listing.getVendorId()).toSingleLine());
             }

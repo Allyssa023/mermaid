@@ -10,7 +10,7 @@ import './design-system.css'
 import './light-compat.css'
 import './handoff.css'
 import './buyer.css'
-import { apiGet, apiPost, apiPatch, apiPut, apiUpload } from './api'
+import { apiGet, apiPost, apiPatch, apiPut, apiUpload, apiDelete } from './api'
 import { I } from './icons'
 import Messages from './Messages'
 import { useCart } from './context/CartContext'
@@ -33,6 +33,14 @@ function fmtPrice(p) {
 
 // ── Order Modal ───────────────────────────────────────────────────────────────
 
+function useEscapeToClose(onClose) {
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+}
+
 function OrderModal({ listing, onClose, onSuccess }) {
   const [dispatch, setDispatch]   = useState('PICKUP')
   const [address, setAddress]     = useState('')
@@ -41,6 +49,7 @@ function OrderModal({ listing, onClose, onSuccess }) {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
   const [done, setDone]           = useState(false)
+  useEscapeToClose(onClose)
 
   const addressRequired = dispatch === 'DELIVERY'
   const canSubmit = !loading && !(addressRequired && !address.trim())
@@ -79,18 +88,18 @@ function OrderModal({ listing, onClose, onSuccess }) {
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="order-modal-title" onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
         <div className="modal__head">
           <div>
             <div className="eyebrow">{vendorName}</div>
-            <h2 className="modal__title" style={{ marginTop: 4 }}>
+            <h2 id="order-modal-title" className="modal__title" style={{ marginTop: 4 }}>
               {done ? 'Order Placed!' : speciesName}
             </h2>
             {!done && (
               <div className="muted-data">★ {vendorRating} · {location}</div>
             )}
           </div>
-          <button className="btn btn--ghost btn--sm" onClick={onClose}><I.X size={14} /></button>
+          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close order modal"><I.X size={14} /></button>
         </div>
 
         {done ? (
@@ -213,6 +222,7 @@ function ReviewModal({ order, existing, onClose, onSubmitted }) {
   const [comment, setComment] = useState(existing?.comment || '')
   const [busy, setBusy]       = useState(false)
   const [error, setError]     = useState('')
+  useEscapeToClose(onClose)
 
   const isEdit = Boolean(existing?.id)
 
@@ -241,12 +251,12 @@ function ReviewModal({ order, existing, onClose, onSubmitted }) {
   const sellerName  = order.sellerName || order.seller?.fullName || 'the vendor'
 
   return (
-    <div className="modal" role="dialog" aria-modal="true">
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
       <div className="modal__backdrop" onClick={onClose} />
       <div className="modal__panel" style={{ maxWidth: 520 }}>
         <div className="modal__head">
-          <h2>{isEdit ? 'Edit review' : 'Rate your order'}</h2>
-          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close">×</button>
+          <h2 id="review-modal-title">{isEdit ? 'Edit review' : 'Rate your order'}</h2>
+          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close review modal">×</button>
         </div>
         <form onSubmit={handleSubmit} style={{ padding: '0 18px 18px' }}>
           <div className="muted-data" style={{ fontSize: 13, marginBottom: 12 }}>
@@ -479,10 +489,8 @@ function ListingDetailView() {
   const [error, setError]     = useState('')
   const [adding, setAdding]   = useState(false)
   const [addNotice, setAddNotice] = useState('')
-  const [orderListing, setOrderListing] = useState(null)
   const { addItem } = useCart()
   const onBack = () => navigate('/buyer/browse')
-  const onOrder = (l) => setOrderListing(l)
   const onSelectRelated = (id) => navigate(`/buyer/listing/${id}`)
   const onSelectVendor = (id) => navigate(`/buyer/vendor/${id}`)
 
@@ -621,10 +629,13 @@ function ListingDetailView() {
             <button
               className="btn btn--accent"
               disabled={!inStock}
-              onClick={() => onOrder(listing)}
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate('/buyer/instant-checkout', { state: { listing: { ...listing, vendor } } })
+              }}
               style={{ flex: 2 }}
             >
-              {inStock ? 'Buy now' : 'Notify me'}
+              {inStock ? 'Order now' : 'Notify me'}
             </button>
             <button
               className="btn btn--ghost"
@@ -653,14 +664,6 @@ function ListingDetailView() {
           )}
         </div>
       </div>
-
-      {orderListing && (
-        <OrderModal
-          listing={orderListing}
-          onClose={() => setOrderListing(null)}
-          onSuccess={() => { setOrderListing(null); navigate('/buyer/orders') }}
-        />
-      )}
 
       {/* Related listings */}
       {related.length > 0 && (
@@ -700,11 +703,14 @@ function ListingDetailView() {
 
 function BrowseView() {
   const navigate = useNavigate()
+  const { addItem } = useCart()
   const [listings, setListings]       = useState([])
   const [species, setSpecies]         = useState([])
   const [locations, setLocations]     = useState([])
   const [search, setSearch]           = useState('')
   const [filter, setFilter]           = useState('all')
+  const [addingId, setAddingId]       = useState(null)
+  const [addNotice, setAddNotice]     = useState('')
   const [speciesId, setSpeciesId]     = useState('')
   const [locationId, setLocationId]   = useState('')
   const [minPrice, setMinPrice]       = useState('')
@@ -718,7 +724,6 @@ function BrowseView() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showMap, setShowMap]         = useState(false)
   const [loading, setLoading]         = useState(false)
-  const [orderListing, setOrderListing] = useState(null)
   const [highlighted, setHighlighted] = useState(null)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const cardRefs = useRef({})
@@ -780,17 +785,35 @@ function BrowseView() {
     setSpeciesId(''); setLocationId(''); setMinPrice(''); setMaxPrice(''); setSort('RECENT')
   }
 
-  // Segment filters (all/available/premium/urgent) stay client-side — no server equivalent.
+  // Segment filters stay client-side — no server equivalent.
   const filtered = listings.filter(l => {
     const available = l.quantityKg || 0
     return (
       filter === 'all' ? true :
       filter === 'available' ? available > 0 :
-      filter === 'premium' ? (l.tag === 'Premium' || l.fishSpecies?.tag === 'YT' || l.fishSpecies?.tag === 'LL' || l.fishSpecies?.tag === 'RS') :
       filter === 'urgent' ? (l.urgent || (l.neededBy && new Date(l.neededBy) < new Date(Date.now() + 3 * 86400000))) :
       true
     )
   })
+
+  async function handleAddToCart(l, opts = {}) {
+    const { goToCheckout = false } = opts
+    setAddingId(l.id); setAddNotice('')
+    const defaultQty = Math.min(1, l.quantityKg || 1)
+    const res = await addItem({ listingId: l.id, quantityKg: defaultQty })
+    setAddingId(null)
+    if (!res?.ok) {
+      setAddNotice(res?.error || 'Could not add to cart.')
+      setTimeout(() => setAddNotice(''), 2500)
+      return
+    }
+    if (goToCheckout) {
+      navigate('/buyer/checkout')
+    } else {
+      setAddNotice('Added to cart.')
+      setTimeout(() => setAddNotice(''), 1800)
+    }
+  }
 
   const advancedActive = speciesId || locationId || minPrice || maxPrice || (sort && sort !== 'RECENT')
   const canLoadMore = !loading && page + 1 < totalPages
@@ -837,7 +860,6 @@ function BrowseView() {
           <div className="seg">
             <button className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
             <button className={filter === 'available' ? 'on' : ''} onClick={() => setFilter('available')}>In stock</button>
-            <button className={filter === 'premium' ? 'on' : ''} onClick={() => setFilter('premium')}>Premium</button>
             <button className={filter === 'urgent' ? 'on' : ''} onClick={() => setFilter('urgent')}>Last chance</button>
           </div>
           <button
@@ -992,13 +1014,22 @@ function BrowseView() {
                   </div>
                 </div>
                 <div className="buyer-card__foot">
-                  <button className="btn btn--ghost btn--sm" onClick={e => { e.stopPropagation(); navigate(`/buyer/listing/${l.id}`) }}>Details</button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    disabled={!inStock || addingId === l.id}
+                    onClick={e => { e.stopPropagation(); handleAddToCart(l) }}
+                  >
+                    {addingId === l.id ? 'Adding…' : 'Add to cart'}
+                  </button>
                   <button
                     className="btn btn--accent btn--sm"
                     disabled={!inStock}
-                    onClick={e => { e.stopPropagation(); setOrderListing(l) }}
+                    onClick={e => {
+                      e.stopPropagation()
+                      navigate('/buyer/instant-checkout', { state: { listing: l } })
+                    }}
                   >
-                    {inStock ? 'Order' : 'Notify me'}
+                    {inStock ? 'Order now' : 'Notify me'}
                   </button>
                 </div>
               </div>
@@ -1016,13 +1047,16 @@ function BrowseView() {
         </div>
       )}
 
-      {/* Order modal */}
-      {orderListing && (
-        <OrderModal
-          listing={orderListing}
-          onClose={() => setOrderListing(null)}
-          onSuccess={() => { setOrderListing(null); setPage(0); setRefreshTick(t => t + 1) }}
-        />
+      {addNotice && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+            background: 'var(--ink)', color: 'var(--paper, #fff)',
+            padding: '10px 18px', borderRadius: 999,
+            fontSize: 13, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', zIndex: 200,
+          }}
+        >{addNotice}</div>
       )}
     </div>
   )
@@ -1052,6 +1086,7 @@ function OrderTimelineModal({ order, onClose }) {
   const [events, setEvents]   = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
+  useEscapeToClose(onClose)
 
   function load() {
     setLoading(true)
@@ -1073,16 +1108,16 @@ function OrderTimelineModal({ order, onClose }) {
   const orderCode   = order.orderCode || `ORD-${order.id}`
 
   return (
-    <div className="modal" role="dialog" aria-modal="true">
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="timeline-modal-title">
       <div className="modal__backdrop" onClick={onClose} />
       <div className="modal__panel" style={{ maxWidth: 560 }}>
         <div className="modal__head">
           <div>
             <div className="eyebrow">{orderCode}</div>
-            <h2 style={{ marginTop: 2 }}>Order timeline</h2>
+            <h2 id="timeline-modal-title" style={{ marginTop: 2 }}>Order timeline</h2>
             <div className="muted-data" style={{ fontSize: 12 }}>{speciesName}</div>
           </div>
-          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close">×</button>
+          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close timeline modal">×</button>
         </div>
 
         <div style={{ padding: '0 18px 18px' }}>
@@ -1167,22 +1202,30 @@ function OrdersView() {
   const [timelineOrder, setTimelineOrder] = useState(null)
   const [reorderingId, setReorderingId] = useState(null)
   const [reorderError, setReorderError] = useState('')
+  const [reorderWarnings, setReorderWarnings] = useState([])
 
   async function handleReorder(o) {
-    if (!o.demandListingId && !o.listingId) {
-      setReorderError('Original listing reference is missing on this order.')
-      return
-    }
-    const listingId = o.demandListingId || o.listingId
-    const qty = o.orderedQtyKg || o.qtyKg || 1
-    setReorderingId(o.id); setReorderError('')
-    const res = await addItem({ listingId, quantityKg: Number(qty) })
-    setReorderingId(null)
-    if (res?.ok) {
-      onNavigate?.('cart')
-    } else {
-      // Listing likely closed — fall back to species-filtered browse
-      setReorderError(res?.error || 'Listing no longer available. Browse similar items.')
+    setReorderingId(o.id)
+    setReorderError('')
+    setReorderWarnings([])
+    try {
+      const res = await apiPost(`/buyer/orders/${o.id}/reorder`, null, {})
+      const warnings = Array.isArray(res?.warnings) ? res.warnings : []
+      const cart = res?.cart
+      const hasItems = cart && Array.isArray(cart.itemsByVendor)
+        ? cart.itemsByVendor.some(g => g?.items?.length > 0)
+        : true
+      if (!hasItems && warnings.length > 0) {
+        // Nothing was added — surface as error so buyer can browse alternatives.
+        setReorderError(warnings.join(' '))
+      } else {
+        if (warnings.length > 0) setReorderWarnings(warnings)
+        onNavigate?.('cart')
+      }
+    } catch (e) {
+      setReorderError(e?.message || 'Could not re-add this order to your cart.')
+    } finally {
+      setReorderingId(null)
     }
   }
 
@@ -1227,6 +1270,20 @@ function OrdersView() {
     return true
   })
 
+  // Group orders sharing a cartCheckoutId + sellerId so a single multi-vendor
+  // checkout shows up as one card per vendor instead of N rows.
+  const grouped = (() => {
+    const map = new Map()
+    for (const o of filtered) {
+      const key = o.cartCheckoutId
+        ? `${o.cartCheckoutId}::${o.seller?.id || o.sellerId || 'x'}`
+        : `single::${o.id}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(o)
+    }
+    return Array.from(map.values())
+  })()
+
   const totals = {
     active: orders.filter(o => ['PENDING', 'CONFIRMED'].includes(o.status)).length,
     completed: orders.filter(o => o.status === 'COMPLETED').length,
@@ -1235,18 +1292,29 @@ function OrdersView() {
   const totalSpent = orders.filter(o => o.status === 'COMPLETED').reduce((a, o) => a + (o.agreedPricePerKg || 0) * (o.orderedQtyKg || 0), 0)
   const totalKg = orders.filter(o => o.status === 'COMPLETED').reduce((a, o) => a + (o.orderedQtyKg || 0), 0)
 
-  // Map status to 4-step progress
-  function getSteps(o) {
-    const steps = [
-      { label: 'Placed', done: true },
-      { label: 'Confirmed', done: ['CONFIRMED', 'COMPLETED'].includes(o.status) },
-      { label: 'Handoff', done: o.handoff?.status === 'CONFIRMED' || o.status === 'COMPLETED' },
-      { label: 'Paid', done: o.payment?.status === 'CONFIRMED' || o.status === 'COMPLETED' },
-    ]
-    if (o.status === 'CANCELLED') {
-      return steps.map(s => ({ ...s, cancelled: true }))
+  const [cancellingId, setCancellingId] = useState(null)
+  async function handleCancel(o) {
+    if (!o?.id) return
+    if (!window.confirm(`Cancel order ${o.orderCode || `#${o.id}`}? This cannot be undone.`)) return
+    setCancellingId(o.id)
+    try {
+      await apiPut(`/orders/${o.id}/cancel`)
+      loadOrders()
+    } catch (e) {
+      alert(e?.message || 'Could not cancel this order.')
+    } finally {
+      setCancellingId(null)
     }
-    return steps
+  }
+
+  function handleMessageVendor(o) {
+    const vendor = {
+      id: o.seller?.id || o.sellerId,
+      fullName: o.seller?.fullName || o.vendorName || 'Vendor',
+      role: 'VENDOR',
+    }
+    if (!vendor.id) return
+    navigate('/buyer/messages', { state: { initialContact: vendor } })
   }
 
   return (
@@ -1286,13 +1354,27 @@ function OrdersView() {
       </div>
 
       {reorderError && (
-        <div className="card" style={{ marginTop: 12, padding: 12, color: 'var(--unsafe)', fontSize: 13 }}>
+        <div role="alert" className="card" style={{ marginTop: 12, padding: 12, color: 'var(--unsafe)', fontSize: 13 }}>
           {reorderError}
           <button
             className="btn btn--ghost btn--sm"
             style={{ marginLeft: 12 }}
             onClick={() => { setReorderError(''); onNavigate?.('browse') }}
           >Browse similar</button>
+        </div>
+      )}
+
+      {reorderWarnings.length > 0 && (
+        <div role="status" className="card" style={{ marginTop: 12, padding: 12, color: 'var(--ink-2)', fontSize: 13, borderLeft: '3px solid var(--accent, #f5a524)' }}>
+          <strong>Heads up:</strong>
+          <ul style={{ margin: '4px 0 0 18px', padding: 0 }}>
+            {reorderWarnings.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+          <button
+            className="btn btn--ghost btn--sm"
+            style={{ marginTop: 8 }}
+            onClick={() => setReorderWarnings([])}
+          >Dismiss</button>
         </div>
       )}
 
@@ -1310,116 +1392,137 @@ function OrdersView() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '12px 0' }}>
             {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 80 }} />)}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : grouped.length === 0 ? (
           <div className="buyer-empty" style={{ padding: '40px 20px' }}>
             <I.Clipboard size={28} />
             <span>No orders in this category yet.</span>
           </div>
         ) : (
           <div className="orders-list">
-            {filtered.map(o => {
-              const speciesName = o.species?.commonName || o.fishSpecies?.commonName || '—'
-              const vendor = o.seller?.fullName || o.vendorName || '—'
-              const orderCode = o.orderCode || `ORD-${o.id}`
-              const listingCode = o.listingCode || `L-${o.listingId || '?'}`
-              const pricePerKg = o.agreedPricePerKg || o.pricePerKg || 0
-              const qtyKg = o.orderedQtyKg || o.qtyKg || 0
-              const total = pricePerKg * qtyKg
-              const steps = getSteps(o)
+            {grouped.map(group => {
+              const head = group[0]
+              const vendor = head.seller?.fullName || head.vendorName || '—'
+              const groupTotal = group.reduce(
+                (a, o) => a + (o.agreedPricePerKg || 0) * (o.orderedQtyKg || 0), 0)
+              const groupKg = group.reduce((a, o) => a + (o.orderedQtyKg || 0), 0)
+              const status = head.status
+              const checkoutLabel = head.cartCheckoutId
+                ? `Checkout · ${group.length} item${group.length === 1 ? '' : 's'}`
+                : (head.orderCode || `ORD-${head.id}`)
 
               return (
-                <div key={o.id} className="order-row">
-                  {/* Header: species + vendor + status */}
+                <div key={(head.cartCheckoutId || head.id) + '-' + (head.seller?.id || '')} className="order-row">
                   <div className="order-row__head">
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
-                        <span className="kbd">{orderCode}</span>
-                        <span className={`status status--${o.status?.toLowerCase()}`}>
-                          <span className="status__dot" /> {o.status}
+                        <span className="kbd">{checkoutLabel}</span>
+                        <span className={`status status--${status?.toLowerCase()}`}>
+                          <span className="status__dot" /> {status}
                         </span>
                       </div>
                       <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--ink)', lineHeight: 1.1 }}>
-                        {speciesName}
+                        {group.length === 1
+                          ? (head.species?.commonName || head.fishSpecies?.commonName || '—')
+                          : `${group.length} items from ${vendor}`}
                       </div>
-                      <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span>from <strong style={{ color: 'var(--ink-2)', fontWeight: 500 }}>{vendor}</strong></span>
                         <span style={{ color: 'var(--ink-4)' }}>·</span>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)' }}>
-                          {fmt(o.createdAt || o.placedAt)}
+                          {fmt(head.createdAt || head.placedAt)}
                         </span>
                         <span style={{ color: 'var(--ink-4)' }}>·</span>
                         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)' }}>
-                          {o.dispatchMode || 'PICKUP'}
+                          {head.dispatchMode || 'PICKUP'}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Stats grid */}
+                  {group.length > 1 ? (
+                    <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>
+                      {group.map(o => (
+                        <div key={o.id} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          fontSize: 13, padding: '6px 10px', borderBottom: '1px solid var(--line-soft)',
+                        }}>
+                          <span style={{ flex: 1 }}>
+                            {o.species?.commonName || o.fishSpecies?.commonName || '—'}
+                            <span className="muted-data" style={{ marginLeft: 6, fontSize: 11 }}>
+                              · {o.orderCode || `ORD-${o.id}`}
+                            </span>
+                          </span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--ink-3)' }}>
+                            {(o.orderedQtyKg || 0)}kg × {fmtPrice(o.agreedPricePerKg || 0)}
+                          </span>
+                          <span style={{ minWidth: 90, textAlign: 'right', fontFamily: 'var(--font-mono)' }}>
+                            {fmtPrice((o.agreedPricePerKg || 0) * (o.orderedQtyKg || 0))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+
                   <div className="order-row__stats">
                     <div>
                       <div className="l">Quantity</div>
-                      <div className="v">{qtyKg}<small>kg</small></div>
+                      <div className="v">{groupKg}<small>kg</small></div>
                     </div>
                     <div>
-                      <div className="l">Price / kg</div>
-                      <div className="v">{fmtPrice(pricePerKg)}</div>
+                      <div className="l">Items</div>
+                      <div className="v">{group.length}</div>
                     </div>
                     <div>
                       <div className="l">Total</div>
-                      <div className="v">{fmtPrice(total)}</div>
+                      <div className="v">{fmtPrice(groupTotal)}</div>
                     </div>
                     <div>
-                      <div className="l">Listing</div>
-                      <div className="v" style={{ fontFamily: 'var(--font-mono)', fontSize: 15 }}>{listingCode}</div>
+                      <div className="l">Vendor</div>
+                      <div className="v" style={{ fontSize: 14 }}>{vendor}</div>
                     </div>
                   </div>
 
-                  {/* 4-step progress */}
-                  <div className="order-row__progress">
-                    {steps.map((s, i) => (
-                      <div key={i} className={`step${s.done ? ' step--done' : ''}${s.cancelled ? ' step--cancelled' : ''}`}>
-                        <div className="step__dot" />
-                        <span>{s.label}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Footer: info + action buttons */}
                   <div className="order-row__foot">
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '100%' }}>
                       <span className="muted-data">
-                        {o.payment?.method ? `Paid via ${o.payment.method.replace('_', ' ')}` :
-                         o.cancelReason ? o.cancelReason : 'Awaiting next step'}
+                        {head.payment?.method ? `Paid via ${head.payment.method.replace('_', ' ')}` :
+                         head.cancelReason ? head.cancelReason : 'Awaiting next step'}
                       </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <button className="btn btn--ghost btn--sm" onClick={() => setTimelineOrder(o)}>Timeline</button>
-                        <button className="btn btn--ghost btn--sm">Message vendor</button>
-                        {o.status === 'PENDING' && <button className="btn btn--ghost btn--sm">Cancel</button>}
-                        {o.status === 'CONFIRMED' && <button className="btn btn--accent btn--sm">Confirm receipt</button>}
-                        {o.status === 'COMPLETED' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                        <button className="btn btn--ghost btn--sm" onClick={() => setTimelineOrder(head)}>Timeline</button>
+                        <button className="btn btn--ghost btn--sm" onClick={() => handleMessageVendor(head)}>Message vendor</button>
+                        {status === 'PENDING' && (
                           <button
                             className="btn btn--ghost btn--sm"
-                            disabled={reorderingId === o.id}
-                            onClick={() => handleReorder(o)}
-                          >{reorderingId === o.id ? 'Adding…' : 'Re-order'}</button>
+                            disabled={cancellingId === head.id}
+                            onClick={() => handleCancel(head)}
+                          >{cancellingId === head.id ? 'Cancelling…' : 'Cancel'}</button>
                         )}
-                        {o.status === 'COMPLETED' && (
-                          reviewedOrderIds.has(o.id) ? (
+                        {status === 'CONFIRMED' && <button className="btn btn--accent btn--sm">Confirm receipt</button>}
+                        {status === 'COMPLETED' && (
+                          <button
+                            className="btn btn--ghost btn--sm"
+                            disabled={reorderingId === head.id}
+                            aria-label={`Buy from ${vendor} again`}
+                            onClick={() => handleReorder(head)}
+                          >{reorderingId === head.id ? 'Adding…' : 'Buy Again'}</button>
+                        )}
+                        {status === 'COMPLETED' && (
+                          reviewedOrderIds.has(head.id) ? (
                             <button
                               className="btn btn--ghost btn--sm"
                               onClick={async () => {
                                 try {
-                                  const r = await apiGet(`/buyer/orders/${o.id}/review`)
+                                  const r = await apiGet(`/buyer/orders/${head.id}/review`)
                                   setReviewExisting(r)
-                                  setReviewOrder(o)
+                                  setReviewOrder(head)
                                 } catch { /* fall through */ }
                               }}
                             >Edit review</button>
                           ) : (
                             <button
                               className="btn btn--accent btn--sm"
-                              onClick={() => { setReviewExisting(null); setReviewOrder(o) }}
+                              onClick={() => { setReviewExisting(null); setReviewOrder(head) }}
                             >Leave review</button>
                           )
                         )}
@@ -1589,6 +1692,15 @@ function SavedVendorsView() {
 function DashboardView({ user, onOrderListing }) {
   const navigate = useNavigate()
   const onNavigate = (id) => navigate(`/buyer/${id}`)
+  const { addItem } = useCart()
+  const [orderingId, setOrderingId] = useState(null)
+  const orderNow = (l) => {
+    if (!l?.id) return
+    navigate('/buyer/instant-checkout', { state: { listing: l } })
+  }
+  // Backwards compat: parent still passes onOrderListing for the legacy modal,
+  // but we override the click handlers below to send the buyer through cart → checkout.
+  void onOrderListing
   const [pendingCount,   setPendingCount]   = useState(null)
   const [confirmedCount, setConfirmedCount] = useState(null)
   const [recentOrders,   setRecentOrders]   = useState([])
@@ -1615,9 +1727,9 @@ function DashboardView({ user, onOrderListing }) {
       setListingCount(listings.length)
     }).finally(() => setLoading(false))
 
-    // Phase 4.1 — activity feed sourced from notifications stream
+    // Phase 4.1 — unified activity feed (notifications + order events + messages)
     setActivityLoading(true)
-    apiGet('/notifications?size=15')
+    apiGet('/buyer/activity?limit=15')
       .then(d => setActivity(Array.isArray(d) ? d : []))
       .catch(() => setActivity([]))
       .finally(() => setActivityLoading(false))
@@ -1693,14 +1805,18 @@ function DashboardView({ user, onOrderListing }) {
             </button>
           </div>
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} aria-busy="true" aria-label="Loading recent orders">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="skeleton" style={{ height: 48, borderRadius: 6 }} />
               ))}
             </div>
           ) : recentOrders.length === 0 ? (
-            <div style={{ color: 'var(--ink-3)', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
-              No orders yet.
+            <div className="buyer-empty" style={{ padding: '24px 12px', gap: 8 }}>
+              <I.Clipboard size={24} />
+              <span>No orders yet — your purchases will land here.</span>
+              <button className="btn btn--ghost btn--sm" onClick={() => onNavigate('browse')}>
+                Browse listings
+              </button>
             </div>
           ) : (
             <table className="tbl">
@@ -1744,14 +1860,15 @@ function DashboardView({ user, onOrderListing }) {
             </button>
           </div>
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} aria-busy="true" aria-label="Loading fresh listings">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="skeleton" style={{ height: 64, borderRadius: 6 }} />
               ))}
             </div>
           ) : featuredListings.length === 0 ? (
-            <div style={{ color: 'var(--ink-3)', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
-              No listings available.
+            <div className="buyer-empty" style={{ padding: '24px 12px', gap: 8 }}>
+              <I.Store size={24} />
+              <span>No open listings right now — check back soon.</span>
             </div>
           ) : (
             <div>
@@ -1775,9 +1892,10 @@ function DashboardView({ user, onOrderListing }) {
                   </div>
                   <button
                     className="btn btn--primary btn--sm"
-                    onClick={() => onOrderListing(l)}
+                    disabled={orderingId === l.id}
+                    onClick={() => orderNow(l)}
                   >
-                    Order
+                    {orderingId === l.id ? '…' : 'Order now'}
                   </button>
                 </div>
               ))}
@@ -1797,41 +1915,56 @@ function DashboardView({ user, onOrderListing }) {
             </div>
           </div>
           {activityLoading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} aria-busy="true" aria-label="Loading recent activity">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="skeleton" style={{ height: 44, borderRadius: 6 }} />
               ))}
             </div>
           ) : activity.length === 0 ? (
-            <div style={{ color: 'var(--ink-3)', fontSize: 13, padding: '16px 0', textAlign: 'center' }}>
-              You're all caught up — activity will appear here as your orders progress.
+            <div className="buyer-empty" style={{ padding: '24px 12px', gap: 8 }}>
+              <I.Bell size={24} />
+              <span>You're all caught up — activity will appear here as orders progress.</span>
             </div>
           ) : (
             <div>
               {activity.slice(0, 8).map(a => {
-                const isUnread = !a.readAt
+                const isUnread = !!a.unread
+                const dotColor = a.kind === 'ORDER_STATUS'
+                  ? 'var(--brand, #2d7ef7)'
+                  : a.kind === 'MESSAGE'
+                    ? 'var(--success, #22c55e)'
+                    : (isUnread ? 'var(--accent, #f5a524)' : 'var(--ink-4, #ccc)')
                 return (
                   <div
                     key={a.id}
+                    role={a.link ? 'button' : undefined}
+                    tabIndex={a.link ? 0 : undefined}
+                    aria-label={a.link ? `${a.title} — open` : a.title}
                     style={{
                       display: 'flex', gap: 10, padding: '10px 0',
                       borderBottom: '1px solid var(--line-soft)',
                       cursor: a.link ? 'pointer' : 'default',
                     }}
                     onClick={() => { if (a.link) navigate(a.link) }}
+                    onKeyDown={(e) => {
+                      if (a.link && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault()
+                        navigate(a.link)
+                      }
+                    }}
                   >
                     <div style={{
                       width: 8, height: 8, borderRadius: '50%',
-                      background: isUnread ? 'var(--accent, #f5a524)' : 'var(--ink-4, #ccc)',
+                      background: dotColor,
                       marginTop: 6, flexShrink: 0,
-                    }} />
+                    }} aria-hidden="true" />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: isUnread ? 600 : 500, fontSize: 13 }}>{a.title}</div>
                       <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>
                         {a.body}
                       </div>
                       <div className="muted-data" style={{ fontSize: 11, marginTop: 4 }}>
-                        {timeAgo(a.createdAt)}
+                        {timeAgo(a.occurredAt || a.createdAt)}
                       </div>
                     </div>
                   </div>
@@ -1885,9 +2018,10 @@ function DashboardView({ user, onOrderListing }) {
                   </div>
                   <button
                     className="btn btn--primary btn--sm"
-                    onClick={() => onOrderListing(l)}
+                    disabled={orderingId === l.id}
+                    onClick={() => orderNow(l)}
                   >
-                    Order
+                    {orderingId === l.id ? '…' : 'Order now'}
                   </button>
                 </div>
               ))}
@@ -1975,11 +2109,16 @@ function CartView() {
       )}
 
       {cart.warnings && cart.warnings.length > 0 && (
-        <div className="card" style={{ marginTop: 14, padding: 12 }}>
-          <div className="label" style={{ color: 'var(--warn)' }}>Heads up</div>
-          <ul style={{ margin: '6px 0 0 18px' }}>
-            {cart.warnings.map((w, i) => <li key={i} style={{ fontSize: 13 }}>{w}</li>)}
-          </ul>
+        <div className="card" style={{ marginTop: 14, padding: 14, borderLeft: '3px solid var(--warn, #f5a524)' }}>
+          <div className="label" style={{ color: 'var(--warn)', marginBottom: 8 }}>Heads up</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {cart.warnings.filter(Boolean).map((w, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--ink-2)' }}>
+                <I.Alert size={13} />
+                <span style={{ flex: 1 }}>{w}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -2037,7 +2176,9 @@ function CartView() {
                     disabled={busy === item.id}
                     onClick={() => handleRemove(item.id)}
                     aria-label="Remove item"
-                  ><I.Dots size={12} /></button>
+                    title="Remove from cart"
+                    style={{ color: 'var(--unsafe)' }}
+                  ><I.Trash size={12} /></button>
                 </div>
               ))}
             </div>
@@ -2045,9 +2186,9 @@ function CartView() {
         ))}
       </div>
 
-      <div className="card" style={{ marginTop: 18, padding: 16, position: 'sticky', bottom: 12 }}>
-        <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
+      <div className="card" style={{ marginTop: 18, padding: 18, position: 'sticky', bottom: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+          <div style={{ textAlign: 'center' }}>
             <div className="label">Grand total</div>
             <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{fmtPrice(cart.grandTotal)}</div>
           </div>
@@ -2055,11 +2196,285 @@ function CartView() {
             className="btn btn--accent"
             onClick={onCheckout}
             disabled={!onCheckout || cart.itemCount === 0}
-            style={{ minWidth: 200 }}
+            style={{ minWidth: 240 }}
           >
             Proceed to checkout
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Instant Checkout View ("Buy Now" – separate from cart) ────────────────────
+
+function InstantCheckoutView() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const listing = location.state?.listing
+
+  const [addresses, setAddresses]         = useState([])
+  const [loadingAddrs, setLoadingAddrs]   = useState(true)
+  const [dispatchMode, setDispatchMode]   = useState('PICKUP')
+  const [addressId, setAddressId]         = useState(null)
+  const [qty, setQty]                     = useState(listing?.quantityKg ? Math.min(1, listing.quantityKg) : 1)
+  const [notes, setNotes]                 = useState('')
+  const [submitting, setSubmitting]       = useState(false)
+  const [error, setError]                 = useState('')
+  const [showNewAddress, setShowNewAddress] = useState(false)
+  const [newAddress, setNewAddress] = useState({
+    label: 'Home', recipientName: '', phone: '',
+    addressLine1: '', addressLine2: '', barangay: '',
+    city: '', province: '', postalCode: '',
+  })
+
+  useEffect(() => {
+    apiGet('/buyer/addresses')
+      .then(d => { setAddresses(d || []); if (d?.length) setAddressId((d.find(a => a.isDefault) || d[0])?.id || null) })
+      .catch(() => setAddresses([]))
+      .finally(() => setLoadingAddrs(false))
+  }, [])
+
+  if (!listing) {
+    return (
+      <div className="page">
+        <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+          <button className="btn btn--ghost btn--sm" onClick={() => navigate('/buyer/browse')}><I.ChevL size={12} /> Back to marketplace</button>
+        </div>
+        <div className="buyer-empty" style={{ marginTop: 40 }}>
+          <I.Alert size={36} />
+          <span>No listing selected. Go back and click "Order now" on a listing.</span>
+        </div>
+      </div>
+    )
+  }
+
+  const speciesName = listing.fishSpecies?.commonName || 'Listing'
+  const price = listing.offerPricePerKg || listing.pricePerKg || 0
+  const available = listing.quantityKg || 0
+  const lineTotal = price * qty
+  const vendorName = listing.vendorName || listing.vendor?.fullName || '—'
+  const locationName = listing.marketLocation?.name || '—'
+  const tag = listing.fishSpecies?.tag || speciesName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+
+  async function handleAddAddress(e) {
+    e.preventDefault()
+    if (!newAddress.recipientName.trim() || !newAddress.addressLine1.trim() || !newAddress.city.trim()) {
+      setError('Recipient name, address line 1, and city are required.')
+      return
+    }
+    try {
+      const created = await apiPost('/buyer/addresses', null, { ...newAddress, setAsDefault: addresses.length === 0 })
+      setAddresses(prev => [...prev, created])
+      setAddressId(created.id)
+      setShowNewAddress(false)
+      setError('')
+      setNewAddress({ label: 'Home', recipientName: '', phone: '', addressLine1: '', addressLine2: '', barangay: '', city: '', province: '', postalCode: '' })
+    } catch (e) {
+      setError(e?.message || 'Could not save address.')
+    }
+  }
+
+  async function handlePlace() {
+    setError('')
+    if (dispatchMode === 'DELIVERY') {
+      const addr = addresses.find(a => a.id === addressId)
+      if (!addr) { setError('Please select a delivery address.'); return }
+    }
+    setSubmitting(true)
+    try {
+      const deliveryAddr = dispatchMode === 'DELIVERY'
+        ? (addresses.find(a => a.id === addressId)?.oneLine || addresses.find(a => a.id === addressId)?.addressLine1 || '')
+        : undefined
+      await apiPost('/buyer/orders', null, {
+        listingId: listing.id,
+        dispatchMode,
+        orderedQtyKg: qty,
+        deliveryAddress: deliveryAddr,
+        notes: notes.trim() || undefined,
+      })
+      navigate('/buyer/orders')
+    } catch (e) {
+      setError(e?.message || 'Could not place order.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="page">
+      <div className="row" style={{ alignItems: 'center', gap: 8 }}>
+        <button className="btn btn--ghost btn--sm" onClick={() => navigate(-1)}><I.ChevL size={12} /> Back</button>
+      </div>
+
+      <div className="page__head" style={{ marginTop: 6 }}>
+        <div>
+          <div className="eyebrow">Checkout</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>Place your <em>order</em></h1>
+          <p className="page__sub">Review your order details and confirm.</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="card" style={{ marginTop: 14, padding: 12, borderColor: 'var(--unsafe)' }}>
+          <span style={{ color: 'var(--unsafe)' }}>{error}</span>
+        </div>
+      )}
+
+      {/* Order item card */}
+      <div className="card" style={{ marginTop: 18, padding: 16 }}>
+        <div className="row" style={{ alignItems: 'center', gap: 14 }}>
+          <div className="buyer-card__hero" data-tag={tag} style={{ width: 72, height: 72, borderRadius: 12, flexShrink: 0, position: 'relative' }}>
+            <div className="buyer-card__species-tag" style={{ fontSize: 18 }}>{tag}</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 600, fontSize: 16 }}>{speciesName}</div>
+            <div className="muted-data" style={{ fontSize: 13, marginTop: 2 }}>{vendorName}</div>
+            <div className="muted-data" style={{ fontSize: 12, marginTop: 2 }}><I.MapPin size={10} /> {locationName}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{fmtPrice(price)}<small style={{ fontWeight: 400, fontSize: 12 }}>/kg</small></div>
+            <div className="muted-data" style={{ fontSize: 12, marginTop: 2 }}>{available}kg available</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 16, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+          <div className="label">Quantity (kg)</div>
+          <div className="row" style={{ alignItems: 'center', gap: 8, marginTop: 6 }}>
+            <button
+              className="btn btn--ghost btn--sm"
+              disabled={qty <= 0.5}
+              onClick={() => setQty(q => +(q - 0.5).toFixed(2))}
+            >−</button>
+            <input
+              type="number"
+              className="input"
+              value={qty}
+              min={0.1}
+              max={available}
+              step={0.5}
+              onChange={e => setQty(Math.max(0.1, Math.min(available, Number(e.target.value) || 0.1)))}
+              style={{ width: 80, textAlign: 'center', fontFamily: 'var(--font-mono)' }}
+            />
+            <button
+              className="btn btn--ghost btn--sm"
+              disabled={qty >= available}
+              onClick={() => setQty(q => Math.min(available, +(q + 0.5).toFixed(2)))}
+            >+</button>
+            <span className="muted-data" style={{ fontSize: 12 }}>of {available}kg</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Dispatch mode */}
+      <div className="card" style={{ marginTop: 14, padding: 16 }}>
+        <div className="label">How would you like to receive this?</div>
+        <div className="row" style={{ gap: 10, marginTop: 10 }}>
+          <button
+            className={`btn btn--sm ${dispatchMode === 'PICKUP' ? 'btn--accent' : 'btn--ghost'}`}
+            onClick={() => { setDispatchMode('PICKUP'); setAddressId(null) }}
+          >
+            🏪 Pickup
+          </button>
+          <button
+            className={`btn btn--sm ${dispatchMode === 'DELIVERY' ? 'btn--accent' : 'btn--ghost'}`}
+            onClick={() => {
+              setDispatchMode('DELIVERY')
+              if (!addressId && addresses.length) setAddressId((addresses.find(a => a.isDefault) || addresses[0])?.id)
+            }}
+          >
+            🚚 Delivery
+          </button>
+        </div>
+
+        {dispatchMode === 'DELIVERY' && (
+          <div style={{ marginTop: 14 }}>
+            <div className="label">Delivery address</div>
+            {loadingAddrs ? (
+              <div className="muted-data" style={{ fontSize: 12 }}>Loading addresses…</div>
+            ) : addresses.length === 0 ? (
+              <div className="muted-data" style={{ fontSize: 13 }}>No saved addresses — add one below.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+                {addresses.map(a => (
+                  <label key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: 10, border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', background: addressId === a.id ? 'var(--surface-2)' : 'transparent' }}>
+                    <input
+                      type="radio"
+                      name="instant-addr"
+                      checked={addressId === a.id}
+                      onChange={() => setAddressId(a.id)}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>
+                        {a.label} {a.isDefault && <span className="muted-data" style={{ fontSize: 11 }}>· Default</span>}
+                      </div>
+                      <div className="muted-data" style={{ fontSize: 12 }}>{a.recipientName}{a.phone ? ` · ${a.phone}` : ''}</div>
+                      <div className="muted-data" style={{ fontSize: 12 }}>{a.oneLine || a.addressLine1}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+            <button className="btn btn--ghost btn--sm" style={{ marginTop: 8 }} onClick={() => setShowNewAddress(v => !v)}>
+              {showNewAddress ? 'Cancel' : '+ Add new address'}
+            </button>
+            {showNewAddress && (
+              <form onSubmit={handleAddAddress} style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="row" style={{ gap: 8 }}>
+                  <input className="input" placeholder="Label (Home, Office…)" value={newAddress.label} onChange={e => setNewAddress(p => ({ ...p, label: e.target.value }))} style={{ flex: 1 }} />
+                  <input className="input" placeholder="Recipient name *" value={newAddress.recipientName} onChange={e => setNewAddress(p => ({ ...p, recipientName: e.target.value }))} style={{ flex: 2 }} />
+                </div>
+                <input className="input" placeholder="Phone" value={newAddress.phone} onChange={e => setNewAddress(p => ({ ...p, phone: e.target.value }))} />
+                <input className="input" placeholder="Address line 1 *" value={newAddress.addressLine1} onChange={e => setNewAddress(p => ({ ...p, addressLine1: e.target.value }))} />
+                <input className="input" placeholder="Address line 2" value={newAddress.addressLine2} onChange={e => setNewAddress(p => ({ ...p, addressLine2: e.target.value }))} />
+                <div className="row" style={{ gap: 8 }}>
+                  <input className="input" placeholder="Barangay" value={newAddress.barangay} onChange={e => setNewAddress(p => ({ ...p, barangay: e.target.value }))} style={{ flex: 1 }} />
+                  <input className="input" placeholder="City *" value={newAddress.city} onChange={e => setNewAddress(p => ({ ...p, city: e.target.value }))} style={{ flex: 1 }} />
+                </div>
+                <div className="row" style={{ gap: 8 }}>
+                  <input className="input" placeholder="Province" value={newAddress.province} onChange={e => setNewAddress(p => ({ ...p, province: e.target.value }))} style={{ flex: 1 }} />
+                  <input className="input" placeholder="Postal code" value={newAddress.postalCode} onChange={e => setNewAddress(p => ({ ...p, postalCode: e.target.value }))} style={{ flex: 1 }} />
+                </div>
+                <button type="submit" className="btn btn--accent btn--sm" style={{ alignSelf: 'flex-start' }}>Save address</button>
+              </form>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Notes */}
+      <div className="card" style={{ marginTop: 14, padding: 16 }}>
+        <div className="label">Order notes (optional)</div>
+        <textarea
+          className="input"
+          placeholder="Quality requests, packaging preferences…"
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          style={{ marginTop: 6, minHeight: 60 }}
+          maxLength={500}
+        />
+      </div>
+
+      {/* Order summary + place */}
+      <div className="card" style={{ marginTop: 14, padding: 18, position: 'sticky', bottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div className="muted-data" style={{ fontSize: 12 }}>{qty}kg × {fmtPrice(price)}/kg</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{dispatchMode === 'DELIVERY' ? '🚚 Delivery' : '🏪 Pickup'}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="label">Total</div>
+            <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{fmtPrice(lineTotal)}</div>
+          </div>
+        </div>
+        <button
+          className="btn btn--accent"
+          onClick={handlePlace}
+          disabled={submitting || qty <= 0}
+          style={{ width: '100%', justifyContent: 'center', fontSize: 15, padding: '12px 0' }}
+        >
+          {submitting ? 'Placing order…' : 'Place order'}
+        </button>
       </div>
     </div>
   )
@@ -2413,6 +2828,16 @@ function ImageUpload({ value, onChange, subDir = 'general', label = 'Upload imag
   )
 }
 
+// ── Messages route adapter ────────────────────────────────────────────────────
+// Reads `initialContact` from navigation state so "Message vendor" buttons
+// elsewhere can deep-link straight into a thread with that vendor.
+
+function MessagesRoute({ user }) {
+  const location = useLocation()
+  const initialContact = location.state?.initialContact || null
+  return <Messages userProfile={user} initialContact={initialContact} />
+}
+
 // ── Notifications Bell (Phase 3.2) ────────────────────────────────────────────
 
 function timeAgo(dt) {
@@ -2720,7 +3145,7 @@ function Rail({ user, onLogout, badges = {} }) {
     { to: '/buyer/browse',    icon: 'Store',     label: 'Browse Market' },
     { to: '/buyer/cart',      icon: 'Receipt',   label: 'Cart',           badge: badges.cart },
     { to: '/buyer/orders',    icon: 'Clipboard', label: 'My Orders',      badge: badges.orders },
-    { to: '/buyer/saved',     icon: 'Star',      label: 'Saved Vendors' },
+    { to: '/buyer/saved',     icon: 'Star',      label: 'Saved' },
     { to: '/buyer/messages',  icon: 'Message',   label: 'Messages',       badge: badges.messages },
     { to: '/buyer/profile',   icon: 'Settings',  label: 'My Profile' },
   ]
@@ -2769,14 +3194,27 @@ function Rail({ user, onLogout, badges = {} }) {
         })}
 
         <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
-        <div className="rail-item" onClick={onLogout} data-tip="Sign out">
-          <div className="rail-item__icon"><I.Logout size={18} /></div>
+        <button
+          type="button"
+          className="rail-item"
+          onClick={onLogout}
+          data-tip="Sign out"
+          aria-label="Sign out"
+          style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
+        >
+          <div className="rail-item__icon" aria-hidden="true"><I.Logout size={18} /></div>
           <div className="rail-item__text">Sign Out</div>
-        </div>
-        <div className="rail-item" data-tip="Help">
-          <div className="rail-item__icon"><I.Help size={18} /></div>
+        </button>
+        <button
+          type="button"
+          className="rail-item"
+          data-tip="Help"
+          aria-label="Help"
+          style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
+        >
+          <div className="rail-item__icon" aria-hidden="true"><I.Help size={18} /></div>
           <div className="rail-item__text">Help</div>
-        </div>
+        </button>
       </div>
 
       <div className="rail__bottom">
@@ -2800,7 +3238,7 @@ const PAGE_LABELS = {
   cart:      'Cart',
   checkout:  'Checkout',
   orders:    'My Orders',
-  saved:     'Saved Vendors',
+  saved:     'Saved',
   messages:  'Messages',
   profile:   'My Profile',
   listing:   'Listing',
@@ -2907,10 +3345,11 @@ export default function BuyerDashboard({ user, onLogout }) {
         <Route path="/buyer/vendor/:vendorId" element={<VendorStorefrontView />} />
         <Route path="/buyer/cart" element={<CartView />} />
         <Route path="/buyer/checkout" element={<CheckoutView />} />
+        <Route path="/buyer/instant-checkout" element={<InstantCheckoutView />} />
         <Route path="/buyer/orders" element={<OrdersView />} />
         <Route path="/buyer/orders/:orderId" element={<OrdersView />} />
         <Route path="/buyer/saved" element={<SavedVendorsView />} />
-        <Route path="/buyer/messages" element={<Messages user={user} />} />
+        <Route path="/buyer/messages" element={<MessagesRoute user={user} />} />
         <Route path="/buyer/profile" element={<ProfileView user={user} />} />
         <Route path="*" element={<Navigate to="/buyer/dashboard" replace />} />
       </Route>

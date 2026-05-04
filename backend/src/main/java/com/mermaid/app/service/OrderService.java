@@ -149,6 +149,13 @@ public class OrderService {
         if ("COMPLETED".equals(order.getStatus())) {
             throw new IllegalArgumentException("Cannot cancel a completed order.");
         }
+        // Buyers can only self-cancel while the order is still PENDING.
+        if (userId.equals(order.getBuyerId())
+                && !userId.equals(order.getSellerId())
+                && !"PENDING".equals(order.getStatus())) {
+            throw new IllegalArgumentException(
+                "Order can no longer be cancelled — please contact the vendor.");
+        }
         order.setStatus("CANCELLED");
         Order saved = orderRepo.save(order);
         recordStatusEvent(orderId, "CANCELLED", userId, "Order cancelled");

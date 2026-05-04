@@ -7,7 +7,9 @@ import com.mermaid.app.model.*;
 import com.mermaid.app.repository.OrderRepository;
 import com.mermaid.app.repository.PaymentRepository;
 import com.mermaid.app.security.SecurityUtils;
+import com.mermaid.app.service.BuyerActivityService;
 import com.mermaid.app.service.BuyerOrderService;
+import com.mermaid.app.service.CartService;
 import com.mermaid.app.service.OrderTimelineService;
 import com.mermaid.app.service.PaymentGatewayService;
 import org.springframework.http.ResponseEntity;
@@ -27,17 +29,23 @@ public class BuyerOrderController implements BuyerOrdersApi {
     private final PaymentGatewayService gatewayService;
     private final OrderRepository orderRepo;
     private final PaymentRepository paymentRepo;
+    private final BuyerActivityService activityService;
+    private final CartService cartService;
 
     public BuyerOrderController(BuyerOrderService buyerOrderService,
                                  OrderTimelineService timelineService,
                                  PaymentGatewayService gatewayService,
                                  OrderRepository orderRepo,
-                                 PaymentRepository paymentRepo) {
+                                 PaymentRepository paymentRepo,
+                                 BuyerActivityService activityService,
+                                 CartService cartService) {
         this.buyerOrderService = buyerOrderService;
         this.timelineService   = timelineService;
         this.gatewayService    = gatewayService;
         this.orderRepo         = orderRepo;
         this.paymentRepo       = paymentRepo;
+        this.activityService   = activityService;
+        this.cartService       = cartService;
     }
 
     @Override
@@ -103,5 +111,25 @@ public class BuyerOrderController implements BuyerOrdersApi {
             PaymentIntentResponse.GatewayEnum.fromValue(gatewayService.getGatewayName())
         );
         return ResponseEntity.status(201).body(response);
+    }
+
+    @Override
+    public ResponseEntity<List<ActivityFeedItem>> getBuyerActivity(Integer limit) {
+        Long buyerId = SecurityUtils.currentUserId();
+        int cap = (limit != null) ? limit : 20;
+        return ResponseEntity.ok(activityService.getActivity(buyerId, cap));
+    }
+
+    @Override
+    public ResponseEntity<ReorderResponse> reorderBuyerOrder(Long orderId) {
+        Long buyerId = SecurityUtils.currentUserId();
+        com.mermaid.app.domain.Order order = orderRepo.findById(orderId)
+            .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new ResourceNotFoundException("Order not found: " + orderId);
+        }
+        CartService.ReorderResult result = cartService.reorder(buyerId, order);
+        ReorderResponse response = new ReorderResponse(result.cart(), result.warnings());
+        return ResponseEntity.ok(response);
     }
 }

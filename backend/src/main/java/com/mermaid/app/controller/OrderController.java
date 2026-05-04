@@ -41,7 +41,7 @@ public class OrderController implements OrdersApi {
     }
 
     @Override
-    @PreAuthorize("hasRole('FISHERMAN') or hasRole('VENDOR')")
+    @PreAuthorize("hasRole('FISHERMAN') or hasRole('VENDOR') or hasRole('BUYER')")
     public ResponseEntity<Order> cancelOrder(Long orderId) {
         return ResponseEntity.ok(service.cancel(orderId, SecurityUtils.currentUserId()));
     }
