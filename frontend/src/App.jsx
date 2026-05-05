@@ -6,9 +6,9 @@ import { CartProvider } from './context/CartContext'
 import { FavoritesProvider } from './context/FavoritesContext'
 import { LoginPage, RoleSetupPage } from './pages/LoginPage'
 import FishermanDashboard from './FishermanDashboard'
-import BuyerDashboard from './BuyerDashboard'
+import BuyerDashboard from './buyer/BuyerDashboard'
 import AdminDashboard from './AdminDashboard'
-import VendorDashboard from './VendorDashboard'
+import VendorDashboard from './vendor/VendorDashboard'
 
 function ThemeToggle() {
   const { theme, toggle } = useTheme()
@@ -33,7 +33,14 @@ function AppInner() {
     return <><AdminDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
   }
   if (user.role === 'VENDOR') {
-    return <><VendorDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
+    return (
+      <>
+        <BrowserRouter>
+          <VendorDashboard user={user} onLogout={logout} />
+        </BrowserRouter>
+        <ThemeToggle />
+      </>
+    )
   }
   if (user.role === 'BUYER') {
     return (
