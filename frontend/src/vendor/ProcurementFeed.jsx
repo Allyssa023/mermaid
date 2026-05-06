@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useVendorPolling } from './hooks/useVendorPolling'
 import { getFeed, getCart, addToCart, listPreviousFishermen, placePreorder } from './api/procurement'
 import { apiGet } from '../api'
@@ -171,6 +171,11 @@ function PreorderModal({ onClose, onPlaced }) {
 
 export default function ProcurementFeed() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const highlightAlertId = searchParams.get('highlightAlertId')
+    ? +searchParams.get('highlightAlertId') : null
+  const highlightRef = useRef(null)
+
   const [speciesFilter, setSpeciesFilter] = useState('')
   const [maxAgeMins, setMaxAgeMins]       = useState('')
   const [species, setSpecies]             = useState([])
@@ -197,6 +202,12 @@ export default function ProcurementFeed() {
   )
   const { data, isStale, loading, error, refetch } = useVendorPolling(fetcher, [speciesFilter, maxAgeMins])
   const alerts = Array.isArray(data) ? data : []
+
+  useEffect(() => {
+    if (highlightAlertId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightAlertId, alerts.length])
 
   return (
     <div style={{ padding: '24px 20px', maxWidth: 780, margin: '0 auto' }}>
@@ -272,12 +283,21 @@ export default function ProcurementFeed() {
         const freshness = FRESHNESS_COLORS(alert.ageMinutes || 0)
         const alreadyFromSeller = cartSellerIds.has(alert.fishermanId)
         const available = alert.availableKg ?? alert.quantityKg
+        const isHighlighted = highlightAlertId && alert.id === highlightAlertId
 
         return (
-          <div key={alert.id} style={{
-            background: '#fff', border: alert.inCart ? '2px solid #2563eb' : '1px solid #e5e7eb',
-            borderRadius: 10, padding: '16px 18px', marginBottom: 12,
-          }}>
+          <div
+            key={alert.id}
+            ref={isHighlighted ? highlightRef : null}
+            data-highlight={isHighlighted || undefined}
+            style={{
+              background: isHighlighted ? '#eff6ff' : '#fff',
+              border: isHighlighted ? '2px solid #3b82f6'
+                : alert.inCart ? '2px solid #2563eb' : '1px solid #e5e7eb',
+              borderRadius: 10, padding: '16px 18px', marginBottom: 12,
+              transition: 'background 0.3s',
+            }}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 15 }}>
@@ -291,6 +311,11 @@ export default function ProcurementFeed() {
                   {alert.inCart && (
                     <span style={{ marginLeft: 6, fontSize: 11, background: '#dbeafe', color: '#1d4ed8', padding: '2px 6px', borderRadius: 8, fontWeight: 600 }}>
                       In Cart
+                    </span>
+                  )}
+                  {alert.watchlistMatched && (
+                    <span style={{ marginLeft: 6, fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: 8, fontWeight: 600 }}>
+                      Watchlist
                     </span>
                   )}
                 </div>

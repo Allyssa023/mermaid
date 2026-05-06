@@ -2,6 +2,7 @@ package com.mermaid.app.service;
 
 import com.mermaid.app.domain.CatchAlert;
 import com.mermaid.app.domain.FishSpecies;
+import com.mermaid.app.event.CatchAlertCreatedEvent;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.mapper.CatchAlertMapper;
 import com.mermaid.app.model.CatchAlertCreateRequest;
@@ -9,6 +10,7 @@ import com.mermaid.app.repository.CatchAlertRepository;
 import com.mermaid.app.repository.DemandListingRepository;
 import com.mermaid.app.repository.FishSpeciesRepository;
 import com.mermaid.app.repository.UserRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,17 +27,20 @@ public class CatchAlertService {
     private final DemandListingRepository listingRepo;
     private final UserRepository userRepo;
     private final CatchAlertMapper mapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     public CatchAlertService(CatchAlertRepository alertRepo,
                               FishSpeciesRepository speciesRepo,
                               DemandListingRepository listingRepo,
                               UserRepository userRepo,
-                              CatchAlertMapper mapper) {
+                              CatchAlertMapper mapper,
+                              ApplicationEventPublisher eventPublisher) {
         this.alertRepo = alertRepo;
         this.speciesRepo = speciesRepo;
         this.listingRepo = listingRepo;
         this.userRepo = userRepo;
         this.mapper = mapper;
+        this.eventPublisher = eventPublisher;
     }
 
     private String resolveName(Long userId) {
@@ -80,6 +85,7 @@ public class CatchAlertService {
         alert.setExpiresAt(OffsetDateTime.now().plusHours(hours));
 
         CatchAlert saved = alertRepo.save(alert);
+        eventPublisher.publishEvent(new CatchAlertCreatedEvent(saved.getId()));
         List<Long> matched = matchedListingIds(species.getId());
         return mapper.toModel(saved, resolveName(fishermanId), matched);
     }

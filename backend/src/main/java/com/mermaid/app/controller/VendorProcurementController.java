@@ -12,6 +12,7 @@ import com.mermaid.app.repository.UserRepository;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.ProcurementCartService;
 import com.mermaid.app.service.ProcurementOrderService;
+import com.mermaid.app.service.WatchlistService;
 import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,17 +34,20 @@ public class VendorProcurementController implements VendorProcurementApi {
     private final CatchAlertRepository alertRepo;
     private final OrderRepository orderRepo;
     private final UserRepository userRepo;
+    private final WatchlistService watchlistService;
 
     public VendorProcurementController(ProcurementCartService cartService,
                                        ProcurementOrderService orderService,
                                        CatchAlertRepository alertRepo,
                                        OrderRepository orderRepo,
-                                       UserRepository userRepo) {
+                                       UserRepository userRepo,
+                                       WatchlistService watchlistService) {
         this.cartService = cartService;
         this.orderService = orderService;
         this.alertRepo = alertRepo;
         this.orderRepo = orderRepo;
         this.userRepo = userRepo;
+        this.watchlistService = watchlistService;
     }
 
     @Override
@@ -65,8 +69,14 @@ public class VendorProcurementController implements VendorProcurementApi {
                 .map(i -> i.getCatchAlert().getId())
                 .collect(Collectors.toSet());
 
+        List<com.mermaid.app.domain.VendorWatchlist> watchlist = watchlistService.listForVendor(vendorId);
+
         List<ProcurementFeedItem> items = alerts.stream()
-                .map(a -> toFeedItem(a, now, cartAlertIds.contains(a.getId())))
+                .map(a -> {
+                    boolean matched = watchlist.stream().anyMatch(
+                        w -> matchesWatchlistEntry(w, a));
+                    return toFeedItem(a, now, cartAlertIds.contains(a.getId()), matched);
+                })
                 .collect(Collectors.toList());
         return ResponseEntity.ok(items);
     }
@@ -154,8 +164,30 @@ public class VendorProcurementController implements VendorProcurementApi {
         return ResponseEntity.ok(result);
     }
 
+    private boolean matchesWatchlistEntry(com.mermaid.app.domain.VendorWatchlist w,
+                                           com.mermaid.app.domain.CatchAlert a) {
+        if (w.getSpecies() != null && a.getSpecies() != null
+                && w.getSpecies().getId().equals(a.getSpecies().getId())) {
+            return true;
+        }
+        if (w.getMarketLocation() != null && a.getLat() != null && a.getLng() != null) {
+            com.mermaid.app.domain.MarketLocation loc = w.getMarketLocation();
+            if (loc.getLat() == null || loc.getLng() == null) return false;
+            double radius = w.getRadiusKm() != null ? w.getRadiusKm().doubleValue() : 5.0;
+            double dLat = Math.toRadians(a.getLat().doubleValue() - loc.getLat().doubleValue());
+            double dLng = Math.toRadians(a.getLng().doubleValue() - loc.getLng().doubleValue());
+            double aa = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(loc.getLat().doubleValue()))
+                * Math.cos(Math.toRadians(a.getLat().doubleValue()))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            double dist = 6371.0 * 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
+            return dist <= radius;
+        }
+        return false;
+    }
+
     private ProcurementFeedItem toFeedItem(com.mermaid.app.domain.CatchAlert a,
-                                            OffsetDateTime now, boolean inCart) {
+                                            OffsetDateTime now, boolean inCart, boolean watchlistMatched) {
         ProcurementFeedItem dto = new ProcurementFeedItem();
         dto.setId(a.getId());
         dto.setFishermanId(a.getFishermanId());
@@ -179,6 +211,7 @@ public class VendorProcurementController implements VendorProcurementApi {
         dto.setCreatedAt(a.getCreatedAt());
         dto.setAgeMinutes((int) ChronoUnit.MINUTES.between(a.getCreatedAt(), now));
         dto.setInCart(inCart);
+        dto.setWatchlistMatched(watchlistMatched);
         return dto;
     }
 

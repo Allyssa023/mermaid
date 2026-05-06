@@ -53,6 +53,7 @@ class VendorProcurementControllerTest {
     @MockitoBean CatchAlertRepository alertRepo;
     @MockitoBean OrderRepository orderRepo;
     @MockitoBean UserRepository userRepo;
+    @MockitoBean com.mermaid.app.service.WatchlistService watchlistService;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private final ObjectMapper om = new ObjectMapper()

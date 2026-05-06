@@ -31,4 +31,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     boolean existsRecentLowStock(@Param("vendorId") Long vendorId,
                                  @Param("speciesId") Long speciesId,
                                  @Param("since") OffsetDateTime since);
+
+    @Query(value = "SELECT COUNT(*) > 0 FROM notifications " +
+                   "WHERE user_id = :vendorId AND type = 'CATCH_ALERT_NEW' " +
+                   "AND (payload_json::jsonb)->>'catchAlertId' = CAST(:catchAlertId AS text)",
+           nativeQuery = true)
+    boolean existsByCatchAlertNotification(@Param("vendorId") Long vendorId,
+                                           @Param("catchAlertId") Long catchAlertId);
 }

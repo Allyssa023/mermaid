@@ -28,11 +28,17 @@ public class NotificationService {
 
     @Transactional
     public Notification create(Long userId, String type, String body, Map<String, Object> payload) {
+        return create(userId, type, body, payload, null);
+    }
+
+    @Transactional
+    public Notification create(Long userId, String type, String body, Map<String, Object> payload, String link) {
         Notification n = new Notification();
         n.setUserId(userId);
         n.setType(type);
         n.setTitle(type);
         n.setBody(body);
+        n.setLink(link);
         if (payload != null) {
             try {
                 n.setPayloadJson(objectMapper.writeValueAsString(payload));
@@ -87,6 +93,11 @@ public class NotificationService {
     @Transactional
     public void markAllRead(Long userId) {
         notificationRepo.markAllReadByUserId(userId, OffsetDateTime.now());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean existsByUserAndCatchAlertId(Long userId, Long catchAlertId) {
+        return notificationRepo.existsByCatchAlertNotification(userId, catchAlertId);
     }
 
     private com.mermaid.app.model.Notification toModel(Notification entity) {

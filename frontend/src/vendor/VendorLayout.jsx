@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import VendorNotificationsBell from './components/NotificationsBell'
 
 const NAV = [
   { to: 'home',         label: 'Home' },
@@ -17,7 +18,10 @@ export default function VendorLayout({ user, onLogout }) {
   return (
     <div className="vendor-shell" style={{ display: 'flex', minHeight: '100vh' }}>
       <nav style={{ width: 220, padding: 16, borderRight: '1px solid #eee' }}>
-        <div style={{ fontWeight: 700, marginBottom: 16 }}>{user?.fullName || 'Vendor'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <span style={{ fontWeight: 700 }}>{user?.fullName || 'Vendor'}</span>
+          <VendorNotificationsBell />
+        </div>
         {NAV.map(n => (
           <NavLink key={n.to} to={n.to} style={({ isActive }) => ({
             display: 'block', padding: '8px 12px', borderRadius: 6,
