@@ -34,6 +34,8 @@ tags:
   - name: Notifications
   - name: Buyer Profile
   - name: Webhooks
+  - name: Vendor Inventory
+  - name: Vendor Storefront
 
 security:
   - bearerAuth: []
@@ -890,6 +892,226 @@ paths:
                 items:
                   $ref: '#/components/schemas/VendorInterestItem'
 
+  /vendor/inventory/lots:
+    get:
+      tags: [Vendor Inventory]
+      summary: List vendor's inventory lots
+      operationId: vendorListInventoryLots
+      parameters:
+        - in: query
+          name: speciesId
+          schema:
+            type: integer
+            format: int64
+        - in: query
+          name: includeEmpty
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Inventory lots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryLotResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/inventory/adjustments:
+    post:
+      tags: [Vendor Inventory]
+      summary: Record a manual inventory adjustment
+      operationId: vendorRecordAdjustment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryAdjustmentRequest'
+      responses:
+        '200':
+          description: Updated lot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryLotResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Adjustment would result in negative stock
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/inventory/availability:
+    get:
+      tags: [Vendor Inventory]
+      summary: Get total available kg for a species
+      operationId: vendorGetInventoryAvailability
+      parameters:
+        - in: query
+          name: speciesId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Available kg
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  availableKg:
+                    type: number
+                    format: double
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/storefront/listings:
+    get:
+      tags: [Vendor Storefront]
+      summary: List vendor's storefront listings
+      operationId: vendorListStorefrontListings
+      responses:
+        '200':
+          description: Storefront listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StorefrontListingResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Vendor Storefront]
+      summary: Create a storefront listing
+      operationId: vendorCreateStorefrontListing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorefrontListingRequest'
+      responses:
+        '201':
+          description: Listing created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontListingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/storefront/listings/{listingId}:
+    get:
+      tags: [Vendor Storefront]
+      summary: Get a vendor's storefront listing
+      operationId: vendorGetStorefrontListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Listing detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontListingResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Vendor Storefront]
+      summary: Update a storefront listing
+      operationId: vendorUpdateStorefrontListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorefrontListingRequest'
+      responses:
+        '200':
+          description: Updated listing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontListingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Vendor Storefront]
+      summary: Soft-delete a storefront listing
+      operationId: vendorDeleteStorefrontListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '204':
+          description: Listing deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/storefront/listings/{listingId}/publish:
+    post:
+      tags: [Vendor Storefront]
+      summary: Publish a storefront listing
+      operationId: vendorPublishStorefrontListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Listing published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontListingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/storefront/listings/{listingId}/unpublish:
+    post:
+      tags: [Vendor Storefront]
+      summary: Unpublish a storefront listing
+      operationId: vendorUnpublishStorefrontListing
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+      responses:
+        '200':
+          description: Listing unpublished
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontListingResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /marketplace/listings:
     get:
       tags: [Marketplace]
@@ -1005,13 +1227,13 @@ paths:
   /buyer/marketplace/listings:
     get:
       tags: [Buyer Marketplace]
-      summary: Browse open vendor demand listings (public)
+      summary: Browse published storefront listings (public)
       operationId: getBuyerMarketplaceListings
       security: []
       parameters:
         - in: query
           name: q
-          description: Free-text search across species name, vendor name, and notes
+          description: Free-text search across title
           schema:
             type: string
         - in: query
@@ -1020,44 +1242,10 @@ paths:
             type: integer
             format: int64
         - in: query
-          name: locationId
+          name: vendorId
           schema:
             type: integer
             format: int64
-        - in: query
-          name: minOfferPrice
-          schema:
-            type: number
-            format: double
-        - in: query
-          name: maxOfferPrice
-          schema:
-            type: number
-            format: double
-        - in: query
-          name: lat
-          description: Buyer latitude (required when sort=DISTANCE_ASC or maxDistanceKm is set)
-          schema:
-            type: number
-            format: double
-        - in: query
-          name: lng
-          description: Buyer longitude (required when sort=DISTANCE_ASC or maxDistanceKm is set)
-          schema:
-            type: number
-            format: double
-        - in: query
-          name: maxDistanceKm
-          description: Max haversine distance from (lat,lng) to listing market location
-          schema:
-            type: number
-            format: double
-            minimum: 0
-        - in: query
-          name: sort
-          description: Sort order; defaults to RECENT
-          schema:
-            $ref: '#/components/schemas/BuyerListingSort'
         - in: query
           name: page
           description: Zero-based page index
@@ -1075,11 +1263,11 @@ paths:
             default: 20
       responses:
         '200':
-          description: Paginated list of open demand listings
+          description: Paginated list of published storefront listings
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PagedDemandListings'
+                $ref: '#/components/schemas/PagedStorefrontListings'
 
   /buyer/marketplace/listings/{listingId}:
     get:
@@ -2601,6 +2789,26 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
   parameters:
     UserId:
       in: path
@@ -3530,26 +3738,17 @@ components:
 
     BuyerListingDetail:
       type: object
-      required: [listing, vendor, photoUrls, relatedListings]
+      required: [listing, vendor, relatedListings]
       properties:
         listing:
-          $ref: '#/components/schemas/DemandListing'
+          $ref: '#/components/schemas/StorefrontListingSummary'
         vendor:
           $ref: '#/components/schemas/BuyerVendorProfile'
-        photoUrls:
-          type: array
-          description: Empty until image upload (Phase 3.3)
-          items:
-            type: string
-        description:
-          type: string
-          nullable: true
-          description: Long-form description (currently mirrors listing notes)
         relatedListings:
           type: array
           maxItems: 4
           items:
-            $ref: '#/components/schemas/DemandListing'
+            $ref: '#/components/schemas/StorefrontListingSummary'
 
     DemandListingCreateRequest:
       type: object
@@ -4519,3 +4718,207 @@ components:
           items:
             type: string
           description: Human-readable issues (closed listing, reduced qty, etc.)
+
+    InventoryLotResponse:
+      type: object
+      required: [id, vendorId, speciesId, receivedAt, initialKg, remainingKg, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+          nullable: true
+        sourceProcurementOrderId:
+          type: integer
+          format: int64
+          nullable: true
+        receivedAt:
+          type: string
+          format: date-time
+        initialKg:
+          type: number
+          format: double
+        remainingKg:
+          type: number
+          format: double
+        costPerKg:
+          type: number
+          format: double
+          nullable: true
+        freshnessGradedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    InventoryAdjustmentRequest:
+      type: object
+      required: [lotId, deltaKg, reason]
+      properties:
+        lotId:
+          type: integer
+          format: int64
+        deltaKg:
+          type: number
+          format: double
+          description: Positive to add, negative to deduct
+        reason:
+          type: string
+          enum: [ADJUSTMENT_LOSS, ADJUSTMENT_CORRECTION]
+        note:
+          type: string
+          nullable: true
+          maxLength: 500
+
+    StorefrontListingRequest:
+      type: object
+      required: [speciesId, title, pricePerKg, lotIds]
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        photoUrl:
+          type: string
+          nullable: true
+          maxLength: 500
+        pricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        minQtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+          default: 0.5
+        lotIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+          minItems: 1
+
+    StorefrontListingResponse:
+      type: object
+      required: [id, vendorId, speciesId, title, pricePerKg, minQtyKg, status, createdAt, updatedAt, lotIds]
+      properties:
+        id:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        photoUrl:
+          type: string
+          nullable: true
+        pricePerKg:
+          type: number
+          format: double
+        minQtyKg:
+          type: number
+          format: double
+        availableKg:
+          type: number
+          format: double
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, UNPUBLISHED, SOLD_OUT]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lotIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+
+    StorefrontListingSummary:
+      type: object
+      required: [id, vendorId, speciesId, title, pricePerKg, availableKg, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        vendorName:
+          type: string
+          nullable: true
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        photoUrl:
+          type: string
+          nullable: true
+        pricePerKg:
+          type: number
+          format: double
+        minQtyKg:
+          type: number
+          format: double
+        availableKg:
+          type: number
+          format: double
+        status:
+          type: string
+          enum: [PUBLISHED, SOLD_OUT]
+        createdAt:
+          type: string
+          format: date-time
+
+    PagedStorefrontListings:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorefrontListingSummary'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer

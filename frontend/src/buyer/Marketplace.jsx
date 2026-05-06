@@ -1,51 +1,36 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon   from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { apiGet } from '../api'
 import { I } from '../icons'
-import { fmt, fmtPrice } from './utils/format'
+import { fmtPrice } from './utils/format'
 import { useCart } from '../context/CartContext'
 import FavoriteHeart, { SavedCountBadge } from './components/FavoriteHeart'
-
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({ iconUrl: markerIcon, iconRetinaUrl: markerIcon2x, shadowUrl: markerShadow })
 
 export default function Marketplace() {
   const navigate = useNavigate()
   const { addItem } = useCart()
   const [listings, setListings]       = useState([])
   const [species, setSpecies]         = useState([])
-  const [locations, setLocations]     = useState([])
   const [search, setSearch]           = useState('')
   const [filter, setFilter]           = useState('all')
   const [addingId, setAddingId]       = useState(null)
   const [addNotice, setAddNotice]     = useState('')
   const [speciesId, setSpeciesId]     = useState('')
-  const [locationId, setLocationId]   = useState('')
   const [minPrice, setMinPrice]       = useState('')
   const [maxPrice, setMaxPrice]       = useState('')
-  const [sort, setSort]               = useState('RECENT')
   const [page, setPage]               = useState(0)
   const [pageSize]                    = useState(20)
   const [refreshTick, setRefreshTick] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages]   = useState(0)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [showMap, setShowMap]         = useState(false)
   const [loading, setLoading]         = useState(false)
-  const [highlighted, setHighlighted] = useState(null)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const cardRefs = useRef({})
 
-  // Lookups load once
+  // Species lookup
   useEffect(() => {
     apiGet('/fish-species').then(d => setSpecies(d?.content || d || [])).catch(() => {})
-    apiGet('/market-locations').then(d => setLocations(d?.content || d || [])).catch(() => {})
   }, [])
 
   // Debounce search input (300ms)
@@ -57,7 +42,7 @@ export default function Marketplace() {
   // Reset to first page when any server-side filter changes
   useEffect(() => {
     setPage(0)
-  }, [debouncedSearch, speciesId, locationId, minPrice, maxPrice, sort])
+  }, [debouncedSearch, speciesId])
 
   // Server-side load whenever any active filter / page changes
   useEffect(() => {
@@ -65,10 +50,6 @@ export default function Marketplace() {
     const params = new URLSearchParams()
     if (debouncedSearch) params.set('q', debouncedSearch)
     if (speciesId) params.set('speciesId', speciesId)
-    if (locationId) params.set('locationId', locationId)
-    if (minPrice) params.set('minOfferPrice', minPrice)
-    if (maxPrice) params.set('maxOfferPrice', maxPrice)
-    if (sort && sort !== 'RECENT') params.set('sort', sort)
     params.set('page', String(page))
     params.set('size', String(pageSize))
 
@@ -96,16 +77,16 @@ export default function Marketplace() {
   }, [debouncedSearch, speciesId, locationId, minPrice, maxPrice, sort, page, pageSize, refreshTick])
 
   function clearAdvanced() {
-    setSpeciesId(''); setLocationId(''); setMinPrice(''); setMaxPrice(''); setSort('RECENT')
+    setSpeciesId(''); setMinPrice(''); setMaxPrice('')
   }
 
   // Segment filters stay client-side — no server equivalent.
   const filtered = listings.filter(l => {
-    const available = l.quantityKg || 0
+    const available = l.availableKg || 0
     return (
       filter === 'all' ? true :
       filter === 'available' ? available > 0 :
-      filter === 'urgent' ? (l.urgent || (l.neededBy && new Date(l.neededBy) < new Date(Date.now() + 3 * 86400000))) :
+      filter === 'urgent' ? false :
       true
     )
   })
@@ -113,7 +94,7 @@ export default function Marketplace() {
   async function handleAddToCart(l, opts = {}) {
     const { goToCheckout = false } = opts
     setAddingId(l.id); setAddNotice('')
-    const defaultQty = Math.min(1, l.quantityKg || 1)
+    const defaultQty = Math.min(1, l.availableKg || 1)
     const res = await addItem({ listingId: l.id, quantityKg: defaultQty })
     setAddingId(null)
     if (!res?.ok) {
@@ -129,22 +110,11 @@ export default function Marketplace() {
     }
   }
 
-  const advancedActive = speciesId || locationId || minPrice || maxPrice || (sort && sort !== 'RECENT')
+  const advancedActive = speciesId || minPrice || maxPrice
   const canLoadMore = !loading && page + 1 < totalPages
 
-
-  function handleMarkerClick(listing) {
-    setHighlighted(listing.id)
-    const el = cardRefs.current[listing.id]
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }
-
-  const mapListings = listings.filter(l => l.marketLocation?.lat && l.marketLocation?.lng)
-
-  // Derive a 2-letter tag from species name if not available
   function getTag(l) {
-    if (l.fishSpecies?.tag) return l.fishSpecies.tag
-    const name = l.fishSpecies?.commonName || ''
+    const name = l.speciesName || ''
     return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   }
 
@@ -157,9 +127,6 @@ export default function Marketplace() {
           <p className="page__sub">Browse {totalElements || listings.length} active listings from verified vendors. Place an order and pick up or have it delivered.</p>
         </div>
         <div className="page__actions">
-          <button className={`btn${showMap ? ' btn--accent' : ''}`} onClick={() => setShowMap(v => !v)}>
-            <I.MapPin size={14} /> {showMap ? 'Hide map' : 'Map view'}
-          </button>
           <SavedCountBadge />
         </div>
       </div>
@@ -196,33 +163,6 @@ export default function Marketplace() {
                 ))}
               </select>
             </label>
-            <label style={{ flex: '1 1 180px', minWidth: 160 }}>
-              <span className="label">Market location</span>
-              <select value={locationId} onChange={e => setLocationId(e.target.value)} className="input">
-                <option value="">All locations</option>
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
-            </label>
-            <label style={{ flex: '0 1 120px', minWidth: 100 }}>
-              <span className="label">Min ₱/kg</span>
-              <input type="number" min="0" placeholder="0" value={minPrice}
-                onChange={e => setMinPrice(e.target.value)} className="input" />
-            </label>
-            <label style={{ flex: '0 1 120px', minWidth: 100 }}>
-              <span className="label">Max ₱/kg</span>
-              <input type="number" min="0" placeholder="∞" value={maxPrice}
-                onChange={e => setMaxPrice(e.target.value)} className="input" />
-            </label>
-            <label style={{ flex: '0 1 160px', minWidth: 140 }}>
-              <span className="label">Sort by</span>
-              <select value={sort} onChange={e => setSort(e.target.value)} className="input">
-                <option value="RECENT">Most recent</option>
-                <option value="PRICE_ASC">Price: low to high</option>
-                <option value="PRICE_DESC">Price: high to low</option>
-              </select>
-            </label>
             {advancedActive && (
               <button className="btn btn--ghost" onClick={clearAdvanced} style={{ height: 36 }}>
                 Clear
@@ -231,31 +171,6 @@ export default function Marketplace() {
           </div>
         )}
       </div>
-
-      {/* Map panel */}
-      {showMap && (
-        <div className="buyer-map-panel" style={{ marginTop: 14 }}>
-          <MapContainer center={[16.62, 120.32]} zoom={10} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            />
-            {mapListings.map(l => (
-              <Marker
-                key={l.id}
-                position={[l.marketLocation.lat, l.marketLocation.lng]}
-                eventHandlers={{ click: () => handleMarkerClick(l) }}
-              >
-                <Popup>
-                  <strong>{l.fishSpecies?.commonName}</strong><br />
-                  {fmtPrice(l.offerPricePerKg)}/kg<br />
-                  {l.marketLocation?.name}
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        </div>
-      )}
 
       {/* Listings grid */}
       {loading ? (
@@ -279,12 +194,10 @@ export default function Marketplace() {
         <div className="buyer-grid" style={{ marginTop: 18 }}>
           {filtered.map(l => {
             const tag = getTag(l)
-            const price = l.offerPricePerKg || l.pricePerKg || 0
-            const available = l.quantityKg || 0
-            const totalBatch = l.originalQtyKg || l.quantityKg || 0
+            const price = l.pricePerKg || 0
+            const available = l.availableKg || 0
             const inStock = available > 0
-            const lowStock = inStock && available < totalBatch * 0.4
-            const overdue = l.neededBy && new Date(l.neededBy) < new Date()
+            const lowStock = inStock && available < 5
 
             // Determine listing tag label
             let tagLabel = l.tag || ''
@@ -307,19 +220,17 @@ export default function Marketplace() {
                   </div>
                 </div>
                 <div className="buyer-card__body">
-                  <h3 className="buyer-card__species">{l.fishSpecies?.commonName || '—'}</h3>
+                  <h3 className="buyer-card__species">{l.speciesName || l.title || '—'}</h3>
                   <div className="buyer-card__vendor">
                     <span>{l.vendorName || '—'}</span>
-                    <span className="muted-data">★ {l.vendorRating || '—'}</span>
                   </div>
-                  <div className="buyer-card__location"><I.MapPin size={11} /> {l.marketLocation?.name || l.location || '—'}</div>
                   <div className="buyer-card__price">
                     <span className="big">{fmtPrice(price)}</span>
                     <span>/kg</span>
                   </div>
                   <div className="buyer-card__stock">
                     {!inStock ? (
-                      <span className="muted-data" style={{ color: 'var(--ink-4)' }}>Pre-order · landing {l.neededBy ? fmt(l.neededBy) : 'soon'}</span>
+                      <span className="muted-data" style={{ color: 'var(--ink-4)' }}>Out of stock</span>
                     ) : lowStock ? (
                       <span style={{ color: 'var(--warn)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>● Low stock · {available}kg left</span>
                     ) : (

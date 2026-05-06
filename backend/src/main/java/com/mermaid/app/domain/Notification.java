@@ -26,6 +26,9 @@ public class Notification {
     @Column(length = 500)
     private String link;
 
+    @Column(name = "payload_json", columnDefinition = "TEXT")
+    private String payloadJson;
+
     @Column(name = "read_at")
     private OffsetDateTime readAt;
 
@@ -49,6 +52,9 @@ public class Notification {
     public void setBody(String body) { this.body = body; }
     public String getLink() { return link; }
     public void setLink(String link) { this.link = link; }
+    public String getPayloadJson() { return payloadJson; }
+    public void setPayloadJson(String payloadJson) { this.payloadJson = payloadJson; }
+
     public OffsetDateTime getReadAt() { return readAt; }
     public void setReadAt(OffsetDateTime readAt) { this.readAt = readAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

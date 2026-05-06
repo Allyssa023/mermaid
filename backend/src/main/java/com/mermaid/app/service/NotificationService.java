@@ -1,5 +1,7 @@
 package com.mermaid.app.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mermaid.app.domain.Notification;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.repository.NotificationRepository;
@@ -11,19 +13,36 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class NotificationService {
 
     private final NotificationRepository notificationRepo;
+    private final ObjectMapper objectMapper;
 
-    public NotificationService(NotificationRepository notificationRepo) {
+    public NotificationService(NotificationRepository notificationRepo, ObjectMapper objectMapper) {
         this.notificationRepo = notificationRepo;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * Create and persist a notification for a user.
-     */
+    @Transactional
+    public Notification create(Long userId, String type, String body, Map<String, Object> payload) {
+        Notification n = new Notification();
+        n.setUserId(userId);
+        n.setType(type);
+        n.setTitle(type);
+        n.setBody(body);
+        if (payload != null) {
+            try {
+                n.setPayloadJson(objectMapper.writeValueAsString(payload));
+            } catch (JsonProcessingException e) {
+                throw new IllegalStateException("Failed to serialize notification payload", e);
+            }
+        }
+        return notificationRepo.save(n);
+    }
+
     @Transactional
     public Notification notify(Long userId, String type, String title, String body, String link) {
         Notification n = new Notification();

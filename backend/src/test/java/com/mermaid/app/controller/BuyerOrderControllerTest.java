@@ -58,6 +58,11 @@ class BuyerOrderControllerTest {
 
     @MockitoBean BuyerOrderService buyerOrderService;
     @MockitoBean com.mermaid.app.service.OrderTimelineService timelineService;
+    @MockitoBean com.mermaid.app.service.PaymentGatewayService paymentGatewayService;
+    @MockitoBean com.mermaid.app.repository.OrderRepository orderRepository;
+    @MockitoBean com.mermaid.app.repository.PaymentRepository paymentRepository;
+    @MockitoBean com.mermaid.app.service.BuyerActivityService buyerActivityService;
+    @MockitoBean com.mermaid.app.service.CartService cartService;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private static org.springframework.test.web.servlet.request.RequestPostProcessor asBuyer(long userId) {

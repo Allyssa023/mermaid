@@ -208,13 +208,12 @@ export default function ListingDetailView() {
 
   const listing = data.listing || {}
   const vendor  = data.vendor || {}
-  const photos  = data.photoUrls || []
   const related = data.relatedListings || []
-  const price = listing.offerPricePerKg || 0
-  const available = listing.quantityKg || 0
+  const price = listing.pricePerKg || 0
+  const available = listing.availableKg || 0
   const inStock = available > 0
-  const speciesName = listing.fishSpecies?.commonName || 'Listing'
-  const tag = listing.fishSpecies?.tag || speciesName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const speciesName = listing.speciesName || listing.title || 'Listing'
+  const tag = speciesName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <div className="page">
@@ -243,7 +242,7 @@ export default function ListingDetailView() {
 
         {/* Info */}
         <div style={{ flex: '1 1 320px', minWidth: 280 }}>
-          <div className="eyebrow">{listing.marketLocation?.name || '—'}</div>
+          <div className="eyebrow">{listing.vendorName || '—'}</div>
           <h1 className="page__title" style={{ marginTop: 4 }}>{speciesName}</h1>
 
           <div className="buyer-card__price" style={{ marginTop: 14 }}>
@@ -255,11 +254,6 @@ export default function ListingDetailView() {
             <span className={inStock ? '' : 'muted-data'} style={{ color: inStock ? 'var(--safe)' : 'var(--ink-4)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
               {inStock ? `● ${available}kg available` : '● Out of stock'}
             </span>
-            {listing.neededBy && (
-              <span className="muted-data" style={{ fontSize: 13 }}>
-                Needed by {fmt(listing.neededBy)}
-              </span>
-            )}
           </div>
 
           {data.description && (
@@ -343,7 +337,7 @@ export default function ListingDetailView() {
           <h3 className="page__title" style={{ fontSize: 20 }}>You might also like</h3>
           <div className="buyer-grid" style={{ marginTop: 12 }}>
             {related.map(r => {
-              const rTag = r.fishSpecies?.tag || (r.fishSpecies?.commonName || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+              const rTag = (r.speciesName || r.title || '').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
               return (
                 <div
                   key={r.id}
@@ -354,10 +348,10 @@ export default function ListingDetailView() {
                     <div className="buyer-card__species-tag">{rTag}</div>
                   </div>
                   <div className="buyer-card__body">
-                    <h3 className="buyer-card__species">{r.fishSpecies?.commonName || '—'}</h3>
+                    <h3 className="buyer-card__species">{r.speciesName || r.title || '—'}</h3>
                     <div className="buyer-card__vendor"><span>{r.vendorName || '—'}</span></div>
                     <div className="buyer-card__price">
-                      <span className="big">{fmtPrice(r.offerPricePerKg)}</span>
+                      <span className="big">{fmtPrice(r.pricePerKg)}</span>
                       <span>/kg</span>
                     </div>
                   </div>

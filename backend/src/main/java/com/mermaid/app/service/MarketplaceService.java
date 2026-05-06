@@ -1,14 +1,18 @@
 package com.mermaid.app.service;
 
 import com.mermaid.app.domain.DemandListing;
+import com.mermaid.app.domain.StorefrontListing;
 import com.mermaid.app.domain.User;
 import com.mermaid.app.mapper.DemandListingMapper;
+import com.mermaid.app.mapper.StorefrontListingMapper;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.model.BuyerListingDetail;
 import com.mermaid.app.model.BuyerListingSort;
 import com.mermaid.app.model.DemandListingStatus;
 import com.mermaid.app.model.OfferLookupItem;
 import com.mermaid.app.model.PagedDemandListings;
+import com.mermaid.app.model.PagedStorefrontListings;
+import com.mermaid.app.model.StorefrontListingSummary;
 import org.openapitools.jackson.nullable.JsonNullable;
 import com.mermaid.app.repository.DemandListingRepository;
 import com.mermaid.app.repository.UserRepository;
@@ -37,13 +41,22 @@ public class MarketplaceService {
     private final DemandListingRepository listingRepo;
     private final DemandListingMapper mapper;
     private final UserRepository userRepo;
+    private final StorefrontListingService storefrontService;
+    private final StorefrontListingMapper storefrontMapper;
+    private final com.mermaid.app.service.InventoryService inventoryService;
 
     public MarketplaceService(DemandListingRepository listingRepo,
                                DemandListingMapper mapper,
-                               UserRepository userRepo) {
+                               UserRepository userRepo,
+                               StorefrontListingService storefrontService,
+                               StorefrontListingMapper storefrontMapper,
+                               com.mermaid.app.service.InventoryService inventoryService) {
         this.listingRepo = listingRepo;
         this.mapper = mapper;
         this.userRepo = userRepo;
+        this.storefrontService = storefrontService;
+        this.storefrontMapper = storefrontMapper;
+        this.inventoryService = inventoryService;
     }
 
     @Transactional(readOnly = true)
@@ -197,58 +210,6 @@ public class MarketplaceService {
         return EARTH_RADIUS_KM * c;
     }
 
-    /**
-     * Phase 1.2 — single listing detail with vendor profile and 4 related listings.
-     * Related = same vendor (preferred) OR same species, OPEN, exclude the current listing.
-     */
-    @Transactional(readOnly = true)
-    public BuyerListingDetail getListingDetail(Long listingId) {
-        DemandListing entity = listingRepo.findById(listingId)
-                .filter(d -> !d.isDeleted() && d.getStatus() == DemandListingStatus.OPEN)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Listing not found: " + listingId));
-
-        User vendor = userRepo.findById(entity.getVendorId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Vendor not found for listing: " + listingId));
-
-        // Related listings — fetch a small page from same vendor first; if fewer than 4,
-        // top up with same-species listings from other vendors. Exclude self.
-        List<DemandListing> sameVendor = listingRepo
-                .findAllByVendorIdAndStatusAndIsDeletedFalseOrderByPostedAtDescIdDesc(
-                        entity.getVendorId(), DemandListingStatus.OPEN)
-                .stream()
-                .filter(d -> !d.getId().equals(entity.getId()))
-                .limit(4)
-                .toList();
-
-        List<DemandListing> related = new ArrayList<>(sameVendor);
-        if (related.size() < 4 && entity.getSpecies() != null) {
-            int needed = 4 - related.size();
-            List<DemandListing> sameSpecies = listingRepo.findOpenOffersBySpecies(
-                    DemandListingStatus.OPEN, entity.getSpecies().getId(), null)
-                    .stream()
-                    .filter(d -> !d.getId().equals(entity.getId()))
-                    .filter(d -> related.stream().noneMatch(r -> r.getId().equals(d.getId())))
-                    .limit(needed)
-                    .toList();
-            related.addAll(sameSpecies);
-        }
-
-        Map<Long, String> vendorNames = batchVendorNames(related);
-
-        com.mermaid.app.model.DemandListing listingModel = mapper.toModel(entity, vendor.getFullName());
-        com.mermaid.app.model.BuyerVendorProfile vendorModel = mapper.toVendorProfile(vendor);
-        List<com.mermaid.app.model.DemandListing> relatedModels = related.stream()
-                .map(d -> mapper.toModel(d, vendorNames.getOrDefault(d.getVendorId(), "Unknown Vendor")))
-                .toList();
-
-        BuyerListingDetail detail = new BuyerListingDetail(
-                listingModel, vendorModel, List.of(), relatedModels);
-        detail.setDescription(JsonNullable.of(entity.getNotes()));
-        return detail;
-    }
-
     @Transactional(readOnly = true)
     public List<OfferLookupItem> lookupOffers(Long speciesId, Long locationId) {
         if (speciesId == null) throw new IllegalArgumentException("speciesId is required");
@@ -269,6 +230,64 @@ public class MarketplaceService {
                 .toList();
         return userRepo.findAllById(vendorIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getFullName));
+    }
+
+    @Transactional(readOnly = true)
+    public PagedStorefrontListings searchStorefrontListings(String q, Long speciesId, Long vendorId,
+                                                             Integer page, Integer size) {
+        int pageIdx = page != null && page >= 0 ? page : 0;
+        int pageSize = size != null && size > 0 ? Math.min(size, MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
+
+        List<StorefrontListing> all = storefrontService.listForBuyerMarketplace(speciesId, vendorId, q);
+        int total = all.size();
+        int from = Math.min(pageIdx * pageSize, total);
+        int to = Math.min(from + pageSize, total);
+        List<StorefrontListing> slice = all.subList(from, to);
+
+        List<Long> vendorIds = slice.stream().map(StorefrontListing::getVendorId).distinct().toList();
+        Map<Long, String> vendorNames = userRepo.findAllById(vendorIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+
+        List<StorefrontListingSummary> content = slice.stream()
+                .map(l -> storefrontMapper.toBuyerSummary(l,
+                        inventoryService.availableKg(l.getVendorId(), l.getSpeciesId()),
+                        vendorNames.getOrDefault(l.getVendorId(), "Unknown Vendor")))
+                .collect(Collectors.toList());
+
+        int totalPages = pageSize == 0 ? 0 : (int) Math.ceil((double) total / pageSize);
+        return new PagedStorefrontListings(content, pageIdx, pageSize, (long) total, totalPages);
+    }
+
+    @Transactional(readOnly = true)
+    public BuyerListingDetail getStorefrontListingDetail(Long listingId) {
+        StorefrontListing entity = storefrontService.getByIdForBuyer(listingId);
+        User vendor = userRepo.findById(entity.getVendorId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Vendor not found for listing: " + listingId));
+
+        BigDecimal available = inventoryService.availableKg(entity.getVendorId(), entity.getSpeciesId());
+        StorefrontListingSummary listingModel = storefrontMapper.toBuyerSummary(
+                entity, available, vendor.getFullName());
+        com.mermaid.app.model.BuyerVendorProfile vendorModel = mapper.toVendorProfile(vendor);
+
+        List<StorefrontListing> related = storefrontService
+                .listForBuyerMarketplace(entity.getSpeciesId(), null, null)
+                .stream()
+                .filter(l -> !l.getId().equals(entity.getId()))
+                .limit(4)
+                .toList();
+
+        List<Long> relatedVendorIds = related.stream().map(StorefrontListing::getVendorId).distinct().toList();
+        Map<Long, String> relatedVendorNames = userRepo.findAllById(relatedVendorIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+
+        List<StorefrontListingSummary> relatedModels = related.stream()
+                .map(l -> storefrontMapper.toBuyerSummary(l,
+                        inventoryService.availableKg(l.getVendorId(), l.getSpeciesId()),
+                        relatedVendorNames.getOrDefault(l.getVendorId(), "Unknown Vendor")))
+                .collect(Collectors.toList());
+
+        return new BuyerListingDetail(listingModel, vendorModel, relatedModels);
     }
 
     /** Filter parameters for buyer marketplace browse. */

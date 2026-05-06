@@ -50,6 +50,9 @@ public class Order {
     @Column(name = "delivery_address", columnDefinition = "TEXT")
     private String deliveryAddress;
 
+    @Column(name = "storefront_listing_id")
+    private Long storefrontListingId;
+
     @Column(name = "cart_checkout_id")
     private UUID cartCheckoutId;
 
@@ -97,6 +100,9 @@ public class Order {
     public void setNotes(String notes) { this.notes = notes; }
     public String getDeliveryAddress() { return deliveryAddress; }
     public void setDeliveryAddress(String deliveryAddress) { this.deliveryAddress = deliveryAddress; }
+    public Long getStorefrontListingId() { return storefrontListingId; }
+    public void setStorefrontListingId(Long storefrontListingId) { this.storefrontListingId = storefrontListingId; }
+
     public UUID getCartCheckoutId() { return cartCheckoutId; }
     public void setCartCheckoutId(UUID cartCheckoutId) { this.cartCheckoutId = cartCheckoutId; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
