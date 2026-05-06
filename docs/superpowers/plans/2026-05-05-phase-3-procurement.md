@@ -2,7 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development or superpowers:executing-plans.
 
-**Goal:** Vendor procurement loop. Vendor browses fisherman `CatchAlert`s in the procurement feed, adds to a cart, checks out (row-locked overcommit prevention), the fisherman accepts/completes, and on `COMPLETED` the goods become an `InventoryLot`. Adds a single new tab on the existing fisherman dashboard listing PROCUREMENT orders.
+**Goal:** Vendor procurement loop. Vendor browses fisherman `CatchAlert`s in the procurement feed, places orders (DB-backed cross-seller cart, row-locked overcommit prevention), the fisherman accepts/completes, and on `COMPLETED` the goods become an `InventoryLot`. Vendors can also place **preorders** directly to a fisherman (no catch alert required). Adds a single new tab on the existing fisherman dashboard listing PROCUREMENT orders.
+
+**UX decisions (2026-05-06):**
+- Button label is **"Order"** (not "Add to cart") — opens a qty/price modal, submits, item lands in DB cart.
+- Once a vendor has cart items from fisherman X, other alerts from fisherman X show **"Order more from [name]"** instead.
+- Cart is **cross-seller**: items from multiple fishermen can coexist and check out together.
+- Preorders: vendor can preorder from a fisherman before a catch alert exists (`POST /vendor/procurement/preorders`); creates `Order(kind=PROCUREMENT, catch_alert_id=null)`.
 
 **Spec reference:** §5.3 (V40), §6 Flow B, §9 Phase 3, §10 (bounded fisherman scope).
 
@@ -201,7 +207,7 @@ public class ProcurementOrderService {
 
 - [ ] **Step 1:** List feed cards: species, fisherman name, quantity (claimed/total), price, landing site, freshness ("alert age" = now - createdAt), distance (if available), watchlist badge.
 - [ ] **Step 2:** Filters: species select (from existing reference data), freshness slider, distance input, "Watchlist only" toggle (no-op until Phase 4 watchlist).
-- [ ] **Step 3:** Card action: "Add to cart" with qty input. Reject when qty > availableKg.
+- [ ] **Step 3:** Card action: **"Order"** button (first item from this seller) / **"Order more from [name]"** (seller already in cart). Opens inline modal with qty + price confirm. On submit → POST to cart endpoint. Reject when qty > availableKg.
 - [ ] **Step 4:** Use `useVendorPolling` for feed refresh (15s).
 
 ## Task 11: Frontend — `ProcurementCart.jsx`

@@ -37,6 +37,8 @@ tags:
   - name: Vendor Inventory
   - name: Vendor Storefront
   - name: Vendor Orders
+  - name: Vendor Procurement
+  - name: Fisherman Procurement
 
 security:
   - bearerAuth: []
@@ -1251,6 +1253,380 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Vendor Procurement ──────────────────────────────────────────────────────
+
+  /vendor/procurement/feed:
+    get:
+      tags: [Vendor Procurement]
+      summary: Browse active catch alerts for procurement
+      operationId: vendorProcurementFeed
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: speciesId
+          schema: {type: integer, format: int64}
+        - in: query
+          name: maxAgeMins
+          schema: {type: integer}
+      responses:
+        '200':
+          description: Feed items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcurementFeedItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/cart:
+    get:
+      tags: [Vendor Procurement]
+      summary: Get procurement cart
+      operationId: getProcurementCart
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Cart items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcurementCartItemDto'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/cart/items:
+    post:
+      tags: [Vendor Procurement]
+      summary: Add or update cart item (Order / Order more from seller)
+      operationId: addProcurementCartItem
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddProcurementCartItemRequest'
+      responses:
+        '200':
+          description: Item added/updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementCartItemDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/cart/items/{itemId}:
+    patch:
+      tags: [Vendor Procurement]
+      summary: Update cart item qty
+      operationId: updateProcurementCartItem
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProcurementCartItemRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementCartItemDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    delete:
+      tags: [Vendor Procurement]
+      summary: Remove cart item
+      operationId: removeProcurementCartItem
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '204':
+          description: Removed
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/checkout:
+    post:
+      tags: [Vendor Procurement]
+      summary: Checkout procurement cart (row-locked overcommit prevention)
+      operationId: checkoutProcurementCart
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Orders created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcurementOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/orders:
+    get:
+      tags: [Vendor Procurement]
+      summary: List vendor procurement orders (as buyer)
+      operationId: listVendorProcurementOrders
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: bucket
+          schema: {type: string}
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcurementOrderSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/orders/{orderId}/cancel:
+    post:
+      tags: [Vendor Procurement]
+      summary: Cancel a procurement order (vendor as buyer; restores claimed_kg)
+      operationId: vendorCancelProcurementOrder
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendorCancelOrderRequest'
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/preorders:
+    post:
+      tags: [Vendor Procurement]
+      summary: Place a preorder to a fisherman (no catch alert required)
+      operationId: placePreorder
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreorderRequest'
+      responses:
+        '200':
+          description: Preorder created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/procurement/fishermen:
+    get:
+      tags: [Vendor Procurement]
+      summary: List fishermen this vendor has previously ordered from
+      operationId: listPreviousFishermen
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Fishermen list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FishermanSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Fisherman Procurement ────────────────────────────────────────────────────
+
+  /fisherman/procurement-orders:
+    get:
+      tags: [Fisherman Procurement]
+      summary: List fisherman procurement orders (as seller)
+      operationId: listFishermanProcurementOrders
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: bucket
+          schema: {type: string}
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcurementOrderSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /fisherman/procurement-orders/{orderId}/accept:
+    post:
+      tags: [Fisherman Procurement]
+      summary: Accept a procurement order
+      operationId: fishermanAcceptProcurement
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /fisherman/procurement-orders/{orderId}/ready:
+    post:
+      tags: [Fisherman Procurement]
+      summary: Mark procurement order ready
+      operationId: fishermanMarkProcurementReady
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /fisherman/procurement-orders/{orderId}/complete:
+    post:
+      tags: [Fisherman Procurement]
+      summary: Complete a procurement order (triggers addLotFromProcurement)
+      operationId: fishermanCompleteProcurement
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /fisherman/procurement-orders/{orderId}/cancel:
+    post:
+      tags: [Fisherman Procurement]
+      summary: Cancel a procurement order (restores claimed_kg)
+      operationId: fishermanCancelProcurement
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendorCancelOrderRequest'
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementOrderSummary'
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
@@ -5128,4 +5504,202 @@ components:
           type: integer
           format: int64
         totalPages:
+          type: integer
+
+    ProcurementFeedItem:
+      type: object
+      required: [id, fishermanId, speciesId, speciesName, quantityKg, claimedKg, availableKg, landingSite, expiresAt, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fishermanId:
+          type: integer
+          format: int64
+        fishermanName:
+          type: string
+          nullable: true
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+        quantityKg:
+          type: number
+          format: double
+          nullable: true
+        claimedKg:
+          type: number
+          format: double
+        availableKg:
+          type: number
+          format: double
+          nullable: true
+        askingPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        quantityEstimate:
+          type: string
+          nullable: true
+        landingSite:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lng:
+          type: number
+          format: double
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        ageMinutes:
+          type: integer
+        inCart:
+          type: boolean
+
+    ProcurementCartItemDto:
+      type: object
+      required: [id, catchAlertId, fishermanId, speciesId, speciesName, qtyKg, offeredPricePerKg]
+      properties:
+        id:
+          type: integer
+          format: int64
+        catchAlertId:
+          type: integer
+          format: int64
+        fishermanId:
+          type: integer
+          format: int64
+        fishermanName:
+          type: string
+          nullable: true
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+        qtyKg:
+          type: number
+          format: double
+        offeredPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        availableKg:
+          type: number
+          format: double
+          nullable: true
+
+    AddProcurementCartItemRequest:
+      type: object
+      required: [catchAlertId, qtyKg]
+      properties:
+        catchAlertId:
+          type: integer
+          format: int64
+        qtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+        offeredPricePerKg:
+          type: number
+          format: double
+          nullable: true
+
+    UpdateProcurementCartItemRequest:
+      type: object
+      required: [qtyKg]
+      properties:
+        qtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+        offeredPricePerKg:
+          type: number
+          format: double
+          nullable: true
+
+    ProcurementOrderSummary:
+      type: object
+      required: [id, fishermanId, speciesId, speciesName, qtyKg, pricePerKg, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        fishermanId:
+          type: integer
+          format: int64
+        fishermanName:
+          type: string
+          nullable: true
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+        qtyKg:
+          type: number
+          format: double
+          nullable: true
+        pricePerKg:
+          type: number
+          format: double
+        status:
+          type: string
+        catchAlertId:
+          type: integer
+          format: int64
+          nullable: true
+        isPreorder:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    PreorderRequest:
+      type: object
+      required: [fishermanId, speciesId, qtyKg, pricePerKg]
+      properties:
+        fishermanId:
+          type: integer
+          format: int64
+        speciesId:
+          type: integer
+          format: int64
+        qtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+        pricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        notes:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    FishermanSummary:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        orderCount:
           type: integer

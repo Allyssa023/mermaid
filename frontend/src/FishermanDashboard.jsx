@@ -9,6 +9,13 @@ import Marketplace from './Marketplace'
 import Messages from './Messages'
 import CatchAlerts from './CatchAlerts'
 import Orders from './Orders'
+import {
+  listFishermanProcurementOrders,
+  fishermanAccept,
+  fishermanMarkReady,
+  fishermanComplete,
+  fishermanCancel,
+} from './vendor/api/procurement'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -81,6 +88,7 @@ function Rail({ page, setPage, user, onLogout, badges = {} }) {
     { id: 'trips',        icon: 'Anchor',     label: 'My Trips' },
     { id: 'catch-alerts', icon: 'Bell',       label: 'Catch Alerts',  badge: badges.alerts },
     { id: 'orders',       icon: 'Clipboard',  label: 'Orders',        badge: badges.orders },
+    { id: 'procurement',  icon: 'Store',      label: 'Procurement',   badge: badges.procurement },
     { id: 'market',       icon: 'Store',      label: 'Marketplace' },
     { id: 'messages',     icon: 'Message',    label: 'Messages',      badge: badges.messages },
   ]
@@ -163,6 +171,7 @@ function Topbar({ page }) {
     trips:          'My Trips',
     'catch-alerts': 'Catch Alerts',
     orders:         'Orders',
+    procurement:    'Procurement Requests',
     market:         'Marketplace',
     messages:       'Messages',
   }
@@ -659,6 +668,140 @@ function OrdersSummary({ orders, setPage }) {
   )
 }
 
+// ── Fisherman Procurement Tab ─────────────────────────────────────────────────
+
+const PROC_BUCKETS = ['PENDING', 'ACCEPTED', 'READY', 'COMPLETED', 'CANCELLED']
+
+function FishermanProcurementTab() {
+  const [bucket, setBucket] = useState('PENDING')
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [actionErr, setActionErr] = useState(null)
+  const [cancelOpen, setCancelOpen] = useState(null)
+  const [cancelReason, setCancelReason] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await listFishermanProcurementOrders(bucket)
+      setOrders(data)
+    } finally {
+      setLoading(false)
+    }
+  }, [bucket])
+
+  useEffect(() => { load() }, [load])
+
+  const act = async (fn, orderId) => {
+    setActionErr(null)
+    try { await fn(orderId); load() }
+    catch (e) { setActionErr(e?.response?.data?.message || 'Action failed.') }
+  }
+
+  const handleCancel = async (orderId) => {
+    setActionErr(null)
+    try {
+      await fishermanCancel(orderId, cancelReason || undefined)
+      setCancelOpen(null)
+      setCancelReason('')
+      load()
+    } catch (e) { setActionErr(e?.response?.data?.message || 'Cancel failed.') }
+  }
+
+  return (
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <h1 className="page__title">Procurement Requests</h1>
+          <p className="page__sub">Vendor orders from your catch alerts</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
+        {PROC_BUCKETS.map(b => (
+          <button
+            key={b}
+            onClick={() => setBucket(b)}
+            className={`btn btn--sm${bucket === b ? ' btn--primary' : ''}`}
+          >
+            {b.charAt(0) + b.slice(1).toLowerCase()}
+          </button>
+        ))}
+      </div>
+
+      {actionErr && (
+        <div style={{ padding: '8px 12px', background: 'var(--unsafe-soft)', color: 'var(--unsafe)', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+          {actionErr}
+        </div>
+      )}
+
+      {loading ? <p className="muted">Loading…</p> : orders.length === 0 ? (
+        <p className="muted">No {bucket.toLowerCase()} procurement requests.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {orders.map(order => (
+            <div key={order.id} style={{
+              border: '1px solid var(--line)', borderRadius: 8, padding: '14px 16px', background: 'var(--paper)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <div>
+                  <span style={{ fontWeight: 600, fontSize: 15 }}>{order.speciesName ?? '(species)'}</span>
+                  {order.isPreorder && (
+                    <span style={{ marginLeft: 8, fontSize: 11, padding: '2px 7px', borderRadius: 10, background: '#ede9fe', color: '#7c3aed', fontWeight: 500 }}>
+                      Preorder
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--ink-4)' }}>#{order.id}</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 12, fontSize: 13 }}>
+                {order.qtyKg != null && <span><span style={{ color: 'var(--ink-4)', marginRight: 8 }}>Qty</span>{order.qtyKg.toFixed(1)} kg</span>}
+                {order.pricePerKg != null && <span><span style={{ color: 'var(--ink-4)', marginRight: 8 }}>Price</span>₱{order.pricePerKg.toFixed(2)}/kg</span>}
+                {order.notes && <span><span style={{ color: 'var(--ink-4)', marginRight: 8 }}>Notes</span>{order.notes}</span>}
+                <span><span style={{ color: 'var(--ink-4)', marginRight: 8 }}>Placed</span>{new Date(order.createdAt).toLocaleString()}</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {order.status === 'PENDING' && (
+                  <button className="btn btn--sm btn--accent" onClick={() => act(fishermanAccept, order.id)}>Accept</button>
+                )}
+                {order.status === 'ACCEPTED' && (
+                  <button className="btn btn--sm btn--accent" onClick={() => act(fishermanMarkReady, order.id)}>Mark Ready</button>
+                )}
+                {order.status === 'READY' && (
+                  <button className="btn btn--sm btn--primary" onClick={() => act(fishermanComplete, order.id)}>Complete</button>
+                )}
+                {(order.status === 'PENDING' || order.status === 'ACCEPTED') && cancelOpen !== order.id && (
+                  <button className="btn btn--sm" onClick={() => { setCancelOpen(order.id); setActionErr(null) }}
+                    style={{ borderColor: 'var(--unsafe)', color: 'var(--unsafe)' }}>
+                    Cancel
+                  </button>
+                )}
+                {cancelOpen === order.id && (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      placeholder="Reason (optional)"
+                      value={cancelReason}
+                      onChange={e => setCancelReason(e.target.value)}
+                      style={{ padding: '4px 8px', border: '1px solid var(--line)', borderRadius: 4, fontSize: 13 }}
+                    />
+                    <button className="btn btn--sm" style={{ background: 'var(--unsafe)', color: '#fff', border: 'none' }}
+                      onClick={() => handleCancel(order.id)}>
+                      Confirm
+                    </button>
+                    <button className="btn btn--sm" onClick={() => { setCancelOpen(null); setCancelReason('') }}>Dismiss</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Dashboard Page ─────────────────────────────────────────────────────────────
 
 function DashboardPage({ conditions, advisories, forecast, activeTrip, pendingOrders, loading, error, onLoad, user, setPage }) {
@@ -934,27 +1077,29 @@ export default function FishermanDashboard({ user, token, onLogout }) {
   const [error,         setError]         = useState(null)
   const [activeNav,     setActiveNav]     = useState('dashboard')
   const [forecast,      setForecast]      = useState(() => generateForecast())
-  const [badges,        setBadges]        = useState({ alerts: 0, orders: 0, messages: 0 })
+  const [badges,        setBadges]        = useState({ alerts: 0, orders: 0, messages: 0, procurement: 0 })
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [cond, adv, tripList, alerts, orders] = await Promise.all([
+      const [cond, adv, tripList, alerts, orders, procOrders] = await Promise.all([
         apiGet('/marine/conditions', token),
         apiGet('/advisories?activeOnly=true', token),
         apiGet('/trips?status=ACTIVE',               token).catch(() => []),
         apiGet('/fisherman/catch-alerts?status=ACTIVE', token).catch(() => []),
         apiGet('/orders/mine?status=PENDING',         token).catch(() => []),
+        listFishermanProcurementOrders('PENDING').catch(() => []),
       ])
       setConditions(cond)
       setAdvisories(adv)
       setActiveTrip(Array.isArray(tripList) ? tripList[0] ?? null : null)
       setPendingOrders(Array.isArray(orders) ? orders : [])
       setBadges({
-        alerts:   Array.isArray(alerts) ? alerts.length : 0,
-        orders:   Array.isArray(orders) ? orders.length : 0,
-        messages: 0,
+        alerts:      Array.isArray(alerts)      ? alerts.length      : 0,
+        orders:      Array.isArray(orders)      ? orders.length      : 0,
+        messages:    0,
+        procurement: Array.isArray(procOrders)  ? procOrders.length  : 0,
       })
 
       const zones     = cond?.zones ?? []
@@ -982,6 +1127,7 @@ export default function FishermanDashboard({ user, token, onLogout }) {
          activeNav === 'trips'        ? <MyTrips token={token} setPage={setActiveNav} zones={conditions?.zones ?? []} /> :
          activeNav === 'catch-alerts' ? <CatchAlerts token={token} role="FISHERMAN" /> :
          activeNav === 'orders'       ? <Orders token={token} role="FISHERMAN" /> :
+         activeNav === 'procurement'  ? <FishermanProcurementTab /> :
          activeNav === 'market'       ? <Marketplace token={token} /> :
          activeNav === 'messages'     ? <Messages token={token} userProfile={user} /> :
          (

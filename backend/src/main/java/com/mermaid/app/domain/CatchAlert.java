@@ -43,6 +43,15 @@ public class CatchAlert {
     @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
+    @Column(name = "claimed_kg", nullable = false, precision = 10, scale = 2)
+    private BigDecimal claimedKg = BigDecimal.ZERO;
+
+    @Column(name = "lat", precision = 9, scale = 6)
+    private BigDecimal lat;
+
+    @Column(name = "lng", precision = 9, scale = 6)
+    private BigDecimal lng;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -74,6 +83,12 @@ public class CatchAlert {
     public void setStatus(String status) { this.status = status; }
     public OffsetDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(OffsetDateTime expiresAt) { this.expiresAt = expiresAt; }
+    public BigDecimal getClaimedKg() { return claimedKg; }
+    public void setClaimedKg(BigDecimal claimedKg) { this.claimedKg = claimedKg; }
+    public BigDecimal getLat() { return lat; }
+    public void setLat(BigDecimal lat) { this.lat = lat; }
+    public BigDecimal getLng() { return lng; }
+    public void setLng(BigDecimal lng) { this.lng = lng; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }
