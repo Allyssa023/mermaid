@@ -19,4 +19,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByIdAndParticipant(Long id, Long userId);
 
     long countByBuyerId(Long buyerId);
+
+    @Query("SELECT o FROM Order o WHERE o.sellerId = :vendorId AND o.status IN :statuses ORDER BY o.createdAt DESC")
+    List<Order> findBySellerIdAndStatusIn(Long vendorId, java.util.Collection<String> statuses);
 }

@@ -56,6 +56,10 @@ public class Order {
     @Column(name = "cart_checkout_id")
     private UUID cartCheckoutId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_kind", nullable = false, length = 16)
+    private OrderKind kind = OrderKind.RETAIL;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -105,6 +109,8 @@ public class Order {
 
     public UUID getCartCheckoutId() { return cartCheckoutId; }
     public void setCartCheckoutId(UUID cartCheckoutId) { this.cartCheckoutId = cartCheckoutId; }
+    public OrderKind getKind() { return kind; }
+    public void setKind(OrderKind kind) { this.kind = kind; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

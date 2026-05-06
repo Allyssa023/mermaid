@@ -36,6 +36,7 @@ tags:
   - name: Webhooks
   - name: Vendor Inventory
   - name: Vendor Storefront
+  - name: Vendor Orders
 
 security:
   - bearerAuth: []
@@ -1107,6 +1108,153 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StorefrontListingResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/orders:
+    get:
+      tags: [Vendor Orders]
+      summary: List vendor orders inbox
+      operationId: vendorListOrders
+      parameters:
+        - in: query
+          name: bucket
+          schema:
+            type: string
+            enum: [NEW, PREPARING, READY, COMPLETED, CANCELLED]
+        - in: query
+          name: kind
+          schema:
+            type: string
+            enum: [RETAIL, PROCUREMENT]
+      responses:
+        '200':
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VendorOrderSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/orders/{orderId}/accept:
+    post:
+      tags: [Vendor Orders]
+      summary: Accept an order
+      operationId: vendorAcceptOrder
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/orders/{orderId}/ready:
+    post:
+      tags: [Vendor Orders]
+      summary: Mark order as ready
+      operationId: vendorMarkOrderReady
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order marked ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/orders/{orderId}/complete:
+    post:
+      tags: [Vendor Orders]
+      summary: Complete an order
+      operationId: vendorCompleteOrder
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/orders/{orderId}/cancel:
+    post:
+      tags: [Vendor Orders]
+      summary: Cancel an order
+      operationId: vendorCancelOrder
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendorCancelOrderRequest'
+      responses:
+        '200':
+          description: Order cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '401':
@@ -2804,6 +2952,18 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Access denied
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflict
       content:
         application/json:
           schema:
@@ -4904,6 +5064,53 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    VendorOrderSummary:
+      type: object
+      required: [id, buyerId, speciesId, status, kind, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        buyerId:
+          type: integer
+          format: int64
+        buyerName:
+          type: string
+          nullable: true
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+          nullable: true
+        qtyKg:
+          type: number
+          format: double
+          nullable: true
+        pricePerKg:
+          type: number
+          format: double
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, ACCEPTED, READY, COMPLETED, CANCELLED, DISPUTED]
+        kind:
+          type: string
+          enum: [RETAIL, PROCUREMENT]
+        storefrontListingId:
+          type: integer
+          format: int64
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    VendorCancelOrderRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
 
     PagedStorefrontListings:
       type: object
