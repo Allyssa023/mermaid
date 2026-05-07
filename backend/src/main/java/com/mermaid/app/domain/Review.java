@@ -35,6 +35,12 @@ public class Review {
     @Column(name = "photo_urls", nullable = false, columnDefinition = "jsonb")
     private List<String> photoUrls = new ArrayList<>();
 
+    @Column(name = "vendor_reply", columnDefinition = "TEXT")
+    private String vendorReply;
+
+    @Column(name = "vendor_reply_at")
+    private OffsetDateTime vendorReplyAt;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -67,6 +73,10 @@ public class Review {
     public void setComment(String comment) { this.comment = comment; }
     public List<String> getPhotoUrls() { return photoUrls; }
     public void setPhotoUrls(List<String> photoUrls) { this.photoUrls = photoUrls; }
+    public String getVendorReply() { return vendorReply; }
+    public void setVendorReply(String vendorReply) { this.vendorReply = vendorReply; }
+    public OffsetDateTime getVendorReplyAt() { return vendorReplyAt; }
+    public void setVendorReplyAt(OffsetDateTime vendorReplyAt) { this.vendorReplyAt = vendorReplyAt; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }

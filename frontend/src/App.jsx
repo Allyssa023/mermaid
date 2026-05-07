@@ -9,6 +9,7 @@ import FishermanDashboard from './FishermanDashboard'
 import BuyerDashboard from './buyer/BuyerDashboard'
 import AdminDashboard from './AdminDashboard'
 import VendorDashboard from './vendor/VendorDashboard'
+import PublicShop from './buyer/PublicShop'
 
 function ThemeToggle() {
   const { theme, toggle } = useTheme()
@@ -23,6 +24,9 @@ function AppInner() {
   const { user, loading, logout } = useAuth()
 
   if (loading) return null
+
+  const pathMatch = window.location.pathname.match(/^\/shop\/(.+)/)
+  if (pathMatch) return <PublicShop vendorIdOrSlug={pathMatch[1]} />
 
   if (!user) return <><LoginPage /><ThemeToggle /></>
 

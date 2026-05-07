@@ -126,6 +126,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/buyer/marketplace/listings").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/public/shop/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/uploads/**").permitAll()
                 .requestMatchers("/webhooks/**").permitAll()
                 .anyRequest().authenticated()

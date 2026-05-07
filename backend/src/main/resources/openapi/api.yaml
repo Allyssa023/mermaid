@@ -39,6 +39,8 @@ tags:
   - name: Vendor Orders
   - name: Vendor Procurement
   - name: Vendor Watchlist
+  - name: Vendor Shop
+  - name: Public
   - name: Fisherman Procurement
 
 security:
@@ -1559,6 +1561,128 @@ paths:
           description: Deleted
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Vendor Shop Profile ──────────────────────────────────────────────────────
+
+  /vendor/shop/profile:
+    get:
+      tags: [Vendor Shop]
+      summary: Get or auto-create vendor's shop profile
+      operationId: getVendorShopProfile
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Shop profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      tags: [Vendor Shop]
+      summary: Update vendor's shop profile
+      operationId: updateVendorShopProfile
+      security: [{bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShopProfileRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShopProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/reviews:
+    get:
+      tags: [Vendor Shop]
+      summary: List reviews received by the current vendor
+      operationId: listVendorReviews
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: page
+          in: query
+          schema: {type: integer, default: 0}
+        - name: size
+          in: query
+          schema: {type: integer, default: 20}
+      responses:
+        '200':
+          description: Reviews list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReviewWithReply'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/reviews/{id}/reply:
+    post:
+      tags: [Vendor Shop]
+      summary: Post or update vendor reply on a review
+      operationId: replyToReview
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Updated review with reply
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewWithReply'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ── Public Shop ───────────────────────────────────────────────────────────────
+
+  /public/shop/{vendorIdOrSlug}:
+    get:
+      tags: [Public]
+      summary: Public shop page (no auth required)
+      operationId: getPublicShop
+      parameters:
+        - name: vendorIdOrSlug
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Public shop view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicShopView'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -5814,3 +5938,149 @@ components:
           type: number
           format: double
           nullable: true
+
+    ShopProfile:
+      type: object
+      required: [id, vendorId, slug, displayName, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        slug:
+          type: string
+        displayName:
+          type: string
+        bio:
+          type: string
+          nullable: true
+        logoUrl:
+          type: string
+          nullable: true
+        bannerUrl:
+          type: string
+          nullable: true
+        hoursJson:
+          type: object
+          nullable: true
+          additionalProperties: true
+        pickupLocationId:
+          type: integer
+          format: int64
+          nullable: true
+        pickupLocationName:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lng:
+          type: number
+          format: double
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ShopProfileRequest:
+      type: object
+      properties:
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 50
+          nullable: true
+        displayName:
+          type: string
+          minLength: 2
+          maxLength: 80
+          nullable: true
+        bio:
+          type: string
+          maxLength: 2000
+          nullable: true
+        logoUrl:
+          type: string
+          maxLength: 500
+          nullable: true
+        bannerUrl:
+          type: string
+          maxLength: 500
+          nullable: true
+        hoursJson:
+          type: object
+          nullable: true
+          additionalProperties: true
+        pickupLocationId:
+          type: integer
+          format: int64
+          nullable: true
+        lat:
+          type: number
+          format: double
+          nullable: true
+        lng:
+          type: number
+          format: double
+          nullable: true
+
+    ReviewWithReply:
+      type: object
+      required: [id, orderId, reviewerId, rating, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        orderId:
+          type: integer
+          format: int64
+        reviewerId:
+          type: integer
+          format: int64
+        reviewerName:
+          type: string
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          nullable: true
+        vendorReply:
+          type: string
+          nullable: true
+        vendorReplyAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    PublicShopView:
+      type: object
+      required: [profile]
+      properties:
+        profile:
+          $ref: '#/components/schemas/ShopProfile'
+        avgRating:
+          type: number
+          format: double
+          nullable: true
+        reviewCount:
+          type: integer
+        listings:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorefrontListingResponse'
+        recentReviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewWithReply'

@@ -137,6 +137,33 @@ public class ReviewService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public List<com.mermaid.app.model.ReviewWithReply> listForVendorWithReply(Long vendorId, int page, int size) {
+        int s = Math.min(size, 50);
+        Page<Review> pageData = reviewRepo.findAllByVendorIdOrderByCreatedAtDesc(
+                vendorId, PageRequest.of(page, s));
+
+        List<Long> reviewerIds = pageData.getContent().stream()
+                .map(Review::getReviewerId).distinct().toList();
+        Map<Long, User> reviewersById = userRepo.findAllById(reviewerIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
+
+        return pageData.getContent().stream()
+                .map(r -> mapper.toReviewWithReply(r, reviewersById.get(r.getReviewerId())))
+                .toList();
+    }
+
+    @Transactional
+    public com.mermaid.app.model.ReviewWithReply reply(Long vendorId, Long reviewId, String replyText) {
+        Review entity = reviewRepo.findByIdAndVendorId(reviewId, vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
+        entity.setVendorReply(replyText);
+        entity.setVendorReplyAt(OffsetDateTime.now());
+        Review saved = reviewRepo.save(entity);
+        User reviewer = userRepo.findById(saved.getReviewerId()).orElse(null);
+        return mapper.toReviewWithReply(saved, reviewer);
+    }
+
     private void recomputeVendorAggregate(Long vendorId) {
         long count = reviewRepo.countByVendorId(vendorId);
         Double avg = reviewRepo.avgRatingForVendor(vendorId).orElse(null);

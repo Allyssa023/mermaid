@@ -22,4 +22,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Optional<Double> avgRatingForVendor(@Param("vendorId") Long vendorId);
 
     long countByReviewerId(Long reviewerId);
+
+    java.util.Optional<Review> findByIdAndVendorId(Long id, Long vendorId);
 }

@@ -33,6 +33,21 @@ public class ReviewMapper {
         return m;
     }
 
+    public com.mermaid.app.model.ReviewWithReply toReviewWithReply(Review entity, User reviewer) {
+        com.mermaid.app.model.ReviewWithReply m = new com.mermaid.app.model.ReviewWithReply(
+                entity.getId(),
+                entity.getOrderId(),
+                entity.getReviewerId(),
+                entity.getRating().intValue(),
+                entity.getCreatedAt());
+
+        m.setReviewerName(JsonNullable.of(reviewer != null ? reviewer.getFullName() : null));
+        m.setComment(JsonNullable.of(entity.getComment()));
+        m.setVendorReply(JsonNullable.of(entity.getVendorReply()));
+        m.setVendorReplyAt(JsonNullable.of(entity.getVendorReplyAt()));
+        return m;
+    }
+
     private static boolean isWithinEditWindow(OffsetDateTime createdAt) {
         if (createdAt == null) return false;
         return ChronoUnit.DAYS.between(createdAt, OffsetDateTime.now()) <= EDIT_WINDOW_DAYS;

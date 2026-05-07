@@ -13,5 +13,7 @@ public interface StorefrontListingRepository extends JpaRepository<StorefrontLis
 
     List<StorefrontListing> findByStatusAndIsDeletedFalse(StorefrontListingStatus status);
 
+    List<StorefrontListing> findByVendorIdAndStatusAndIsDeletedFalse(Long vendorId, StorefrontListingStatus status);
+
     Optional<StorefrontListing> findByIdAndIsDeletedFalse(Long id);
 }
