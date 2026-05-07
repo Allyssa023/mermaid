@@ -7,7 +7,7 @@
 
 ## Background
 
-The fisherman role is the platform's primary supply-side actor. Isidro (fisherman persona) goes out to sea late evening to early morning, returns at dawn, and posts a catch alert when he's back at shore — vendors are waiting. The current fisherman frontend is a monolithic `FishermanDashboard.jsx` (1,151 lines) with state-based navigation, loose page files in `src/` root, and no consistent design system application. This plan brings the fisherman role to parity with the vendor and buyer roles architecturally, applies the mermaid-handoff design system uniformly, and adds three new feature clusters: earnings/utang tracking, profile/SMS safety, and dispute management.
+The fisherman role is the platform's primary supply-side actor. Isidro (fisherman persona) goes out to sea late evening to early morning, returns at dawn, and posts a catch alert when he's back at shore — vendors are waiting. The current fisherman frontend is a monolithic `src/FishermanDashboard.jsx` (1,151 lines) with state-based navigation, loose page files in `src/` root, and no consistent design system application. This plan brings the fisherman role to parity with the vendor and buyer roles architecturally, applies the mermaid-handoff design system uniformly, and adds three new feature clusters: earnings/utang tracking, profile/SMS safety, and dispute management.
 
 ### Real-World Workflow (Field Research)
 - Fishermen depart late evening, return early morning
@@ -88,12 +88,12 @@ frontend/src/fisherman/
 - `data-accent="ocean"` on `.app` — adds `--accent: oklch(0.55 0.09 220)` (maritime blue, distinct from vendor's warm amber)
 - All pages use `.page`, `.page__head`, `.page__title` with `<em>`, `.eyebrow`, `.card`, `.btn` variants, `.chip` variants, `.tbl`, `.status` pills, `.modal-overlay`, `.form-grid`, `.form-row`, `.input`
 - Icons exclusively from `I` in `icons.jsx` — no inline SVG components
-- `handoff.css` imported in `FishermanDashboard.jsx` (router)
+- `handoff.css` imported in `fisherman/FishermanDashboard.jsx` (router)
 - No hardcoded hex or rgba — CSS variables only
 
 ### Routing Change in `App.jsx`
 
-Old `FishermanDashboard` (state-based navigation) replaced by new router-based component. Routes mount under `/fisherman/*`. Old loose files (`src/CatchAlerts.jsx`, `src/MyTrips.jsx`, `src/TripPlanner.jsx`, `src/Orders.jsx`, `src/Marketplace.jsx`, `src/Messages.jsx`) removed after their migration phases complete.
+The existing fisherman branch in `App.jsx` renders `<FishermanDashboard>` without a `<BrowserRouter>` wrapper (vendor and buyer each have their own inner `<BrowserRouter>`). Phase 0 must wrap the fisherman branch in `<BrowserRouter>` exactly as done for vendor and buyer, then replace the old state-based component with the new router-based `fisherman/FishermanDashboard`. Routes mount under `/fisherman/*`.
 
 ---
 
@@ -103,13 +103,13 @@ Old `FishermanDashboard` (state-based navigation) replaced by new router-based c
 
 **Deliverables:**
 - `fisherman/FishermanLayout.jsx` with Rail (9 nav items, `data-accent="ocean"`), Topbar, Outlet
-- `fisherman/FishermanDashboard.jsx` — React Router `<Routes>` only
+- `fisherman/FishermanDashboard.jsx` — React Router `<Routes>` only, imports `'../design-system.css'` and `'../handoff.css'`
 - `fisherman/api/` modules (stubs for all endpoints)
 - `fisherman/hooks/useFishermanPolling.js`
-- `data-accent="ocean"` CSS variable added to design system
-- `App.jsx` routing updated
+- `data-accent="ocean"` CSS variable block added to `design-system.css`
+- `App.jsx` updated: fisherman branch wrapped in `<BrowserRouter>`, old `FishermanDashboard` import replaced
 
-**No visual changes yet** — existing functionality preserved via new routing shell.
+**No visual changes yet** — existing functionality preserved via new routing shell. Old `src/FishermanDashboard.jsx` removed in this phase after cutover (not deferred).
 
 ---
 
@@ -119,16 +119,16 @@ Old `FishermanDashboard` (state-based navigation) replaced by new router-based c
 
 Redesign of current dashboard. Sections:
 - Page header: eyebrow "Fisherman · Operations", title "Today on the *water*.", date/time sub
-- KPI strip (4 tiles): Safe Zones, Caution Zones, Avg Wave Height, Max Wind Speed — using `.kpi` / `.grid.grid--kpi`
+- KPI strip (4 tiles): Safe Zones, Caution Zones, Avg Wave Height, Max Wind Speed — `.kpi` / `.grid.grid--kpi`
 - Hero: sea status headline with overall risk label, chip row (zone counts + active advisories)
 - 48h Forecast chart: SVG-based, wave + wind, hover tooltip — extracted as `ForecastChart` component
 - Zone carousel: animated zone card carousel — extracted as `ZoneCarousel` component
 - Active trip card: extracted as `ActiveTripCard`
 - Active advisories: `.adv-list` / `.adv-item`
-- Pending orders summary: clicks through to procurement
-- Quick actions: Start Trip, Catch Alerts, Earnings, Procurement
+- Pending orders summary: clicks through to `/fisherman/procurement`
+- Quick actions: Start Trip, Catch Alerts, Earnings, Procurement — uses `useNavigate()`
 
-All inline components cleaned up. No state-based page switching — uses `useNavigate()`.
+All inline components cleaned up. No state-based page switching.
 
 **`fisherman/Trips.jsx`**
 
@@ -144,18 +144,20 @@ Absorbs `MyTrips.jsx` and trip start flow from `TripPlanner.jsx`.
 - Step 1: Vessel name (pre-filled from profile) + confirm
 - Step 2: Safety checklist (required — all items must be checked to proceed): life vest, radio, fuel level, emergency contact notified
 - Step 3: Optional zone selection (skip allowed)
-- On confirm: `POST /trips` → success → SMS sent to emergency contact (handled by backend)
+- On confirm: `POST /trips` → success → SMS sent to emergency contact (handled by backend, non-blocking)
 
 **`fisherman/components/NotificationsBell.jsx`**
-- Polls `GET /fisherman/notifications/unread-count`
+- Reuses existing `/notifications/unread-count` and `/notifications` endpoints (role-scoped by JWT principal — same endpoints as vendor bell, no new endpoint needed)
 - Dropdown showing recent procurement order notifications
-- Mirrors vendor `NotificationsBell` pattern
+- Mirrors vendor `NotificationsBell` pattern exactly
 
 ---
 
 ### Phase 2 — Transaction Pages Migration
 
-All pages migrate from `src/` root files to `fisherman/` directory with design system applied.
+All pages migrate from `src/` root files to `fisherman/` directory with design system applied. Each old file is removed after its replacement is wired into the router.
+
+**Backend note:** No new endpoints in this phase. All pages use existing API routes.
 
 **`fisherman/CatchAlerts.jsx`**
 - Replaces `src/CatchAlerts.jsx` (854 lines, inline SVG icons)
@@ -163,18 +165,17 @@ All pages migrate from `src/` root files to `fisherman/` directory with design s
 - Active alerts as `.alert-card` with freshness chips (`.chip--safe/caution/unsafe.chip--dot`)
 - Create alert: `.modal-overlay` + `.form-grid` + `.input` fields (species, qty, price, landing site, expiry)
 - Cancel action: `.btn.btn--ghost.btn--sm` with `.btn.btn--unsafe` confirm
-- Uses `I` from `icons.jsx`
+- All icons from `I` in `icons.jsx` — remove 8 inline SVG icon components
 
 **`fisherman/Procurement.jsx`**
-- Replaces `FishermanProcurementTab` component
+- Replaces `FishermanProcurementTab` component in `src/FishermanDashboard.jsx`
 - Page: eyebrow "Fisherman · Sales", title "Vendor *Orders*."
-- Status tabs: `.seg` / `.seg__btn.on` (PENDING, ACCEPTED, READY, COMPLETED, CANCELLED)
+- Status tabs: `.seg` / `.seg__btn.on` (PENDING, ACCEPTED, READY, COMPLETED, CANCELLED, DISPUTED)
 - Each order as `.card` with `.card__head` (species + order ID `.kbd`), `.status` pill
 - Pre-orders: `chip--accent` badge "Preorder" + sub-text "Accept before your next trip"
 - Actions: `.btn.btn--accent.btn--sm` (Accept), `.btn.btn--primary.btn--sm` (Mark Ready / Complete), `.btn.btn--ghost.btn--sm` with `var(--unsafe)` (Cancel)
 - Cancel reason: `.input` inline
-- Payment method badge on COMPLETED orders: CASH (`chip--safe`) or CREDIT / UTANG (`chip--caution`)
-- Phase 5 dispute flag added here
+- Payment method badge on COMPLETED orders: CASH (`chip--safe`) or CREDIT / UTANG (`chip--caution`) — wired to `order.paymentMethod` field added in Phase 3
 
 **`fisherman/Orders.jsx`**
 - Replaces `src/Orders.jsx` (marketplace orders from buyers)
@@ -196,33 +197,41 @@ All pages migrate from `src/` root files to `fisherman/` directory with design s
 
 **Backend**
 
-Flyway migration `V43__add_payment_method_to_procurement_orders.sql`:
+Step 1 — add to `api.yaml` and run `./mvnw generate-sources`:
+- New tag: `Fisherman Earnings`
+- `GET /fisherman/earnings/summary` → `EarningsSummary { totalGross, cashCollected, creditOutstanding, orderCount }`
+- `GET /fisherman/earnings/ledger?from=&to=` → `List<EarningsLedgerRow> { orderId, vendorName, speciesName, qtyKg, gross, paymentMethod, status, settledAt, date }`
+- New tag addition to existing vendor paths: `PUT /vendor/procurement-orders/{id}/settle` → body `OrderSettleRequest { paymentMethod, settleNotes }`
+
+Step 2 — Flyway migration `V43__add_payment_method_to_orders.sql`:
 ```sql
-ALTER TABLE procurement_orders
-  ADD COLUMN payment_method VARCHAR(10) NOT NULL DEFAULT 'CASH',
+-- Targets the `orders` table (procurement orders use order_kind = 'PROCUREMENT')
+ALTER TABLE orders
+  ADD COLUMN payment_method VARCHAR(10) NOT NULL DEFAULT 'CASH'
+    CHECK (payment_method IN ('CASH', 'CREDIT')),
   ADD COLUMN settled_at TIMESTAMP,
   ADD COLUMN settle_notes TEXT;
 ```
 
-New endpoints in `api.yaml`:
-- `GET /fisherman/earnings/summary` → `{ totalGross, cashCollected, creditOutstanding, orderCount }`
-- `GET /fisherman/earnings/ledger?from=&to=` → array of `{ orderId, vendorName, speciesName, qtyKg, gross, paymentMethod, status, settledAt, date }`
-- `PUT /vendor/procurement-orders/{id}/settle` body: `{ paymentMethod, settleNotes }` — vendor marks a CREDIT order as SETTLED, triggers fisherman notification
+Step 3 — domain update: add `paymentMethod`, `settledAt`, `settleNotes` fields to `Order.java`.
 
-Service: `EarningsService` (fisherman) — queries completed procurement orders, aggregates by payment method.
+Step 4 — implement generated interfaces:
+- `EarningsController implements FishermanEarningsApi` — delegates to `EarningsService`
+- `EarningsService` — queries completed orders where `sellerId = fishermanId` (procurement orders are identified by `order_kind = 'PROCUREMENT'`), aggregates totals by `payment_method`
+- `VendorProcurementController` settle endpoint — authorization must verify `order.getBuyerId().equals(currentVendorId())` (NOT `getSellerId()` — the vendor is the buyer on procurement orders). Transitions order `paymentMethod` to `CASH`/`CREDIT` and sets `settledAt`. Fires notification to fisherman (seller).
 
 **Frontend — `fisherman/Earnings.jsx`**
 
 - Page header: eyebrow "Fisherman · Finance", title "My *Earnings*."
 - Summary strip (3 tiles): Total Gross, Cash Collected (`var(--safe)`), Outstanding Utang (`var(--caution)`)
-- Date range filter: `.card` with `.form-row` date inputs + Apply button
+- Date range filter: `.card` with `.form-row` date inputs + Apply button (mirrors vendor Payouts)
 - Ledger table: `.tbl` with columns Order, Date, Vendor, Species, Qty, Gross, Payment, Status
 - Payment method pills: `chip--safe` = Cash, `chip--caution` = Credit/Utang, `chip` (neutral) = Settled
 - Empty state: `.empty` + `.empty__title`
 
 **Frontend — Vendor `ProcurementOrders.jsx` update**
 
-On COMPLETED orders: add "Mark as Paid" button (`.btn.btn--accent.btn--sm`) which opens a small modal: payment method (CASH | CREDIT) + optional notes → calls `PUT /vendor/procurement-orders/{id}/settle`.
+On COMPLETED orders: add "Mark as Paid" button (`.btn.btn--accent.btn--sm`) which opens a small modal: payment method (CASH | CREDIT) + optional settle notes → calls `PUT /vendor/procurement-orders/{id}/settle`.
 
 ---
 
@@ -230,7 +239,12 @@ On COMPLETED orders: add "Mark as Paid" button (`.btn.btn--accent.btn--sm`) whic
 
 **Backend**
 
-Flyway migration `V44__fisherman_profile_fields.sql`:
+Step 1 — add to `api.yaml` and run `./mvnw generate-sources`:
+- New tag: `Fisherman Profile`
+- `GET /fisherman/profile` → `FishermanProfile`
+- `PUT /fisherman/profile` → body `FishermanProfileUpdateRequest { vesselName, landingSite, emergencyContactName, emergencyContactPhone }`
+
+Step 2 — Flyway migration `V44__fisherman_profile_fields.sql`:
 ```sql
 ALTER TABLE users
   ADD COLUMN vessel_name VARCHAR(100),
@@ -238,6 +252,8 @@ ALTER TABLE users
   ADD COLUMN emergency_contact_name VARCHAR(100),
   ADD COLUMN emergency_contact_phone VARCHAR(20);
 ```
+
+Step 3 — implement:
 
 `SmsService` interface:
 ```java
@@ -248,25 +264,27 @@ public interface SmsService {
 
 `TextbeeSmsService` implementation:
 - Config: `sms.textbee.apiKey`, `sms.textbee.globeDeviceId`, `sms.textbee.smartDeviceId`
-- Carrier routing by prefix (Globe: 0917/0918/0916; Smart: 0919/0920/0921/0928; default: Globe)
+- Carrier routing by prefix (Globe: 0917/0918/0916; Smart: 0919/0920/0921/0928; default: Globe device)
 - POST to `https://api.textbee.dev/api/v1/gateway/devices/{deviceId}/send-sms`
 
 `TripService` changes:
-- `startTrip()` → calls `smsService.send(emergencyContactPhone, departureMessage)`
-- `endTrip()` → calls `smsService.send(emergencyContactPhone, returnMessage)`
+- `startTrip()` → `try { smsService.send(...) } catch (Exception e) { log.warn(...) }` — non-blocking
+- `endTrip()` → same pattern
 
 SMS message templates:
 - Departure: `"{name} has departed for fishing at {time}. Vessel: {vessel}. Expected return: early morning. - MERMAID Safety"`
 - Return: `"{name} has returned safely at {time}. - MERMAID Safety"`
 
-`GET /fisherman/profile` and `PUT /fisherman/profile` endpoints.
+SMS is skipped silently if `emergencyContactPhone` is null (profile not yet filled).
+
+Step 4 — `FishermanProfileController implements FishermanProfileApi`
 
 **Frontend — `fisherman/Profile.jsx`**
 
 - Page header: eyebrow "Fisherman · Account", title "My *Profile*."
 - Two-section layout (mirrors vendor ShopProfile):
-  - Left: Basic Info card — full name (read-only from auth), vessel name input, landing site input
-  - Right: Safety card — emergency contact name input, emergency contact phone input, SMS preview box: *"When you start a trip, this message will be sent: '[departure message preview]'"*
+  - Left `.card`: Basic Info — full name (read-only from auth), vessel name `.input`, landing site `.input`
+  - Right `.card`: Safety Contact — emergency contact name `.input`, phone `.input`, SMS preview box showing the departure message template with the fisherman's name/vessel filled in
 - Save button in `page__actions`
 - Success/error banners using `var(--safe-soft)` / `var(--unsafe-soft)`
 
@@ -274,49 +292,55 @@ SMS message templates:
 
 ### Phase 5 — Disputes
 
-**Problem:** weight and quality disagreements at handoff. Both fisherman and vendor can raise and respond to disputes.
+**Problem:** weight and quality disagreements at handoff. Both fisherman and vendor can raise a dispute; only the counter-party (the party that did not raise it) can resolve it.
 
 **Backend**
 
-Flyway migration `V45__order_disputes.sql`:
+Step 1 — add to `api.yaml` and run `./mvnw generate-sources`:
+- New tag: `Order Disputes`
+- `POST /fisherman/procurement-orders/{id}/dispute` → `OrderDisputeRequest { claimedWeightKg, claimedQuality, notes }`
+- `POST /vendor/procurement-orders/{id}/dispute` → same request body
+- `PUT /fisherman/procurement-orders/{id}/dispute/resolve` → `DisputeResolveRequest { resolution }` — only callable by counter-party (if fisherman raised, vendor resolves; if vendor raised, fisherman resolves). Returns 403 if called by the raising party.
+- `GET /fisherman/procurement-orders/{id}/dispute` → `OrderDispute`
+
+Step 2 — Flyway migration `V45__order_disputes.sql`:
 ```sql
 CREATE TABLE order_disputes (
   id BIGSERIAL PRIMARY KEY,
-  procurement_order_id BIGINT NOT NULL REFERENCES procurement_orders(id),
-  raised_by VARCHAR(20) NOT NULL,         -- FISHERMAN | VENDOR
+  order_id BIGINT NOT NULL REFERENCES orders(id),
+  raised_by VARCHAR(20) NOT NULL CHECK (raised_by IN ('FISHERMAN', 'VENDOR')),
   original_weight_kg DECIMAL(8,2),
   claimed_weight_kg DECIMAL(8,2),
-  claimed_quality VARCHAR(50),            -- FRESH | SUBSTANDARD | DAMAGED
+  claimed_quality VARCHAR(20) CHECK (claimed_quality IN ('FRESH', 'SUBSTANDARD', 'DAMAGED')),
   notes TEXT,
-  status VARCHAR(20) NOT NULL DEFAULT 'OPEN',  -- OPEN | RESOLVED
+  status VARCHAR(20) NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'RESOLVED')),
   resolved_at TIMESTAMP,
   resolution TEXT,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 ```
 
-Endpoints:
-- `POST /fisherman/procurement-orders/{id}/dispute` — raise dispute
-- `POST /vendor/procurement-orders/{id}/dispute` — raise dispute from vendor side
-- `PUT /fisherman/procurement-orders/{id}/dispute/resolve` — resolve (either party)
-- `GET /fisherman/procurement-orders/{id}/dispute` — get dispute for order
+Note: `order_disputes.order_id` references `orders(id)` — NOT a `procurement_orders` table (which does not exist; procurement orders use `orders` table with `order_kind = 'PROCUREMENT'`).
 
-Order status gains `DISPUTED` state for display purposes (derived, not stored separately).
+Step 3 — implement:
+- Dispute creation: transitions `orders.status` to `DISPUTED` (reusing existing `DISPUTED` value in the CHECK constraint from V38). Returns 409 if an OPEN dispute already exists for the order.
+- Dispute resolution: counter-party only (authorization checks `raisedBy` field). Transitions `orders.status` back to `COMPLETED`. Sets `resolved_at`. Fires notification to the raising party.
+- `DisputeService.raise()` and `DisputeService.resolve()` — both verify the caller's role and relationship to the order.
 
 **Frontend — `fisherman/Procurement.jsx` update**
 
-On COMPLETED and READY orders: "Flag Dispute" button (`.btn.btn--ghost.btn--sm` with `var(--unsafe)` color) opens dispute modal:
-- Original weight (pre-filled from order)
-- Your claimed weight (input)
+On COMPLETED and READY orders: "Flag Dispute" button (`.btn.btn--ghost.btn--sm` with `var(--unsafe)` color). Opens dispute modal:
+- Original weight (pre-filled from order, read-only)
+- Your claimed weight: `.input` (number)
 - Quality assessment: `.seg` buttons (Fresh / Substandard / Damaged)
 - Notes: textarea `.input`
 - Submit: `.btn.btn--primary.btn--sm`
 
-Disputed orders show `.status.status--disputed` pill.
+Disputed orders show `.status.status--disputed` pill. Once dispute is RESOLVED (fetched from `GET /dispute`), the pill switches to `.status.status--completed` (the order is back to COMPLETED).
 
 **Frontend — Vendor `ProcurementOrders.jsx` update**
 
-Same dispute flag pattern from vendor side.
+Same dispute flag + resolve pattern from vendor side. If vendor raised the dispute, they see it as pending. If fisherman raised it, vendor sees a "Resolve Dispute" action.
 
 ---
 
@@ -326,53 +350,65 @@ Same dispute flag pattern from vendor side.
 Fisherman posts CatchAlert
     → vendor sees in ProcurementFeed
     → vendor places order (CASH or CREDIT)
-    → fisherman sees in Procurement tab (badge if preorder)
+    → fisherman sees in Procurement tab (chip--accent badge if preorder)
     → fisherman accepts → marks ready → completes
-    → if CREDIT: vendor later "Mark as Paid" → fisherman sees in Earnings as SETTLED
-    → if dispute: either party flags → both see DISPUTED status → resolve
+    → if CREDIT: vendor later "Mark as Paid" → order.paymentMethod set, settledAt recorded
+      → fisherman sees settled in Earnings ledger
+    → if dispute: either party flags → orders.status → DISPUTED
+      → counter-party resolves → orders.status → COMPLETED, notification fired
 
 Fisherman starts Trip
-    → safety checklist confirmed
-    → backend fires SMS to emergency contact via textbee
+    → safety checklist confirmed (all items checked)
+    → backend fires SMS to emergencyContactPhone via textbee (non-blocking)
     → trip goes ACTIVE, timer starts on dashboard
     → fisherman ends trip
-    → backend fires return SMS
+    → backend fires return SMS (non-blocking)
+    → fisherman posts catch alert to notify waiting vendors
 ```
 
 ---
 
 ## Error Handling
 
-- SMS failures are non-blocking — `TripService.startTrip()` catches SMS exceptions, logs a warning, and does not prevent the trip from starting
-- Settlement actions are idempotent — calling `settle` on an already-settled order returns 200 with no side effects
-- Dispute creation is blocked if an open dispute already exists for the order (409 Conflict)
-- All new API endpoints follow existing `GlobalExceptionHandler` mappings (404 / 400 / 409 / 503)
-- Frontend: all API calls have `.catch(() => null)` or explicit error state with `var(--unsafe-soft)` banners
+- SMS failures are non-blocking — `TripService` catches all `Exception`, logs a warning, trip proceeds regardless
+- SMS skipped silently if `emergencyContactPhone` is null
+- Settlement is idempotent — calling settle on an already-settled order returns 200 with no side effects
+- Dispute creation blocked if an OPEN dispute already exists for the order (409 Conflict)
+- Dispute resolve blocked if caller is the raising party (403 Forbidden)
+- All new endpoints follow existing `GlobalExceptionHandler` mappings (404 / 400 / 403 / 409 / 503)
+- Frontend: explicit error state with `var(--unsafe-soft)` banners on all API failures
 
 ---
 
 ## Testing
 
 **Backend (per-phase):**
-- `@WebMvcTest` for each new controller with `@MockitoBean` service dependencies
-- `SecurityMockMvcRequestPostProcessors.jwt()` with `ROLE_FISHERMAN` or `ROLE_VENDOR` claims
-- `EarningsServiceTest` — unit test cash/credit aggregation logic
-- `TripServiceTest` — verify SMS called on startTrip/endTrip, verify SMS failure doesn't throw
-- `TextbeeSmsServiceTest` — verify carrier routing (Globe vs Smart prefix selection)
-- Dispute controller tests: raise, resolve, conflict on duplicate
+- `@WebMvcTest` for each new controller; `@MockitoBean` for service dependencies; `@MockitoBean JwtDecoder jwtDecoder`
+- JWT: `.jwt().claim("roles", List.of("ROLE_FISHERMAN"))` or `"ROLE_VENDOR"` as appropriate
+- `EarningsServiceTest` — aggregation of cash/credit totals from mixed order list
+- `TripServiceTest` — SMS called on startTrip and endTrip; SMS exception does NOT propagate
+- `TextbeeSmsServiceTest` — Globe prefix routes to globeDeviceId; Smart prefix routes to smartDeviceId; unknown prefix defaults to Globe
+- Settle endpoint test: vendor (buyer) can settle; fisherman (seller) gets 403
+- Dispute tests: raise succeeds; duplicate raise returns 409; raising party cannot resolve (403); counter-party can resolve
 
 **Frontend:**
 - Vitest + Testing Library per phase
-- Key test: Earnings page renders correct cash vs utang totals
-- Key test: StartTripModal blocks proceed until checklist complete
-- Key test: Procurement shows preorder badge for preorder orders
-- Key test: NotificationsBell shows unread count badge
+- Earnings page: renders correct cash vs utang totals
+- StartTripModal: "Start" button disabled until all checklist items checked
+- Procurement: preorder badge renders for `isPreorder: true` orders
+- NotificationsBell: shows unread count from `/notifications/unread-count`
 
 ---
 
 ## Migration Cleanup
 
-After all phases complete:
-- Remove `src/CatchAlerts.jsx`, `src/MyTrips.jsx`, `src/TripPlanner.jsx`, `src/Orders.jsx`, `src/Marketplace.jsx`, `src/Messages.jsx`
-- Remove CSS files tied to those pages: `catch-alerts.css`, `planner.css`, `orders.css`, `messages.css`, `dashboard.css`
-- Update any remaining imports
+After all phases complete, remove:
+- `src/FishermanDashboard.jsx` — removed in Phase 0 after cutover
+- `src/CatchAlerts.jsx` — removed after Phase 2
+- `src/MyTrips.jsx` — removed after Phase 1
+- `src/TripPlanner.jsx` — removed after Phase 1
+- `src/Orders.jsx` — removed after Phase 2
+- `src/Marketplace.jsx` — removed after Phase 2
+- `src/Messages.jsx` — removed after Phase 2
+- CSS files: `catch-alerts.css`, `planner.css`, `orders.css`, `messages.css`, `dashboard.css` — removed after their pages are migrated
+- Update `App.jsx` import of old `FishermanDashboard` to new `fisherman/FishermanDashboard`
