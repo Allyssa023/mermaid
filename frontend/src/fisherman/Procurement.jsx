@@ -6,7 +6,7 @@ import { useFishermanPolling } from './hooks/useFishermanPolling'
 const BUCKETS = ['PENDING','ACCEPTED','READY','COMPLETED','CANCELLED','DISPUTED']
 
 const STATUS_CLS = {
-  PENDING: 'status--pending', ACCEPTED: 'status--accepted', READY: 'status--safe',
+  PENDING: 'status--pending', ACCEPTED: 'status--confirmed', READY: 'status--active',
   COMPLETED: 'status--completed', CANCELLED: 'status--cancelled', DISPUTED: 'status--disputed',
 }
 
