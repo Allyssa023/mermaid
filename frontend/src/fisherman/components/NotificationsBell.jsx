@@ -68,7 +68,7 @@ export default function FishermanNotificationsBell() {
         <div style={{
           position: 'absolute', top: '100%', right: 0, zIndex: 100,
           width: 320, background: 'var(--surface)', border: '1px solid var(--line)',
-          borderRadius: 12, boxShadow: 'var(--shadow-md)', overflow: 'hidden',
+          borderRadius: 12, boxShadow: 'var(--shadow-2)', overflow: 'hidden',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
             <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Notifications</span>
