@@ -79,6 +79,10 @@ public class FishermanProcurementController implements FishermanProcurementApi {
         dto.setIsPreorder(order.getCatchAlertId() == null);
         dto.setNotes(JsonNullable.of(order.getNotes()));
         dto.setCreatedAt(order.getCreatedAt());
+        if (order.getPaymentMethod() != null)
+            dto.setPaymentMethod(JsonNullable.of(order.getPaymentMethod()));
+        if (order.getSettledAt() != null)
+            dto.setSettledAt(JsonNullable.of(order.getSettledAt()));
         return dto;
     }
 }
