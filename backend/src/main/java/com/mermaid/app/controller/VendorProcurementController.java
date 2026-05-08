@@ -262,6 +262,10 @@ public class VendorProcurementController implements VendorProcurementApi {
 
     @Override
     public ResponseEntity<ProcurementOrderSummary> settleVendorProcurementOrder(Long id, OrderSettleRequest req) {
-        throw new UnsupportedOperationException("Not yet implemented — see Task 3.5");
+        Long vendorId = SecurityUtils.currentUserId();
+        String notes = req.getSettleNotes() != null && req.getSettleNotes().isPresent()
+            ? req.getSettleNotes().get() : null;
+        com.mermaid.app.domain.Order settled = orderService.settle(vendorId, id, req.getPaymentMethod().getValue(), notes);
+        return ResponseEntity.ok(toOrderSummary(settled));
     }
 }

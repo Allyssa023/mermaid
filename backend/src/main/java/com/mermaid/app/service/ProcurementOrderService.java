@@ -226,6 +226,23 @@ public class ProcurementOrderService {
         return saved;
     }
 
+    @Transactional
+    public Order settle(Long vendorId, Long orderId, String paymentMethod, String settleNotes) {
+        Order order = orderRepo.findById(orderId)
+            .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+        if (!vendorId.equals(order.getBuyerId()) || !OrderKind.PROCUREMENT.equals(order.getKind())) {
+            throw new AccessDeniedException("Order does not belong to this vendor");
+        }
+        if (!"COMPLETED".equals(order.getStatus())) {
+            throw new IllegalArgumentException("Can only settle a COMPLETED order; current status: " + order.getStatus());
+        }
+        if (order.getSettledAt() != null) return order;
+        order.setPaymentMethod(paymentMethod);
+        order.setSettledAt(OffsetDateTime.now());
+        order.setSettleNotes(settleNotes);
+        return orderRepo.save(order);
+    }
+
     private void recordEvent(Long orderId, String status, Long actorId, String note,
                              Long buyerId, Long sellerId) {
         try {
