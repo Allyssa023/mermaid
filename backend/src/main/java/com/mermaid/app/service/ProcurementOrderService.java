@@ -55,6 +55,7 @@ public class ProcurementOrderService {
             case "READY"     -> List.of("READY");
             case "COMPLETED" -> List.of("COMPLETED");
             case "CANCELLED" -> List.of("CANCELLED");
+            case "DISPUTED"  -> List.of("DISPUTED");
             default          -> List.of("PENDING", "ACCEPTED", "READY");
         } : List.of("PENDING", "ACCEPTED", "READY");
         return orderRepo.findByBuyerIdAndKindAndStatusIn(vendorId, OrderKind.PROCUREMENT, statuses);
@@ -195,6 +196,7 @@ public class ProcurementOrderService {
             case "READY"     -> List.of("READY");
             case "COMPLETED" -> List.of("COMPLETED");
             case "CANCELLED" -> List.of("CANCELLED");
+            case "DISPUTED"  -> List.of("DISPUTED");
             default          -> List.of("PENDING", "ACCEPTED", "READY");
         } : List.of("PENDING", "ACCEPTED", "READY");
         return orderRepo.findBySellerIdAndKindAndStatusIn(fishermanId, OrderKind.PROCUREMENT, statuses);
