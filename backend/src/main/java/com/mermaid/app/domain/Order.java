@@ -60,6 +60,18 @@ public class Order {
     @Column(name = "order_kind", nullable = false, length = 16)
     private OrderKind kind = OrderKind.RETAIL;
 
+    @Column(name = "completed_at")
+    private OffsetDateTime completedAt;
+
+    @Column(name = "payment_method", length = 10)
+    private String paymentMethod;
+
+    @Column(name = "settled_at")
+    private OffsetDateTime settledAt;
+
+    @Column(name = "settle_notes", columnDefinition = "TEXT")
+    private String settleNotes;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -111,6 +123,14 @@ public class Order {
     public void setCartCheckoutId(UUID cartCheckoutId) { this.cartCheckoutId = cartCheckoutId; }
     public OrderKind getKind() { return kind; }
     public void setKind(OrderKind kind) { this.kind = kind; }
+    public OffsetDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(OffsetDateTime completedAt) { this.completedAt = completedAt; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public OffsetDateTime getSettledAt() { return settledAt; }
+    public void setSettledAt(OffsetDateTime settledAt) { this.settledAt = settledAt; }
+    public String getSettleNotes() { return settleNotes; }
+    public void setSettleNotes(String settleNotes) { this.settleNotes = settleNotes; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
