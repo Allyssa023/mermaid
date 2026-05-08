@@ -5,7 +5,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { CartProvider } from './context/CartContext'
 import { FavoritesProvider } from './context/FavoritesContext'
 import { LoginPage, RoleSetupPage } from './pages/LoginPage'
-import FishermanDashboard from './FishermanDashboard'
+import FishermanDashboard from './fisherman/FishermanDashboard'
 import BuyerDashboard from './buyer/BuyerDashboard'
 import AdminDashboard from './AdminDashboard'
 import VendorDashboard from './vendor/VendorDashboard'
@@ -31,7 +31,14 @@ function AppInner() {
   if (!user) return <><LoginPage /><ThemeToggle /></>
 
   if (user.role === 'FISHERMAN') {
-    return <><FishermanDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
+    return (
+      <>
+        <BrowserRouter>
+          <FishermanDashboard user={user} onLogout={logout} />
+        </BrowserRouter>
+        <ThemeToggle />
+      </>
+    )
   }
   if (user.role === 'ADMIN') {
     return <><AdminDashboard user={user} token={null} onLogout={logout} /><ThemeToggle /></>
