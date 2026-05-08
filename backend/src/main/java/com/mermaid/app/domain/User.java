@@ -106,6 +106,27 @@ public class User {
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
 
+    @Column(name = "vessel_name", length = 100)
+    private String vesselName;
+
+    @Column(name = "landing_site", length = 100)
+    private String landingSite;
+
+    @Column(name = "emergency_contact_name", length = 100)
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone", length = 20)
+    private String emergencyContactPhone;
+
+    public String getVesselName() { return vesselName; }
+    public void setVesselName(String vesselName) { this.vesselName = vesselName; }
+    public String getLandingSite() { return landingSite; }
+    public void setLandingSite(String landingSite) { this.landingSite = landingSite; }
+    public String getEmergencyContactName() { return emergencyContactName; }
+    public void setEmergencyContactName(String emergencyContactName) { this.emergencyContactName = emergencyContactName; }
+    public String getEmergencyContactPhone() { return emergencyContactPhone; }
+    public void setEmergencyContactPhone(String emergencyContactPhone) { this.emergencyContactPhone = emergencyContactPhone; }
+
     // ── Lifecycle callbacks ──────────────────────────────────────────────────────
 
     @PrePersist

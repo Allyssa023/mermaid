@@ -44,6 +44,8 @@ tags:
   - name: Fisherman Procurement
   - name: Fisherman Earnings
     description: Fisherman earnings ledger and summary
+  - name: Fisherman Profile
+    description: Fisherman vessel and safety contact management
 
 security:
   - bearerAuth: []
@@ -2051,6 +2053,37 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/EarningsLedgerRow' }
+      security: [{ bearerAuth: [] }]
+
+  # ── Fisherman Profile ────────────────────────────────────────────────────────
+
+  /fisherman/profile:
+    get:
+      tags: [Fisherman Profile]
+      operationId: getFishermanProfile
+      summary: Get fisherman profile
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FishermanProfile' }
+      security: [{ bearerAuth: [] }]
+    put:
+      tags: [Fisherman Profile]
+      operationId: updateFishermanProfile
+      summary: Update fisherman profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FishermanProfileUpdateRequest' }
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FishermanProfile' }
       security: [{ bearerAuth: [] }]
 
   /vendor/procurement-orders/{id}/settle:
@@ -6548,3 +6581,21 @@ components:
         settleNotes:
           type: string
           nullable: true
+
+    FishermanProfile:
+      type: object
+      properties:
+        fullName:               { type: string }
+        email:                  { type: string }
+        vesselName:             { type: string, nullable: true }
+        landingSite:            { type: string, nullable: true }
+        emergencyContactName:   { type: string, nullable: true }
+        emergencyContactPhone:  { type: string, nullable: true }
+
+    FishermanProfileUpdateRequest:
+      type: object
+      properties:
+        vesselName:             { type: string, nullable: true }
+        landingSite:            { type: string, nullable: true }
+        emergencyContactName:   { type: string, nullable: true }
+        emergencyContactPhone:  { type: string, nullable: true }
