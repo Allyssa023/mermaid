@@ -215,6 +215,9 @@ export default function Orders() {
           <div className="buyer-empty" style={{ padding: '40px 20px' }}>
             <I.Clipboard size={28} />
             <span>No orders in this category yet.</span>
+            <button className="btn btn--ghost btn--sm" onClick={() => onNavigate('browse')}>
+              Browse listings
+            </button>
           </div>
         ) : (
           <div className="orders-list">

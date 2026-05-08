@@ -50,7 +50,7 @@ export default function Cart() {
           <I.Receipt size={36} />
           <span>No items yet. Add listings to your cart from the marketplace or a listing detail page.</span>
           <button className="btn btn--accent" style={{ marginTop: 18 }} onClick={onContinueShopping}>
-            Browse marketplace
+            Browse listings
           </button>
         </div>
       </div>

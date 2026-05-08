@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { listVendorReviews, replyToReview } from './api/reviews'
 
 function Stars({ rating }) {
+  const filled = Math.max(0, Math.min(5, rating || 0))
   return (
-    <span style={{ color: '#f59e0b', fontSize: 14 }}>
-      {'★'.repeat(Math.max(0, Math.min(5, rating || 0)))}{'☆'.repeat(Math.max(0, 5 - Math.min(5, rating || 0)))}
+    <span style={{ color: 'var(--caution)', fontSize: 14, letterSpacing: 1 }}>
+      {'★'.repeat(filled)}
+      <span style={{ color: 'var(--ink-5)' }}>{'★'.repeat(5 - filled)}</span>
     </span>
   )
 }
@@ -29,79 +31,66 @@ function ReviewCard({ review, onReplied }) {
     }
   }
 
+  const initials = (review.reviewerName || '?')[0].toUpperCase()
+
   return (
-    <div style={{
-      border: '1px solid #e5e7eb', borderRadius: 10, padding: 16, marginBottom: 12, background: '#fff',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
         <div style={{
-          width: 36, height: 36, borderRadius: '50%', background: '#e0e7ff',
+          width: 36, height: 36, borderRadius: 99, flexShrink: 0,
+          background: 'var(--accent-soft)', color: 'var(--accent-ink)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 15, fontWeight: 700, color: '#4f46e5',
+          fontFamily: 'var(--font-display)', fontSize: 15,
         }}>
-          {(review.reviewerName || '?')[0].toUpperCase()}
+          {initials}
         </div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{review.reviewerName || 'Anonymous'}</div>
-          <div style={{ fontSize: 12, color: '#9ca3af' }}>
-            {new Date(review.createdAt).toLocaleDateString()}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 500, fontSize: 13, color: 'var(--ink)' }}>
+              {review.reviewerName || 'Anonymous'}
+            </span>
+            <Stars rating={review.rating} />
+            <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginLeft: 'auto' }}>
+              {new Date(review.createdAt).toLocaleDateString()}
+            </span>
           </div>
-        </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <Stars rating={review.rating} />
+          {review.comment && (
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              {review.comment}
+            </p>
+          )}
         </div>
       </div>
 
-      {review.comment && (
-        <p style={{ margin: '6px 0 10px', fontSize: 14, color: '#374151', lineHeight: 1.5 }}>
-          {review.comment}
-        </p>
-      )}
-
       {review.vendorReply && !editing && (
         <div style={{
-          background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6,
-          padding: '8px 12px', fontSize: 13, color: '#166534', marginBottom: 8,
+          background: 'var(--safe-soft)', border: '1px solid',
+          borderColor: 'var(--safe)', borderRadius: 8,
+          padding: '8px 12px', fontSize: 13, color: 'var(--safe)',
+          marginBottom: 8, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10,
         }}>
-          <strong>Your reply:</strong> {review.vendorReply}
-          <button
-            onClick={() => setEditing(true)}
-            style={{ marginLeft: 10, fontSize: 12, color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer' }}
-          >
-            Edit
-          </button>
+          <span><strong style={{ color: 'var(--ink-2)' }}>Your reply:</strong> <span style={{ color: 'var(--ink-2)' }}>{review.vendorReply}</span></span>
+          <button className="btn btn--ghost btn--sm" onClick={() => setEditing(true)} style={{ flexShrink: 0 }}>Edit</button>
         </div>
       )}
 
       {editing && (
         <div style={{ marginTop: 8 }}>
           <textarea
+            className="input"
             value={replyText}
             onChange={e => setReplyText(e.target.value)}
             rows={2}
             placeholder="Write a reply to this review…"
-            style={{
-              width: '100%', padding: '8px 10px', border: '1px solid #d1d5db',
-              borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box',
-            }}
+            style={{ resize: 'vertical' }}
           />
-          {err && <p style={{ margin: '4px 0', fontSize: 12, color: '#dc2626' }}>{err}</p>}
-          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-            <button
-              onClick={submit}
-              disabled={busy}
-              style={{
-                background: busy ? '#9ca3af' : '#2563eb', color: '#fff', border: 'none',
-                borderRadius: 6, padding: '6px 16px', fontSize: 13, cursor: busy ? 'wait' : 'pointer',
-              }}
-            >
+          {err && <p style={{ margin: '4px 0', fontSize: 12, color: 'var(--unsafe)' }}>{err}</p>}
+          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+            <button className="btn btn--accent btn--sm" onClick={submit} disabled={busy}>
               {busy ? 'Posting…' : 'Post Reply'}
             </button>
             {review.vendorReply && (
-              <button
-                onClick={() => { setEditing(false); setReplyText(review.vendorReply) }}
-                style={{ background: 'none', border: '1px solid #d1d5db', borderRadius: 6, padding: '6px 16px', fontSize: 13, cursor: 'pointer' }}
-              >
+              <button className="btn btn--ghost btn--sm" onClick={() => { setEditing(false); setReplyText(review.vendorReply) }}>
                 Cancel
               </button>
             )}
@@ -135,26 +124,41 @@ export default function Reviews() {
     setReviews(prev => prev.map(r => r.id === updatedReview.id ? updatedReview : r))
   }
 
-  if (loading) return <div style={{ padding: 24, color: '#6b7280' }}>Loading…</div>
+  if (loading) return (
+    <div className="page">
+      <div className="empty" style={{ padding: '60px 0' }}>
+        <div className="empty__title">Loading…</div>
+      </div>
+    </div>
+  )
 
   return (
-    <div style={{ padding: 24, maxWidth: 680 }}>
-      <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>Customer Reviews</h2>
-      <p style={{ color: '#6b7280', fontSize: 14, margin: '0 0 20px' }}>
-        {reviews.length} review{reviews.length !== 1 ? 's' : ''} received
-      </p>
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Vendor · Reputation</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            Customer <em>Reviews</em>
+          </h1>
+          <p className="page__sub">{reviews.length} review{reviews.length !== 1 ? 's' : ''} received · reply to build buyer trust.</p>
+        </div>
+      </div>
 
       {error && (
-        <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 14 }}>
+        <div style={{
+          color: 'var(--unsafe)', padding: '10px 14px',
+          background: 'var(--unsafe-soft)', borderRadius: 8,
+          marginBottom: 16, fontSize: 13,
+        }}>
           {error}
         </div>
       )}
 
       {reviews.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
-          <div style={{ fontSize: 36, marginBottom: 8 }}>⭐</div>
-          <div style={{ fontSize: 15 }}>No reviews yet.</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>Reviews from completed orders will appear here.</div>
+        <div className="empty" style={{ padding: '48px 0' }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>★</div>
+          <div className="empty__title">No reviews yet</div>
+          <p style={{ fontSize: 13, color: 'var(--ink-4)', marginTop: 4 }}>Reviews from completed orders will appear here.</p>
         </div>
       )}
 

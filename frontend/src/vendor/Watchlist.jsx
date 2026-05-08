@@ -3,11 +3,11 @@ import { apiGet } from '../api'
 import { listWatchlist, addWatchlist, removeWatchlist } from './api/watchlist'
 
 function AddModal({ onClose, onAdded }) {
-  const [species, setSpecies]   = useState([])
+  const [species, setSpecies]     = useState([])
   const [locations, setLocations] = useState([])
-  const [speciesId, setSpeciesId]     = useState('')
-  const [locationId, setLocationId]   = useState('')
-  const [radiusKm, setRadiusKm]       = useState('5')
+  const [speciesId, setSpeciesId]   = useState('')
+  const [locationId, setLocationId] = useState('')
+  const [radiusKm, setRadiusKm]     = useState('5')
   const [busy, setBusy] = useState(false)
   const [err, setErr]   = useState('')
 
@@ -37,55 +37,43 @@ function AddModal({ onClose, onAdded }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }} onClick={onClose}>
-      <div style={{
-        background: '#fff', borderRadius: 12, padding: 24, width: 360,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-      }} onClick={e => e.stopPropagation()}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>Add Watchlist Subscription</h3>
-        <p style={{ color: '#6b7280', fontSize: 13, margin: '0 0 16px' }}>
-          Get notified when a fisherman posts a catch alert matching your criteria.
-        </p>
-
-        <label style={{ fontSize: 13, color: '#374151' }}>Species (optional)</label>
-        <select value={speciesId} onChange={e => setSpeciesId(e.target.value)}
-          style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', marginTop: 4, marginBottom: 12 }}>
-          <option value="">Any species</option>
-          {species.map(s => <option key={s.id} value={s.id}>{s.commonName || s.name}</option>)}
-        </select>
-
-        <label style={{ fontSize: 13, color: '#374151' }}>Market location (optional)</label>
-        <select value={locationId} onChange={e => setLocationId(e.target.value)}
-          style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', marginTop: 4, marginBottom: 12 }}>
-          <option value="">Any location</option>
-          {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-        </select>
-
-        {locationId && (
-          <>
-            <label style={{ fontSize: 13, color: '#374151' }}>Radius (km)</label>
-            <input type="number" min="0.5" step="0.5" value={radiusKm}
-              onChange={e => setRadiusKm(e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 6, fontSize: 14, boxSizing: 'border-box', marginTop: 4, marginBottom: 12 }} />
-          </>
-        )}
-
-        {err && <div style={{ color: '#dc2626', fontSize: 13, marginBottom: 8 }}>{err}</div>}
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button disabled={busy || !canSubmit} onClick={submit} style={{
-            flex: 1, padding: '9px 0',
-            background: canSubmit ? '#2563eb' : '#93c5fd',
-            color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: canSubmit ? 'pointer' : 'not-allowed',
-          }}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+        <div className="modal__head">
+          <div>
+            <div className="eyebrow">New subscription</div>
+            <h2 className="modal__title">Add to Watchlist</h2>
+            <p className="modal__sub">Get notified when a fisherman posts a catch alert matching your criteria.</p>
+          </div>
+        </div>
+        <div className="form-grid">
+          <div className="form-row">
+            <label>Species (optional)</label>
+            <select className="input" value={speciesId} onChange={e => setSpeciesId(e.target.value)}>
+              <option value="">Any species</option>
+              {species.map(s => <option key={s.id} value={s.id}>{s.commonName || s.name}</option>)}
+            </select>
+          </div>
+          <div className="form-row">
+            <label>Market location (optional)</label>
+            <select className="input" value={locationId} onChange={e => setLocationId(e.target.value)}>
+              <option value="">Any location</option>
+              {locations.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </div>
+          {locationId && (
+            <div className="form-row">
+              <label>Radius (km)</label>
+              <input className="input" type="number" min="0.5" step="0.5" value={radiusKm} onChange={e => setRadiusKm(e.target.value)} />
+            </div>
+          )}
+        </div>
+        {err && <div style={{ color: 'var(--unsafe)', fontSize: 13, marginTop: 10 }}>{err}</div>}
+        <div className="modal__foot">
+          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn btn--primary" disabled={busy || !canSubmit} onClick={submit}>
             {busy ? '…' : 'Add Subscription'}
           </button>
-          <button onClick={onClose} style={{
-            padding: '9px 16px', background: 'none', border: '1px solid #d1d5db', borderRadius: 6, cursor: 'pointer',
-          }}>Cancel</button>
         </div>
       </div>
     </div>
@@ -118,72 +106,74 @@ export default function Watchlist() {
   }
 
   return (
-    <div style={{ padding: '24px 20px', maxWidth: 640, margin: '0 auto' }}>
+    <div className="page">
       {showAdd && <AddModal onClose={() => setShowAdd(false)} onAdded={load} />}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div className="page__head">
         <div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Watchlist</h2>
-          <p style={{ color: '#6b7280', fontSize: 13, margin: '4px 0 0' }}>
-            Get notified when fishermen post matching catch alerts.
-          </p>
+          <div className="eyebrow">Vendor · Alerts</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            Catch <em>Watchlist</em>
+          </h1>
+          <p className="page__sub">Get notified when fishermen post catch alerts matching your criteria.</p>
         </div>
-        <button onClick={() => setShowAdd(true)} style={{
-          padding: '8px 16px', background: '#2563eb', color: '#fff',
-          border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer', fontSize: 13,
-        }}>
-          + Add subscription
-        </button>
+        <div className="page__actions">
+          <button className="btn btn--primary" onClick={() => setShowAdd(true)}>
+            + Add subscription
+          </button>
+        </div>
       </div>
 
-      {err && <div style={{ color: '#dc2626', marginBottom: 12, fontSize: 13 }}>{err}</div>}
+      {err && (
+        <div style={{ color: 'var(--unsafe)', padding: '10px 14px', background: 'var(--unsafe-soft)', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+          {err}
+        </div>
+      )}
 
       {loading ? (
-        <div style={{ color: '#9ca3af', textAlign: 'center', padding: '40px 0' }}>Loading…</div>
+        <div className="empty" style={{ padding: '48px 0' }}>
+          <div className="empty__title">Loading…</div>
+        </div>
       ) : entries.length === 0 ? (
-        <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
-          No subscriptions yet.
-          <br />
-          <button onClick={() => setShowAdd(true)} style={{
-            marginTop: 12, padding: '8px 18px', background: '#2563eb', color: '#fff',
-            border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14,
-          }}>Add your first subscription</button>
+        <div className="empty" style={{ padding: '48px 0' }}>
+          <div className="empty__title">No subscriptions yet</div>
+          <p style={{ fontSize: 13, color: 'var(--ink-4)', marginTop: 6 }}>Add a subscription to get notified when fishermen post matching catch alerts.</p>
+          <button className="btn btn--primary" onClick={() => setShowAdd(true)} style={{ marginTop: 16 }}>
+            Add your first subscription
+          </button>
         </div>
       ) : (
-        entries.map(e => (
-          <div key={e.id} style={{
-            background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-            padding: '14px 16px', marginBottom: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <div>
-              {e.speciesName && (
-                <div style={{ fontWeight: 600, fontSize: 14 }}>
-                  Species: {e.speciesName}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {entries.map(e => (
+            <div key={e.id} className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+              <div>
+                {e.speciesName && (
+                  <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--ink)' }}>
+                    Species: <em style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic' }}>{e.speciesName}</em>
+                  </div>
+                )}
+                {e.marketLocationName && (
+                  <div style={{ fontWeight: 500, fontSize: 14, color: 'var(--ink)', marginTop: e.speciesName ? 2 : 0 }}>
+                    Near: {e.marketLocationName}
+                    {e.radiusKm != null && (
+                      <span style={{ fontWeight: 400, color: 'var(--ink-3)', fontSize: 13 }}> within {e.radiusKm} km</span>
+                    )}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+                  Added {new Date(e.createdAt).toLocaleDateString()}
                 </div>
-              )}
-              {e.marketLocationName && (
-                <div style={{ fontWeight: 600, fontSize: 14 }}>
-                  Near: {e.marketLocationName}
-                  {e.radiusKm != null && (
-                    <span style={{ fontWeight: 400, color: '#6b7280', fontSize: 13 }}>
-                      {' '}within {e.radiusKm} km
-                    </span>
-                  )}
-                </div>
-              )}
-              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>
-                Added {new Date(e.createdAt).toLocaleDateString()}
               </div>
+              <button
+                className="btn btn--ghost btn--sm"
+                style={{ color: 'var(--unsafe)', borderColor: 'var(--unsafe)', flexShrink: 0 }}
+                onClick={() => handleRemove(e.id)}
+              >
+                Remove
+              </button>
             </div>
-            <button onClick={() => handleRemove(e.id)} style={{
-              padding: '6px 12px', background: 'none', border: '1px solid #e5e7eb',
-              borderRadius: 6, cursor: 'pointer', color: '#dc2626', fontSize: 13,
-            }}>
-              Remove
-            </button>
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   )

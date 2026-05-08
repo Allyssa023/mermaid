@@ -112,7 +112,7 @@ export default function NotificationsBell() {
               </div>
             ) : items.length === 0 ? (
               <div className="muted-data" style={{ padding: 24, textAlign: 'center', fontSize: 13 }}>
-                You're all caught up.
+                You're all caught up — activity will appear here as orders progress.
               </div>
             ) : (
               items.map(n => {

@@ -43,7 +43,7 @@ export default function Favorites() {
             <I.Star size={36} />
             <span>No saved vendors yet. Tap the star icon on any vendor to save them.</span>
             <button className="btn btn--accent" style={{ marginTop: 18 }} onClick={() => onNavigate('browse')}>
-              Browse marketplace
+              Browse listings
             </button>
           </div>
         ) : (
@@ -85,7 +85,7 @@ export default function Favorites() {
             <I.Star size={36} />
             <span>No saved listings yet. Tap the star icon on any listing card.</span>
             <button className="btn btn--accent" style={{ marginTop: 18 }} onClick={() => onNavigate('browse')}>
-              Browse marketplace
+              Browse listings
             </button>
           </div>
         ) : (

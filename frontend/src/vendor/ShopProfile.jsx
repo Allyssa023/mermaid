@@ -119,159 +119,190 @@ export default function ShopProfile() {
     }
   }
 
-  if (loading) return <div style={{ padding: 24, color: '#6b7280' }}>Loading…</div>
+  if (loading) return (
+    <div className="page">
+      <div className="empty" style={{ padding: '60px 0' }}>
+        <div className="empty__title">Loading…</div>
+      </div>
+    </div>
+  )
 
   return (
-    <div style={{ padding: 24, maxWidth: 640 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20 }}>Shop Profile</h2>
-        {profile?.slug && (
-          <a
-            href={`/shop/${profile.slug}`}
-            target="_blank"
-            rel="noreferrer"
-            style={{ fontSize: 13, color: '#2563eb', textDecoration: 'none' }}
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Vendor · Profile</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
+            Shop <em>Profile</em>
+          </h1>
+          <p className="page__sub">Customize your public shop page visible to buyers.</p>
+        </div>
+        <div className="page__actions">
+          {profile?.slug && (
+            <a
+              href={`/shop/${profile.slug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn--ghost btn--sm"
+            >
+              Preview public page →
+            </a>
+          )}
+          <button
+            onClick={save}
+            disabled={saving || !!slugError}
+            className="btn btn--primary"
           >
-            Preview public page →
-          </a>
-        )}
+            {saving ? 'Saving…' : 'Save Profile'}
+          </button>
+        </div>
       </div>
 
       {error && (
-        <div style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 14 }}>
+        <div style={{
+          color: 'var(--unsafe)', padding: '10px 14px',
+          background: 'var(--unsafe-soft)', borderRadius: 8,
+          marginBottom: 16, fontSize: 13,
+        }}>
           {error}
         </div>
       )}
       {saved && (
-        <div style={{ background: '#f0fdf4', color: '#166534', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 14 }}>
+        <div style={{
+          color: 'var(--safe)', padding: '10px 14px',
+          background: 'var(--safe-soft)', borderRadius: 8,
+          marginBottom: 16, fontSize: 13,
+        }}>
           Profile saved successfully.
         </div>
       )}
 
-      <Field label="Display name">
-        <input
-          value={displayName}
-          onChange={e => setDisplayName(e.target.value)}
-          maxLength={80}
-          style={inputStyle}
-          placeholder="e.g. Rosario's Fresh Catch"
-        />
-      </Field>
-
-      <Field label="Shop URL slug" error={slugError}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ color: '#9ca3af', fontSize: 13 }}>shop/</span>
-          <input
-            value={slug}
-            onChange={handleSlugChange}
-            maxLength={50}
-            style={{ ...inputStyle, flex: 1 }}
-            placeholder="your-shop-slug"
-          />
-        </div>
-      </Field>
-
-      <Field label="Bio">
-        <textarea
-          value={bio}
-          onChange={e => setBio(e.target.value)}
-          rows={3}
-          maxLength={2000}
-          style={{ ...inputStyle, resize: 'vertical' }}
-          placeholder="Tell buyers about your shop…"
-        />
-      </Field>
-
-      <Field label="Logo URL">
-        <input value={logoUrl} onChange={e => setLogoUrl(e.target.value)} style={inputStyle} placeholder="https://…" />
-      </Field>
-
-      <Field label="Banner URL">
-        <input value={bannerUrl} onChange={e => setBannerUrl(e.target.value)} style={inputStyle} placeholder="https://…" />
-      </Field>
-
-      <Field label="Pickup location">
-        <select value={pickupLocationId} onChange={e => setPickupLocationId(e.target.value)} style={inputStyle}>
-          <option value="">No pickup location</option>
-          {locations.map(l => (
-            <option key={l.id} value={l.id}>{l.name} — {l.municipality}</option>
-          ))}
-        </select>
-      </Field>
-
-      <div style={{ marginBottom: 20 }}>
-        <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 8 }}>
-          Hours
-        </label>
-        <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-          {DAYS.map((d, i) => (
-            <div key={d} style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-              background: i % 2 === 0 ? '#f9fafb' : '#fff', fontSize: 13,
-            }}>
-              <span style={{ width: 36, color: '#6b7280', fontWeight: 500 }}>{DAY_LABELS[d]}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Basic Info</div>
+          </div>
+          <div className="form-grid">
+            <div className="form-row">
+              <label>Display Name</label>
               <input
-                type="checkbox"
-                checked={hours[d].closed}
-                onChange={e => updateHour(d, 'closed', e.target.checked)}
-                id={`closed-${d}`}
+                className="input"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                maxLength={80}
+                placeholder="e.g. Rosario's Fresh Catch"
               />
-              <label htmlFor={`closed-${d}`} style={{ color: '#6b7280', marginRight: 8 }}>Closed</label>
-              {!hours[d].closed && (
-                <>
-                  <input
-                    type="time"
-                    value={hours[d].open}
-                    onChange={e => updateHour(d, 'open', e.target.value)}
-                    style={{ border: '1px solid #d1d5db', borderRadius: 4, padding: '2px 6px', fontSize: 13 }}
-                  />
-                  <span style={{ color: '#9ca3af' }}>–</span>
-                  <input
-                    type="time"
-                    value={hours[d].close}
-                    onChange={e => updateHour(d, 'close', e.target.value)}
-                    style={{ border: '1px solid #d1d5db', borderRadius: 4, padding: '2px 6px', fontSize: 13 }}
-                  />
-                </>
-              )}
             </div>
-          ))}
+            <div className="form-row">
+              <label>Shop URL Slug</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>shop/</span>
+                <input
+                  className="input"
+                  value={slug}
+                  onChange={handleSlugChange}
+                  maxLength={50}
+                  placeholder="your-shop-slug"
+                  style={{ flex: 1 }}
+                />
+              </div>
+              {slugError && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--unsafe)' }}>{slugError}</p>}
+            </div>
+            <div className="form-row">
+              <label>Bio</label>
+              <textarea
+                className="input"
+                value={bio}
+                onChange={e => setBio(e.target.value)}
+                rows={4}
+                maxLength={2000}
+                placeholder="Tell buyers about your shop…"
+              />
+            </div>
+            <div className="form-row">
+              <label>Pickup Location</label>
+              <select
+                className="input"
+                value={pickupLocationId}
+                onChange={e => setPickupLocationId(e.target.value)}
+              >
+                <option value="">No pickup location</option>
+                {locations.map(l => (
+                  <option key={l.id} value={l.id}>{l.name} — {l.municipality}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div className="card">
+            <div className="card__head">
+              <div className="card__title">Media</div>
+            </div>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>Logo URL</label>
+                <input className="input" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://…" />
+              </div>
+              <div className="form-row">
+                <label>Banner URL</label>
+                <input className="input" value={bannerUrl} onChange={e => setBannerUrl(e.target.value)} placeholder="https://…" />
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card__head">
+              <div className="card__title">Business Hours</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {DAYS.map((d, i) => (
+                <div
+                  key={d}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 0',
+                    borderBottom: i < DAYS.length - 1 ? '1px solid var(--line-soft)' : 'none',
+                    fontSize: 13,
+                  }}
+                >
+                  <span style={{ width: 36, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    {DAY_LABELS[d]}
+                  </span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--ink-4)', fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={hours[d].closed}
+                      onChange={e => updateHour(d, 'closed', e.target.checked)}
+                    />
+                    Closed
+                  </label>
+                  {!hours[d].closed && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+                      <input
+                        type="time"
+                        value={hours[d].open}
+                        onChange={e => updateHour(d, 'open', e.target.value)}
+                        className="input"
+                        style={{ width: 110, padding: '4px 8px', fontSize: 12 }}
+                      />
+                      <span style={{ color: 'var(--ink-4)' }}>–</span>
+                      <input
+                        type="time"
+                        value={hours[d].close}
+                        onChange={e => updateHour(d, 'close', e.target.value)}
+                        className="input"
+                        style={{ width: 110, padding: '4px 8px', fontSize: 12 }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-
-      <button
-        onClick={save}
-        disabled={saving || !!slugError}
-        style={{
-          background: saving || slugError ? '#9ca3af' : '#2563eb',
-          color: '#fff', border: 'none', borderRadius: 8,
-          padding: '10px 24px', fontSize: 15, cursor: saving ? 'wait' : 'pointer',
-        }}
-      >
-        {saving ? 'Saving…' : 'Save Profile'}
-      </button>
     </div>
   )
-}
-
-function Field({ label, error, children }) {
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <label style={{ fontSize: 13, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>
-        {label}
-      </label>
-      {children}
-      {error && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#dc2626' }}>{error}</p>}
-    </div>
-  )
-}
-
-const inputStyle = {
-  width: '100%',
-  padding: '8px 10px',
-  border: '1px solid #d1d5db',
-  borderRadius: 6,
-  fontSize: 14,
-  boxSizing: 'border-box',
-  outline: 'none',
 }

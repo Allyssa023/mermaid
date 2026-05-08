@@ -74,7 +74,7 @@ export default function Marketplace() {
         setTotalPages(0)
       })
       .finally(() => setLoading(false))
-  }, [debouncedSearch, speciesId, locationId, minPrice, maxPrice, sort, page, pageSize, refreshTick])
+  }, [debouncedSearch, speciesId, minPrice, maxPrice, page, pageSize, refreshTick])
 
   function clearAdvanced() {
     setSpeciesId(''); setMinPrice(''); setMaxPrice('')
@@ -207,7 +207,7 @@ export default function Marketplace() {
               <div
                 key={l.id}
                 ref={el => { cardRefs.current[l.id] = el }}
-                className={`buyer-card${highlighted === l.id ? ' buyer-card--highlighted' : ''}`}
+                className="buyer-card"
                 onClick={() => navigate(`/buyer/listing/${l.id}`)}
               >
                 <div className="buyer-card__hero" data-tag={tag} style={{ position: 'relative' }}>

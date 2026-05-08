@@ -130,7 +130,7 @@ export default function Home({ user, onOrderListing }) {
             <div className="buyer-empty" style={{ padding: '24px 12px', gap: 8 }}>
               <I.Clipboard size={24} />
               <span>No orders yet — your purchases will land here.</span>
-              <button className="btn btn--ghost btn--sm" onClick={() => onNavigate('browse')}>
+              <button className="btn btn--accent btn--sm" style={{ marginTop: 4 }} onClick={() => onNavigate('browse')}>
                 Browse listings
               </button>
             </div>
@@ -240,6 +240,9 @@ export default function Home({ user, onOrderListing }) {
             <div className="buyer-empty" style={{ padding: '24px 12px', gap: 8 }}>
               <I.Bell size={24} />
               <span>You're all caught up — activity will appear here as orders progress.</span>
+              <button className="btn btn--ghost btn--sm" style={{ marginTop: 4 }} onClick={() => onNavigate('orders')}>
+                View orders
+              </button>
             </div>
           ) : (
             <div>
