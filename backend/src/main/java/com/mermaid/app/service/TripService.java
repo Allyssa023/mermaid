@@ -1,29 +1,38 @@
 package com.mermaid.app.service;
 
 import com.mermaid.app.domain.Trip;
+import com.mermaid.app.domain.User;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.exception.TripNotActiveException;
 import com.mermaid.app.mapper.TripMapper;
 import com.mermaid.app.model.*;
 import com.mermaid.app.repository.TripRepository;
 import com.mermaid.app.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
 public class TripService {
 
+    private static final Logger log = LoggerFactory.getLogger(TripService.class);
+
     private final TripRepository tripRepo;
     private final TripMapper tripMapper;
     private final UserRepository userRepo;
+    private final SmsService smsService;
 
-    public TripService(TripRepository tripRepo, TripMapper tripMapper, UserRepository userRepo) {
+    public TripService(TripRepository tripRepo, TripMapper tripMapper,
+                       UserRepository userRepo, SmsService smsService) {
         this.tripRepo = tripRepo;
         this.tripMapper = tripMapper;
         this.userRepo = userRepo;
+        this.smsService = smsService;
     }
 
     private String resolveFishermanName(Long fishermanId) {
@@ -58,6 +67,7 @@ public class TripService {
             trip.setStartedAt(req.getStartedAt().get());
         }
         Trip saved = tripRepo.save(trip);
+        sendDepartureSms(fishermanId, saved);
         return tripMapper.toModel(saved, resolveFishermanName(fishermanId));
     }
 
@@ -132,6 +142,34 @@ public class TripService {
             trip.setNotes(req.getNotes().get());
         }
         Trip saved = tripRepo.save(trip);
+        sendReturnSms(fishermanId);
         return tripMapper.toModel(saved, resolveFishermanName(fishermanId));
+    }
+
+    private void sendDepartureSms(Long fishermanId, Trip trip) {
+        try {
+            User user = userRepo.findById(fishermanId).orElse(null);
+            if (user == null || user.getEmergencyContactPhone() == null) return;
+            String vessel = trip.getVesselName() != null ? trip.getVesselName()
+                : (user.getVesselName() != null ? user.getVesselName() : "vessel");
+            String time = DateTimeFormatter.ofPattern("hh:mm a").format(OffsetDateTime.now());
+            String msg = user.getFullName() + " has departed for fishing at " + time
+                + ". Vessel: " + vessel + ". Expected return: early morning. - MERMAID Safety";
+            smsService.send(user.getEmergencyContactPhone(), msg);
+        } catch (Exception e) {
+            log.warn("Departure SMS failed: {}", e.getMessage());
+        }
+    }
+
+    private void sendReturnSms(Long fishermanId) {
+        try {
+            User user = userRepo.findById(fishermanId).orElse(null);
+            if (user == null || user.getEmergencyContactPhone() == null) return;
+            String time = DateTimeFormatter.ofPattern("hh:mm a").format(OffsetDateTime.now());
+            String msg = user.getFullName() + " has returned safely at " + time + ". - MERMAID Safety";
+            smsService.send(user.getEmergencyContactPhone(), msg);
+        } catch (Exception e) {
+            log.warn("Return SMS failed: {}", e.getMessage());
+        }
     }
 }
