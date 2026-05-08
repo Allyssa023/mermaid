@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { listProcurementOrders, cancelProcurementOrder } from './api/procurement'
+import { listProcurementOrders, cancelProcurementOrder, settleOrder } from './api/procurement'
 import { useVendorPolling } from './hooks/useVendorPolling'
 
 const BUCKETS = ['PENDING', 'ACCEPTED', 'READY', 'COMPLETED', 'CANCELLED']
@@ -17,9 +17,22 @@ export default function ProcurementOrders() {
   const [cancellingId, setCancellingId] = useState(null)
   const [cancelReason, setCancelReason] = useState('')
   const [cancelError, setCancelError] = useState(null)
+  const [settleModal, setSettleModal] = useState(null)
+  const [settlePayment, setSettlePayment] = useState('CASH')
+  const [settling, setSettling] = useState(false)
 
   const fetcher = useCallback(() => listProcurementOrders(bucket), [bucket])
   const { data: orders = [], loading, refetch } = useVendorPolling(fetcher, 20000)
+
+  const handleSettle = async () => {
+    setSettling(true)
+    try {
+      await settleOrder(settleModal.id, { paymentMethod: settlePayment })
+      setSettleModal(null)
+      refetch()
+    } catch {}
+    finally { setSettling(false) }
+  }
 
   const handleCancel = async (orderId) => {
     setCancelError(null)
@@ -109,6 +122,14 @@ export default function ProcurementOrders() {
               </div>
             </div>
 
+            {order.status === 'COMPLETED' && !order.settledAt && (
+              <div style={{ marginTop: 12 }}>
+                <button className="btn btn--accent btn--sm" onClick={() => { setSettleModal(order); setSettlePayment('CASH') }}>
+                  Mark as Paid
+                </button>
+              </div>
+            )}
+
             {canCancel && !isCancelOpen && (
               <div style={{ marginTop: 12 }}>
                 <button
@@ -151,6 +172,33 @@ export default function ProcurementOrders() {
           </div>
         )
       })}
+
+      {settleModal && (
+        <div className="modal-overlay" onClick={() => setSettleModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 340 }}>
+            <div className="modal__head">
+              <div className="modal__title">Mark as Paid — #{settleModal.id}</div>
+            </div>
+            <div style={{ padding: '12px 0' }}>
+              <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 8 }}>Payment method</label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {['CASH', 'CREDIT'].map(m => (
+                  <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                    <input type="radio" name="paymentMethod" value={m} checked={settlePayment === m} onChange={() => setSettlePayment(m)} />
+                    {m === 'CASH' ? 'Cash' : 'Credit / Utang'}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="modal__foot">
+              <button className="btn btn--ghost btn--sm" onClick={() => setSettleModal(null)}>Cancel</button>
+              <button className="btn btn--primary btn--sm" disabled={settling} onClick={handleSettle}>
+                {settling ? 'Saving…' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

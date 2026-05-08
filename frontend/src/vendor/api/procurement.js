@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from '../../api'
+import { apiGet, apiPost, apiPatch, apiDelete, apiPut } from '../../api'
 
 const qs = (params) => {
   const p = new URLSearchParams()
@@ -43,3 +43,6 @@ export const fishermanComplete = (orderId) =>
   apiPost(`/fisherman/procurement-orders/${orderId}/complete`)
 export const fishermanCancel = (orderId, reason) =>
   apiPost(`/fisherman/procurement-orders/${orderId}/cancel`, null, reason ? { reason } : undefined)
+
+export const settleOrder = (id, body) =>
+  apiPut(`/vendor/procurement-orders/${id}/settle`, null, body)
