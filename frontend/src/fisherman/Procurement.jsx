@@ -1,6 +1,5 @@
-// frontend/src/fisherman/Procurement.jsx
 import { useState, useCallback } from 'react'
-import { listProcurementOrders, acceptOrder, markReady, completeOrder, cancelOrder } from './api/procurement'
+import { listProcurementOrders, acceptOrder, markReady, completeOrder, cancelOrder, raiseDispute, getDispute } from './api/procurement'
 import { useFishermanPolling } from './hooks/useFishermanPolling'
 
 const BUCKETS = ['PENDING','ACCEPTED','READY','COMPLETED','CANCELLED','DISPUTED']
@@ -10,11 +9,23 @@ const STATUS_CLS = {
   COMPLETED: 'status--completed', CANCELLED: 'status--cancelled', DISPUTED: 'status--disputed',
 }
 
+const QUALITY_OPTIONS = ['FRESH', 'SUBSTANDARD', 'DAMAGED']
+
 export default function Procurement() {
-  const [bucket, setBucket]     = useState('PENDING')
-  const [busy, setBusy]         = useState(null)
+  const [bucket, setBucket]       = useState('PENDING')
+  const [busy, setBusy]           = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelReason, setCancelReason] = useState('')
+
+  const [disputeTarget, setDisputeTarget] = useState(null)
+  const [disputeWeight, setDisputeWeight] = useState('')
+  const [disputeQuality, setDisputeQuality] = useState('')
+  const [disputeNotes, setDisputeNotes]   = useState('')
+  const [disputeError, setDisputeError]   = useState('')
+
+  const [viewDispute, setViewDispute]   = useState(null)
+  const [viewDisputeData, setViewDisputeData] = useState(null)
+  const [viewDisputeLoading, setViewDisputeLoading] = useState(false)
 
   const fetcher = useCallback(() => listProcurementOrders(bucket), [bucket])
   const { data, loading, error, isStale, refetch } = useFishermanPolling(fetcher, [bucket])
@@ -25,6 +36,41 @@ export default function Procurement() {
     try { await action(id, extra); refetch() }
     catch {}
     finally { setBusy(null) }
+  }
+
+  const openDisputeModal = (order) => {
+    setDisputeTarget(order)
+    setDisputeWeight('')
+    setDisputeQuality('')
+    setDisputeNotes('')
+    setDisputeError('')
+  }
+
+  const submitDispute = async () => {
+    setDisputeError('')
+    const body = {}
+    if (disputeWeight) body.claimedWeightKg = parseFloat(disputeWeight)
+    if (disputeQuality) body.claimedQuality = disputeQuality
+    if (disputeNotes)   body.notes = disputeNotes
+    try {
+      await raiseDispute(disputeTarget.id, body)
+      setDisputeTarget(null)
+      setBucket('DISPUTED')
+      refetch()
+    } catch (e) {
+      setDisputeError(e.message || 'Failed to raise dispute.')
+    }
+  }
+
+  const openViewDispute = async (order) => {
+    setViewDispute(order)
+    setViewDisputeData(null)
+    setViewDisputeLoading(true)
+    try {
+      const d = await getDispute(order.id)
+      setViewDisputeData(d)
+    } catch {}
+    finally { setViewDisputeLoading(false) }
   }
 
   return (
@@ -83,7 +129,6 @@ export default function Procurement() {
                     {order.qtyKg != null && ` · ${order.qtyKg} kg`}
                     {order.pricePerKg != null && ` · ₱${order.pricePerKg}/kg`}
                   </div>
-                  {/* Payment badge — only visible in COMPLETED orders when paymentMethod is set (Phase 3) */}
                   {order.paymentMethod && (
                     <span className={`chip ${order.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`} style={{ marginTop: 4, display: 'inline-block' }}>
                       {order.paymentMethod === 'CASH' ? 'Cash' : 'Credit / Utang'}
@@ -107,8 +152,22 @@ export default function Procurement() {
                         onClick={() => act(markReady, order.id)}>Mark Ready</button>
                     )}
                     {order.status === 'READY' && (
-                      <button className="btn btn--primary btn--sm" disabled={busy === order.id}
-                        onClick={() => act(completeOrder, order.id)}>Complete</button>
+                      <>
+                        <button className="btn btn--primary btn--sm" disabled={busy === order.id}
+                          onClick={() => act(completeOrder, order.id)}>Complete</button>
+                        <button className="btn btn--ghost btn--sm"
+                          style={{ color: 'var(--caution)', borderColor: 'var(--caution)' }}
+                          onClick={() => openDisputeModal(order)}>Dispute</button>
+                      </>
+                    )}
+                    {order.status === 'COMPLETED' && (
+                      <button className="btn btn--ghost btn--sm"
+                        style={{ color: 'var(--caution)', borderColor: 'var(--caution)' }}
+                        onClick={() => openDisputeModal(order)}>Dispute</button>
+                    )}
+                    {order.status === 'DISPUTED' && (
+                      <button className="btn btn--ghost btn--sm"
+                        onClick={() => openViewDispute(order)}>View Dispute</button>
                     )}
                   </div>
                 </div>
@@ -141,6 +200,112 @@ export default function Procurement() {
                 style={{ background: 'var(--unsafe)', color: 'var(--paper)', border: 'none' }}
                 onClick={() => { act(cancelOrder, cancelTarget.id, cancelReason || undefined); setCancelTarget(null) }}
               >Cancel Order</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raise dispute modal */}
+      {disputeTarget && (
+        <div className="modal-overlay" onClick={() => setDisputeTarget(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal__head">
+              <div className="modal__title">Raise Dispute</div>
+              <div className="modal__sub">Order #{disputeTarget.id} · {disputeTarget.speciesName}</div>
+            </div>
+            <div style={{ padding: '4px 0 12px' }}>
+              {disputeError && (
+                <div style={{ background: 'var(--unsafe-soft)', color: 'var(--unsafe)', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
+                  {disputeError}
+                </div>
+              )}
+              <div className="form-grid">
+                <div className="form-row">
+                  <label>Claimed weight (kg) <span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>optional</span></label>
+                  <input className="input" type="number" min="0" step="0.1"
+                    value={disputeWeight} onChange={e => setDisputeWeight(e.target.value)}
+                    placeholder={disputeTarget.qtyKg ? `Ordered: ${disputeTarget.qtyKg} kg` : 'e.g. 12.5'} />
+                </div>
+                <div className="form-row">
+                  <label>Quality claim <span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>optional</span></label>
+                  <select className="input" value={disputeQuality} onChange={e => setDisputeQuality(e.target.value)}>
+                    <option value="">— none —</option>
+                    {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label>Notes <span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>optional</span></label>
+                  <textarea className="input" rows={3} value={disputeNotes}
+                    onChange={e => setDisputeNotes(e.target.value)}
+                    placeholder="Describe the issue…" style={{ resize: 'vertical' }} />
+                </div>
+              </div>
+            </div>
+            <div className="modal__foot">
+              <button className="btn btn--ghost btn--sm" onClick={() => setDisputeTarget(null)}>Cancel</button>
+              <button
+                className="btn btn--sm"
+                style={{ background: 'var(--caution)', color: 'var(--paper)', border: 'none' }}
+                onClick={submitDispute}
+              >Raise Dispute</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View dispute modal */}
+      {viewDispute && (
+        <div className="modal-overlay" onClick={() => setViewDispute(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal__head">
+              <div className="modal__title">Dispute Details</div>
+              <div className="modal__sub">Order #{viewDispute.id}</div>
+            </div>
+            <div style={{ padding: '8px 0 12px' }}>
+              {viewDisputeLoading ? (
+                <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
+              ) : viewDisputeData ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--ink-4)' }}>Status</span>
+                    <span className={`status ${viewDisputeData.status === 'OPEN' ? 'status--disputed' : 'status--completed'}`}>
+                      {viewDisputeData.status}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--ink-4)' }}>Raised by</span>
+                    <span>{viewDisputeData.raisedBy}</span>
+                  </div>
+                  {viewDisputeData.claimedWeightKg != null && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-4)' }}>Claimed weight</span>
+                      <span>{viewDisputeData.claimedWeightKg} kg</span>
+                    </div>
+                  )}
+                  {viewDisputeData.claimedQuality && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--ink-4)' }}>Quality claim</span>
+                      <span>{viewDisputeData.claimedQuality}</span>
+                    </div>
+                  )}
+                  {viewDisputeData.notes && (
+                    <div style={{ paddingTop: 8, borderTop: '1px solid var(--line)', color: 'var(--ink-3)' }}>
+                      {viewDisputeData.notes}
+                    </div>
+                  )}
+                  {viewDisputeData.resolution && (
+                    <div style={{ paddingTop: 8, borderTop: '1px solid var(--line)' }}>
+                      <div style={{ color: 'var(--ink-4)', fontSize: 11, marginBottom: 4 }}>Resolution</div>
+                      <div>{viewDisputeData.resolution}</div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>No dispute found.</div>
+              )}
+            </div>
+            <div className="modal__foot">
+              <button className="btn btn--ghost btn--sm" onClick={() => setViewDispute(null)}>Close</button>
             </div>
           </div>
         </div>

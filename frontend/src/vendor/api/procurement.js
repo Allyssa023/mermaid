@@ -46,3 +46,7 @@ export const fishermanCancel = (orderId, reason) =>
 
 export const settleOrder = (id, body) =>
   apiPut(`/vendor/procurement-orders/${id}/settle`, null, body)
+
+export const raiseDisputeVendor  = (id, body) => apiPost(`/vendor/procurement-orders/${id}/dispute`, null, body)
+export const getDisputeVendor    = (id) => apiGet(`/vendor/procurement-orders/${id}/dispute`)
+export const resolveDisputeVendor = (id, body) => apiPut(`/vendor/procurement-orders/${id}/dispute/resolve`, null, body)
