@@ -42,6 +42,8 @@ tags:
   - name: Vendor Shop
   - name: Public
   - name: Fisherman Procurement
+  - name: Fisherman Earnings
+    description: Fisherman earnings ledger and summary
 
 security:
   - bearerAuth: []
@@ -1664,6 +1666,189 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  # ── Vendor Analytics ──────────────────────────────────────────────────────────
+
+  /vendor/analytics/sales-summary:
+    get:
+      operationId: vendorSalesSummary
+      tags: [Vendor Analytics]
+      summary: Sales summary for a date range
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: to
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        '200':
+          description: Sales summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/analytics/revenue-by-species:
+    get:
+      operationId: vendorRevenueBySpecies
+      tags: [Vendor Analytics]
+      summary: Revenue broken down by species for a date range
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: to
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        '200':
+          description: Revenue by species
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RevenueBySpecies'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/analytics/procurement-spend:
+    get:
+      operationId: vendorProcurementSpend
+      tags: [Vendor Analytics]
+      summary: Procurement spend for a date range
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: to
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        '200':
+          description: Procurement spend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcurementSpend'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/analytics/repeat-buyers:
+    get:
+      operationId: vendorRepeatBuyers
+      tags: [Vendor Analytics]
+      summary: Repeat buyers for a date range
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: to
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: minOrders
+          required: false
+          schema: {type: integer, default: 2}
+      responses:
+        '200':
+          description: Repeat buyers list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RepeatBuyer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Vendor Payouts ─────────────────────────────────────────────────────────────
+
+  /vendor/payouts/summary:
+    get:
+      operationId: vendorPayoutsSummary
+      tags: [Vendor Payouts]
+      summary: Payout totals (pending vs paid)
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Payout summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayoutSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/payouts/ledger:
+    get:
+      operationId: vendorPayoutsLedger
+      tags: [Vendor Payouts]
+      summary: Payout ledger entries for a date range
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: {type: string, format: date}
+        - in: query
+          name: to
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        '200':
+          description: Payout ledger entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PayoutLedgerEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Vendor Home ────────────────────────────────────────────────────────────────
+
+  /vendor/home:
+    get:
+      operationId: vendorHome
+      tags: [Vendor Home]
+      summary: Vendor home dashboard summary
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Vendor home summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorHomeSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   # ── Public Shop ───────────────────────────────────────────────────────────────
 
   /public/shop/{vendorIdOrSlug}:
@@ -1823,6 +2008,73 @@ paths:
           $ref: '#/components/responses/NotFound'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  # ── Fisherman Earnings ───────────────────────────────────────────────────────
+
+  /fisherman/earnings/summary:
+    get:
+      tags: [Fisherman Earnings]
+      operationId: getFishermanEarningsSummary
+      summary: Get earnings summary (cash vs credit)
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EarningsSummary' }
+      security: [{ bearerAuth: [] }]
+
+  /fisherman/earnings/ledger:
+    get:
+      tags: [Fisherman Earnings]
+      operationId: getFishermanEarningsLedger
+      summary: Get earnings ledger rows
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Ledger rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EarningsLedgerRow' }
+      security: [{ bearerAuth: [] }]
+
+  /vendor/procurement-orders/{id}/settle:
+    put:
+      tags: [Vendor Procurement]
+      operationId: settleVendorProcurementOrder
+      summary: Mark a completed order as paid
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderSettleRequest' }
+      responses:
+        '200':
+          description: Settled order
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProcurementOrderSummary' }
+      security: [{ bearerAuth: [] }]
 
   /marketplace/listings:
     get:
@@ -5858,6 +6110,13 @@ components:
         createdAt:
           type: string
           format: date-time
+        paymentMethod:
+          type: string
+          nullable: true
+        settledAt:
+          type: string
+          format: date-time
+          nullable: true
 
     PreorderRequest:
       type: object
@@ -6084,3 +6343,208 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReviewWithReply'
+
+    SalesSummary:
+      type: object
+      required: [totalOrders, totalRevenue, totalQtyKg, avgOrderValue, uniqueBuyers]
+      properties:
+        totalOrders:
+          type: integer
+        totalRevenue:
+          type: number
+          format: double
+        totalQtyKg:
+          type: number
+          format: double
+        avgOrderValue:
+          type: number
+          format: double
+        uniqueBuyers:
+          type: integer
+
+    RevenueBySpecies:
+      type: object
+      required: [speciesId, speciesName, totalRevenue, totalQtyKg]
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+        totalRevenue:
+          type: number
+          format: double
+        totalQtyKg:
+          type: number
+          format: double
+
+    ProcurementSpend:
+      type: object
+      required: [totalOrders, totalSpend, totalQtyKg]
+      properties:
+        totalOrders:
+          type: integer
+        totalSpend:
+          type: number
+          format: double
+        totalQtyKg:
+          type: number
+          format: double
+
+    RepeatBuyer:
+      type: object
+      required: [buyerId, orderCount, totalSpent]
+      properties:
+        buyerId:
+          type: integer
+          format: int64
+        buyerName:
+          type: string
+          nullable: true
+        orderCount:
+          type: integer
+        totalSpent:
+          type: number
+          format: double
+        lastOrder:
+          type: string
+          format: date-time
+          nullable: true
+
+    PayoutSummary:
+      type: object
+      required: [pendingTotal, paidTotal]
+      properties:
+        pendingTotal:
+          type: number
+          format: double
+        paidTotal:
+          type: number
+          format: double
+
+    PayoutLedgerEntry:
+      type: object
+      required: [orderId, completedAt, qtyKg, gross, fees, net, status]
+      properties:
+        orderId:
+          type: integer
+          format: int64
+        completedAt:
+          type: string
+          format: date-time
+        buyerName:
+          type: string
+          nullable: true
+        speciesName:
+          type: string
+          nullable: true
+        qtyKg:
+          type: number
+          format: double
+        gross:
+          type: number
+          format: double
+        fees:
+          type: number
+          format: double
+        net:
+          type: number
+          format: double
+        status:
+          type: string
+
+    VendorHomeSummary:
+      type: object
+      required: [todayRevenue, openOrders, unreadNotifications]
+      properties:
+        todayRevenue:
+          type: number
+          format: double
+        openOrders:
+          $ref: '#/components/schemas/OpenOrderBuckets'
+        lowStockSpecies:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LowStockItem'
+        recentMatchedAlerts:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/RecentMatchedAlert'
+        unreadNotifications:
+          type: integer
+          format: int64
+
+    OpenOrderBuckets:
+      type: object
+      required: [new, preparing, ready]
+      properties:
+        new:
+          type: integer
+        preparing:
+          type: integer
+        ready:
+          type: integer
+
+    LowStockItem:
+      type: object
+      required: [speciesId, speciesName, availableKg]
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+        availableKg:
+          type: number
+          format: double
+
+    RecentMatchedAlert:
+      type: object
+      required: [catchAlertId, createdAt]
+      properties:
+        catchAlertId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+          nullable: true
+        fishermanName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    EarningsSummary:
+      type: object
+      properties:
+        totalGross:         { type: number, format: double }
+        cashCollected:      { type: number, format: double }
+        creditOutstanding:  { type: number, format: double }
+        orderCount:         { type: integer }
+
+    EarningsLedgerRow:
+      type: object
+      properties:
+        orderId:       { type: integer, format: int64 }
+        vendorName:    { type: string }
+        speciesName:   { type: string }
+        qtyKg:         { type: number, format: double }
+        gross:         { type: number, format: double }
+        paymentMethod: { type: string }
+        status:        { type: string }
+        settledAt:     { type: string, format: date-time, nullable: true }
+        date:          { type: string, format: date-time }
+
+    OrderSettleRequest:
+      type: object
+      required: [paymentMethod]
+      properties:
+        paymentMethod:
+          type: string
+          enum: [CASH, CREDIT]
+        settleNotes:
+          type: string
+          nullable: true
