@@ -11,9 +11,10 @@ describe('StartTripModal checklist gate', () => {
     const onStarted = vi.fn()
     render(<StartTripModal onClose={onClose} onStarted={onStarted} />)
 
-    // Enter vessel name and click Next to reach checklist (step 2)
-    const vesselInput = screen.getByPlaceholderText(/vessel name/i)
-    fireEvent.change(vesselInput, { target: { value: 'MV Test' } })
+    // Fill required fields and click Next to reach checklist (step 2)
+    fireEvent.change(screen.getByPlaceholderText(/navotas/i), { target: { value: 'Navotas' } })
+    fireEvent.change(screen.getByPlaceholderText(/manila bay/i), { target: { value: 'Manila Bay' } })
+    fireEvent.change(screen.getByPlaceholderText(/vessel name/i), { target: { value: 'MV Test' } })
     fireEvent.click(screen.getByText('Next'))
 
     // Now on checklist step — Start Trip should be disabled

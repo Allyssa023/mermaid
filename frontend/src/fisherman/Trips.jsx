@@ -1,6 +1,6 @@
 // frontend/src/fisherman/Trips.jsx
 import { useState, useEffect, useCallback } from 'react'
-import { listTrips, startTrip, endTrip } from './api/trips'
+import { listTrips, startTrip, endTrip, saveChecklist } from './api/trips'
 
 const CHECKLIST_ITEMS = [
   { key: 'lifeVestChecked',      label: 'Life vest on board' },
@@ -12,9 +12,11 @@ const CHECKLIST_ITEMS = [
 ]
 
 export function StartTripModal({ onClose, onStarted }) {
-  const [step, setStep]         = useState(1)
-  const [vesselName, setVessel] = useState('')
-  const [checked, setChecked]   = useState({})
+  const [step, setStep]             = useState(1)
+  const [departurePoint, setDeparture] = useState('')
+  const [targetArea, setTarget]        = useState('')
+  const [vesselName, setVessel]     = useState('')
+  const [checked, setChecked]       = useState({})
   const [busy, setBusy]         = useState(false)
   const [err, setErr]           = useState('')
 
@@ -23,18 +25,25 @@ export function StartTripModal({ onClose, onStarted }) {
   const toggle = (key) => setChecked(p => ({ ...p, [key]: !p[key] }))
 
   const submit = async () => {
+    if (!departurePoint.trim() || !targetArea.trim()) {
+      setErr('Departure point and target area are required.')
+      return
+    }
     setBusy(true); setErr('')
     try {
-      const body = {
+      const trip = await startTrip({
+        departurePoint: departurePoint.trim(),
+        targetArea: targetArea.trim(),
         vesselName: vesselName || undefined,
+      })
+      await saveChecklist(trip.id, {
         lifeVestChecked:     checked.lifeVestChecked,
         radioChecked:        checked.radioChecked,
         fuelChecked:         checked.fuelChecked,
         engineChecked:       checked.engineChecked,
         weatherReviewed:     checked.weatherReviewed,
         emergencyKitChecked: checked.emergencyKitChecked,
-      }
-      await startTrip(body)
+      })
       onStarted()
       onClose()
     } catch (e) {
@@ -56,6 +65,24 @@ export function StartTripModal({ onClose, onStarted }) {
 
         {step === 1 && (
           <div className="form-grid" style={{ padding: '16px 0 0' }}>
+            <div className="form-row">
+              <label>Departure point <span style={{ color: 'var(--unsafe)' }}>*</span></label>
+              <input
+                className="input"
+                placeholder="e.g. Navotas Fish Port"
+                value={departurePoint}
+                onChange={e => setDeparture(e.target.value)}
+              />
+            </div>
+            <div className="form-row">
+              <label>Target area <span style={{ color: 'var(--unsafe)' }}>*</span></label>
+              <input
+                className="input"
+                placeholder="e.g. Manila Bay"
+                value={targetArea}
+                onChange={e => setTarget(e.target.value)}
+              />
+            </div>
             <div className="form-row">
               <label>Vessel name</label>
               <input
