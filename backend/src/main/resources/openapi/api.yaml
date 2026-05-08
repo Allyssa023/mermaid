@@ -46,6 +46,8 @@ tags:
     description: Fisherman earnings ledger and summary
   - name: Fisherman Profile
     description: Fisherman vessel and safety contact management
+  - name: Order Disputes
+    description: Dispute management for procurement orders
 
 security:
   - bearerAuth: []
@@ -2053,6 +2055,102 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/EarningsLedgerRow' }
+      security: [{ bearerAuth: [] }]
+
+  # ── Order Disputes ───────────────────────────────────────────────────────────
+
+  /fisherman/procurement-orders/{id}/dispute:
+    post:
+      tags: [Order Disputes]
+      operationId: fishermanRaiseDispute
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderDisputeRequest' }
+      responses:
+        '201':
+          description: Dispute raised
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDisputeDto' }
+      security: [{ bearerAuth: [] }]
+    get:
+      tags: [Order Disputes]
+      operationId: fishermanGetDispute
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      responses:
+        '200':
+          description: Dispute details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDisputeDto' }
+      security: [{ bearerAuth: [] }]
+
+  /fisherman/procurement-orders/{id}/dispute/resolve:
+    put:
+      tags: [Order Disputes]
+      operationId: fishermanResolveDispute
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisputeResolveRequest' }
+      responses:
+        '200':
+          description: Dispute resolved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDisputeDto' }
+      security: [{ bearerAuth: [] }]
+
+  /vendor/procurement-orders/{id}/dispute:
+    post:
+      tags: [Order Disputes]
+      operationId: vendorRaiseDispute
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderDisputeRequest' }
+      responses:
+        '201':
+          description: Dispute raised
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDisputeDto' }
+      security: [{ bearerAuth: [] }]
+    get:
+      tags: [Order Disputes]
+      operationId: vendorGetDispute
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      responses:
+        '200':
+          description: Dispute details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDisputeDto' }
+      security: [{ bearerAuth: [] }]
+
+  /vendor/procurement-orders/{id}/dispute/resolve:
+    put:
+      tags: [Order Disputes]
+      operationId: vendorResolveDispute
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer, format: int64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisputeResolveRequest' }
+      responses:
+        '200':
+          description: Dispute resolved
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderDisputeDto' }
       security: [{ bearerAuth: [] }]
 
   # ── Fisherman Profile ────────────────────────────────────────────────────────
@@ -6581,6 +6679,34 @@ components:
         settleNotes:
           type: string
           nullable: true
+
+    OrderDisputeRequest:
+      type: object
+      properties:
+        claimedWeightKg:  { type: number, format: double, nullable: true }
+        claimedQuality:   { type: string, enum: [FRESH, SUBSTANDARD, DAMAGED], nullable: true }
+        notes:            { type: string, nullable: true }
+
+    DisputeResolveRequest:
+      type: object
+      required: [resolution]
+      properties:
+        resolution: { type: string }
+
+    OrderDisputeDto:
+      type: object
+      properties:
+        id:                { type: integer, format: int64 }
+        orderId:           { type: integer, format: int64 }
+        raisedBy:          { type: string }
+        preDisputeStatus:  { type: string }
+        status:            { type: string }
+        claimedWeightKg:   { type: number, format: double, nullable: true }
+        claimedQuality:    { type: string, nullable: true }
+        notes:             { type: string, nullable: true }
+        resolvedAt:        { type: string, format: date-time, nullable: true }
+        resolution:        { type: string, nullable: true }
+        createdAt:         { type: string, format: date-time }
 
     FishermanProfile:
       type: object
