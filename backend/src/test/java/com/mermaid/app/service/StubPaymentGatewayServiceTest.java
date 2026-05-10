@@ -1,7 +1,6 @@
 package com.mermaid.app.service;
 
 import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class StubPaymentGatewayServiceTest {
@@ -9,28 +8,41 @@ class StubPaymentGatewayServiceTest {
     private final StubPaymentGatewayService service = new StubPaymentGatewayService();
 
     @Test
-    void createIntent_returnsFakeKeys() {
-        var result = service.createIntent(15000, "Order #1", "idem-key-1");
-
-        assertNotNull(result.clientKey());
-        assertTrue(result.clientKey().startsWith("ck_stub_"));
-        assertEquals("pk_stub_test", result.publicKey());
-        assertNotNull(result.paymentIntentId());
-        assertTrue(result.paymentIntentId().startsWith("pi_stub_"));
+    void createPaymentRequest_gcash_returnsRedirectUrl() {
+        var r = service.createPaymentRequest(15000, "GCASH", "Order #1", "idem-1", "http://localhost:5173/payment/return");
+        assertNotNull(r.paymentRequestId());
+        assertTrue(r.paymentRequestId().startsWith("pr_stub_"));
+        assertNotNull(r.redirectUrl());
+        assertTrue(r.redirectUrl().startsWith("https://stub-redirect.test/"));
+        assertNull(r.clientKey());
     }
 
     @Test
-    void createIntent_uniquePerCall() {
-        var r1 = service.createIntent(1000, "Test1", "key1");
-        var r2 = service.createIntent(2000, "Test2", "key2");
+    void createPaymentRequest_card_returnsClientKey() {
+        var r = service.createPaymentRequest(15000, "CARD", "Order #1", "idem-2", "http://localhost:5173/payment/return");
+        assertNotNull(r.clientKey());
+        assertTrue(r.clientKey().startsWith("ck_stub_"));
+        assertNull(r.redirectUrl());
+    }
 
-        assertNotEquals(r1.clientKey(), r2.clientKey());
-        assertNotEquals(r1.paymentIntentId(), r2.paymentIntentId());
+    @Test
+    void createPaymentRequest_uniquePerCall() {
+        var r1 = service.createPaymentRequest(1000, "GCASH", "T1", "k1", "http://x");
+        var r2 = service.createPaymentRequest(2000, "GCASH", "T2", "k2", "http://x");
+        assertNotEquals(r1.paymentRequestId(), r2.paymentRequestId());
+    }
+
+    @Test
+    void disburse_returnsStubPayoutId() {
+        var r = service.disburse("09171234567", "PH_GCASH", 10000, "Pay fisherman", "idem-3");
+        assertNotNull(r.payoutId());
+        assertTrue(r.payoutId().startsWith("po_stub_"));
+        assertEquals("SUCCEEDED", r.status());
     }
 
     @Test
     void verifyWebhookSignature_alwaysTrue() {
-        assertTrue(service.verifyWebhookSignature("payload", "sig"));
+        assertTrue(service.verifyWebhookSignature("payload", "token"));
         assertTrue(service.verifyWebhookSignature(null, null));
     }
 
