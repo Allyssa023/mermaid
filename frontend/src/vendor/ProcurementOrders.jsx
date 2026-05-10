@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { listProcurementOrders, cancelProcurementOrder, settleOrder, raiseDisputeVendor, getDisputeVendor, resolveDisputeVendor } from './api/procurement'
+import { listProcurementOrders, cancelProcurementOrder, settleOrder, raiseDisputeVendor, getDisputeVendor, resolveDisputeVendor, initiateOrderPayout } from './api/procurement'
 import { useVendorPolling } from './hooks/useVendorPolling'
 
 const BUCKETS = ['PENDING', 'ACCEPTED', 'READY', 'COMPLETED', 'CANCELLED', 'DISPUTED']
@@ -36,6 +36,12 @@ export default function ProcurementOrders() {
   const [resolveText, setResolveText]           = useState('')
   const [resolving, setResolving]               = useState(false)
   const [resolveError, setResolveError]         = useState('')
+
+  const [payoutModal, setPayoutModal]     = useState(null)     // order being paid out
+  const [payoutChannel, setPayoutChannel] = useState('PH_GCASH')
+  const [payingOut, setPayingOut]         = useState(false)
+  const [payoutError, setPayoutError]     = useState('')
+  const [payoutSuccess, setPayoutSuccess] = useState(null)     // orderId of successful payout
 
   const fetcher = useCallback(() => listProcurementOrders(bucket), [bucket])
   const { data: orders = [], loading, refetch } = useVendorPolling(fetcher, 20000)
@@ -111,6 +117,21 @@ export default function ProcurementOrders() {
     } catch (e) {
       setResolveError(e.message || 'Failed to resolve dispute.')
     } finally { setResolving(false) }
+  }
+
+  const handlePayout = async () => {
+    setPayingOut(true)
+    setPayoutError('')
+    try {
+      await initiateOrderPayout(payoutModal.id, payoutChannel)
+      setPayoutSuccess(payoutModal.id)
+      setPayoutModal(null)
+      refetch()
+    } catch (e) {
+      setPayoutError(e?.message || 'Payout failed. Check that the fisherman has an e-wallet number on file.')
+    } finally {
+      setPayingOut(false)
+    }
   }
 
   return (
@@ -193,6 +214,25 @@ export default function ProcurementOrders() {
                 <button className="btn btn--accent btn--sm" onClick={() => { setSettleModal(order); setSettlePayment('CASH') }}>
                   Mark as Paid
                 </button>
+              )}
+              {order.status === 'COMPLETED' && !order.payoutId && (
+                <button
+                  className="btn btn--accent btn--sm"
+                  style={{ background: 'var(--safe)', borderColor: 'var(--safe)' }}
+                  onClick={() => { setPayoutModal(order); setPayoutChannel('PH_GCASH'); setPayoutError('') }}
+                >
+                  Pay Fisherman
+                </button>
+              )}
+              {order.payoutId && (
+                <span style={{ fontSize: 12, color: 'var(--safe)', fontFamily: 'var(--font-mono)', alignSelf: 'center' }}>
+                  ✓ Payout sent
+                </span>
+              )}
+              {payoutSuccess === order.id && !order.payoutId && (
+                <span style={{ fontSize: 12, color: 'var(--safe)', alignSelf: 'center' }}>
+                  ✓ Payout initiated
+                </span>
               )}
               {(order.status === 'READY' || order.status === 'COMPLETED') && (
                 <button className="btn btn--ghost btn--sm"
@@ -320,6 +360,69 @@ export default function ProcurementOrders() {
                 style={{ background: 'var(--caution)', color: 'var(--paper)', border: 'none' }}
                 onClick={submitDispute}
               >Raise Dispute</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pay Fisherman modal */}
+      {payoutModal && (
+        <div className="modal-overlay" onClick={() => setPayoutModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
+            <div className="modal__head">
+              <div className="modal__title">Pay Fisherman</div>
+              <div className="modal__sub">
+                Order #{payoutModal.id} · {payoutModal.speciesName}
+              </div>
+            </div>
+            <div style={{ padding: '12px 0' }}>
+              <div style={{ fontSize: 13, marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--ink-4)' }}>Fisherman</span>
+                  <span style={{ fontWeight: 500 }}>{payoutModal.fishermanName ?? `#${payoutModal.fishermanId}`}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ color: 'var(--ink-4)' }}>Amount</span>
+                  <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                    ₱{((payoutModal.qtyKg || 0) * (payoutModal.pricePerKg || 0)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
+                Send via
+              </label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {[['PH_GCASH', 'GCash'], ['PH_PAYMAYA', 'Maya']].map(([code, label]) => (
+                  <label key={code} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="payoutChannel"
+                      value={code}
+                      checked={payoutChannel === code}
+                      onChange={() => setPayoutChannel(code)}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-4)' }}>
+                The fisherman must have their {payoutChannel === 'PH_GCASH' ? 'GCash' : 'Maya'} number saved in their profile.
+              </div>
+              {payoutError && (
+                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--unsafe)', background: 'var(--unsafe-soft)', padding: '8px 10px', borderRadius: 6 }}>
+                  {payoutError}
+                </div>
+              )}
+            </div>
+            <div className="modal__foot">
+              <button className="btn btn--ghost btn--sm" onClick={() => setPayoutModal(null)}>Cancel</button>
+              <button
+                className="btn btn--primary btn--sm"
+                disabled={payingOut}
+                onClick={handlePayout}
+              >
+                {payingOut ? 'Sending…' : `Send payment`}
+              </button>
             </div>
           </div>
         </div>
