@@ -13,6 +13,7 @@ import Orders from './Orders'
 import Favorites from './Favorites'
 import Profile from './Profile'
 import MessagesRoute from './components/MessagesRoute'
+import PaymentReturn from './PaymentReturn'
 
 export default function BuyerDashboard({ user, onLogout }) {
   const [badges, setBadges]       = useState({ orders: 0, messages: 0 })
@@ -58,6 +59,7 @@ export default function BuyerDashboard({ user, onLogout }) {
         <Route path="/buyer/cart" element={<Cart />} />
         <Route path="/buyer/checkout" element={<CheckoutView />} />
         <Route path="/buyer/instant-checkout" element={<InstantCheckoutView />} />
+        <Route path="/buyer/payment-return" element={<PaymentReturn />} />
         <Route path="/buyer/orders" element={<Orders />} />
         <Route path="/buyer/orders/:orderId" element={<Orders />} />
         <Route path="/buyer/saved" element={<Favorites />} />
