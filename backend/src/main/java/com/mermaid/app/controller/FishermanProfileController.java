@@ -43,6 +43,10 @@ public class FishermanProfileController implements FishermanProfileApi {
             user.setEmergencyContactName(req.getEmergencyContactName().get());
         if (req.getEmergencyContactPhone() != null && req.getEmergencyContactPhone().isPresent())
             user.setEmergencyContactPhone(req.getEmergencyContactPhone().get());
+        if (req.getGcashNumber() != null && req.getGcashNumber().isPresent())
+            user.setGcashNumber(req.getGcashNumber().get());
+        if (req.getMayaNumber() != null && req.getMayaNumber().isPresent())
+            user.setMayaNumber(req.getMayaNumber().get());
         userRepo.save(user);
         return ResponseEntity.ok(toProfile(user));
     }
@@ -55,6 +59,8 @@ public class FishermanProfileController implements FishermanProfileApi {
         p.setLandingSite(JsonNullable.of(user.getLandingSite()));
         p.setEmergencyContactName(JsonNullable.of(user.getEmergencyContactName()));
         p.setEmergencyContactPhone(JsonNullable.of(user.getEmergencyContactPhone()));
+        p.setGcashNumber(JsonNullable.of(user.getGcashNumber()));
+        p.setMayaNumber(JsonNullable.of(user.getMayaNumber()));
         return p;
     }
 }
