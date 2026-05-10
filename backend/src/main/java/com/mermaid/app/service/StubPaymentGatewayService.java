@@ -7,7 +7,7 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 
 @Service
-@ConditionalOnMissingBean(PaymentGatewayService.class)
+@ConditionalOnMissingBean(XenditPaymentGatewayService.class)
 public class StubPaymentGatewayService implements PaymentGatewayService {
 
     private static final Logger log = LoggerFactory.getLogger(StubPaymentGatewayService.class);

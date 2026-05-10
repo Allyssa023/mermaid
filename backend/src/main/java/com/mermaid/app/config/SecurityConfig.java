@@ -125,17 +125,20 @@ public class SecurityConfig {
                     "/auth/otp/verify", "/oauth2/**", "/login/oauth2/**", "/ws-chat/**"
                 ).permitAll()
                 .requestMatchers("/error").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/buyer/marketplace/listings").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/public/shop/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.GET, "/uploads/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET,
+                    "/advisories",
+                    "/lookups/fish-species",
+                    "/lookups/market-locations",
+                    "/marine/conditions",
+                    "/marine/conditions/**",
+                    "/buyer/marketplace/listings",
+                    "/public/shop/**",
+                    "/vendors/*/storefront",
+                    "/vendors/*/reviews",
+                    "/uploads/**"
+                ).permitAll()
                 .requestMatchers("/webhooks/**").permitAll()
                 .anyRequest().authenticated()
-            )
-            .oauth2Login(oauth2 -> oauth2
-                .successHandler(oAuth2SuccessHandler)
-                .failureHandler((req, res, ex) -> {
-                    res.sendError(HttpServletResponse.SC_UNAUTHORIZED, "OAuth2 login failed: " + ex.getMessage());
-                })
             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(new JwtAuthenticationConverter()))
