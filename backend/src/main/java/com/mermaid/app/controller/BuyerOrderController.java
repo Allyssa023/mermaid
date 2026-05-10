@@ -74,7 +74,7 @@ public class BuyerOrderController implements BuyerOrdersApi {
     }
 
     @Override
-    public ResponseEntity<PaymentIntentResponse> createPaymentIntent(Long orderId) {
+    public ResponseEntity<PaymentIntentResponse> createPaymentIntent(Long orderId, String method) {
         Long buyerId = SecurityUtils.currentUserId();
         com.mermaid.app.domain.Order order = orderRepo.findById(orderId)
             .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
@@ -91,25 +91,30 @@ public class BuyerOrderController implements BuyerOrdersApi {
         long amountCentavos = order.getAgreedPricePerKg().multiply(qty)
             .multiply(BigDecimal.valueOf(100)).longValue();
 
+        String paymentMethod = (method != null && !method.isBlank()) ? method : "CARD";
         String idempotencyKey = UUID.randomUUID().toString();
-        PaymentGatewayService.PaymentIntentResult result =
-            gatewayService.createIntent(amountCentavos, "Order #" + orderId, idempotencyKey);
+        String returnUrl = "http://localhost:5173/payment/return";
+        PaymentGatewayService.PaymentRequestResult result =
+            gatewayService.createPaymentRequest(amountCentavos, paymentMethod,
+                "Order #" + orderId, idempotencyKey, returnUrl);
 
         Payment payment = new Payment();
         payment.setOrderId(orderId);
         payment.setPayerId(buyerId);
         payment.setPayeeId(order.getSellerId());
         payment.setAmount(order.getAgreedPricePerKg().multiply(qty));
-        payment.setMethod(gatewayService.getGatewayName());
-        payment.setPaymentIntentId(result.paymentIntentId());
+        payment.setMethod(paymentMethod);
+        payment.setPaymentIntentId(result.paymentRequestId());
         payment.setIdempotencyKey(idempotencyKey);
         payment.setGateway(gatewayService.getGatewayName());
         paymentRepo.save(payment);
 
         PaymentIntentResponse response = new PaymentIntentResponse(
-            result.clientKey(), result.publicKey(),
             PaymentIntentResponse.GatewayEnum.fromValue(gatewayService.getGatewayName())
         );
+        response.clientKey(result.clientKey());
+        response.publicKey(result.publicKey());
+        response.redirectUrl(result.redirectUrl());
         return ResponseEntity.status(201).body(response);
     }
 

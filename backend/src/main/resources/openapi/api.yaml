@@ -48,6 +48,8 @@ tags:
     description: Fisherman vessel and safety contact management
   - name: Order Disputes
     description: Dispute management for procurement orders
+  - name: Payouts
+    description: Payment disbursement to fishermen
 
 security:
   - bearerAuth: []
@@ -3841,6 +3843,13 @@ paths:
           schema:
             type: integer
             format: int64
+        - in: query
+          name: method
+          required: false
+          schema:
+            type: string
+            enum: [GCASH, PAYMAYA, CARD]
+            default: CARD
       responses:
         '201':
           description: Payment intent created
@@ -3861,11 +3870,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /webhooks/paymongo:
+  /webhooks/xendit:
     post:
       tags: [Webhooks]
-      summary: PayMongo webhook handler
-      operationId: handlePaymongoWebhook
+      summary: Xendit webhook handler
+      operationId: handleXenditWebhook
       security: []
       requestBody:
         required: true
@@ -3873,9 +3882,61 @@ paths:
           application/json:
             schema:
               type: object
+      parameters:
+        - in: header
+          name: x-callback-token
+          required: false
+          schema:
+            type: string
       responses:
         '200':
-          description: Webhook processed
+          description: Processed
+        '401':
+          description: Invalid token
+
+  /orders/{orderId}/payout:
+    post:
+      tags: [Payouts]
+      summary: Initiate GCash/Maya payout to fisherman after handoff
+      operationId: initiateOrderPayout
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderPayoutRequest'
+      responses:
+        '201':
+          description: Payout initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPayoutResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Payout already initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Fisherman has no e-wallet number on file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   securitySchemes:
@@ -5776,15 +5837,37 @@ components:
 
     PaymentIntentResponse:
       type: object
-      required: [clientKey, publicKey, gateway]
+      required: [gateway]
       properties:
         clientKey:
           type: string
+          nullable: true
         publicKey:
           type: string
+          nullable: true
+        redirectUrl:
+          type: string
+          nullable: true
         gateway:
           type: string
-          enum: [PAYMONGO, STUB]
+          enum: [XENDIT, STUB]
+
+    OrderPayoutRequest:
+      type: object
+      required: [channelCode]
+      properties:
+        channelCode:
+          type: string
+          enum: [PH_GCASH, PH_PAYMAYA]
+
+    OrderPayoutResponse:
+      type: object
+      required: [payoutId, status]
+      properties:
+        payoutId:
+          type: string
+        status:
+          type: string
 
     ActivityFeedItem:
       type: object
@@ -6717,6 +6800,8 @@ components:
         landingSite:            { type: string, nullable: true }
         emergencyContactName:   { type: string, nullable: true }
         emergencyContactPhone:  { type: string, nullable: true }
+        gcashNumber:            { type: string, nullable: true }
+        mayaNumber:             { type: string, nullable: true }
 
     FishermanProfileUpdateRequest:
       type: object
@@ -6725,3 +6810,5 @@ components:
         landingSite:            { type: string, nullable: true }
         emergencyContactName:   { type: string, nullable: true }
         emergencyContactPhone:  { type: string, nullable: true }
+        gcashNumber:            { type: string, nullable: true }
+        mayaNumber:             { type: string, nullable: true }
