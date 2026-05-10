@@ -91,12 +91,16 @@ public class BuyerOrderController implements BuyerOrdersApi {
         long amountCentavos = order.getAgreedPricePerKg().multiply(qty)
             .multiply(BigDecimal.valueOf(100)).longValue();
 
-        String paymentMethod = (method != null && !method.isBlank()) ? method : "CARD";
+        String paymentMethod = (method != null && !method.isBlank()) ? method.toUpperCase() : "CARD";
         String idempotencyKey = UUID.randomUUID().toString();
-        String returnUrl = "http://localhost:5173/payment/return";
+        String returnUrl = "http://localhost:5173/payment/return?orderId=" + orderId;
         PaymentGatewayService.PaymentRequestResult result =
             gatewayService.createPaymentRequest(amountCentavos, paymentMethod,
                 "Order #" + orderId, idempotencyKey, returnUrl);
+
+        // Persist payment method on the order
+        order.setPaymentMethod(paymentMethod);
+        orderRepo.save(order);
 
         Payment payment = new Payment();
         payment.setOrderId(orderId);

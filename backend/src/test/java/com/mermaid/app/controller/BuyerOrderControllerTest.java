@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -164,7 +165,54 @@ class BuyerOrderControllerTest {
                .andExpect(status().isNotFound());
     }
 
+    // --- createPaymentIntent ---
+
+    @Test
+    void createPaymentIntent_gcash_returns201WithRedirectUrl() throws Exception {
+        var order = minimalOrder(10L, 42L, 99L);
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.empty());
+        when(paymentGatewayService.createPaymentRequest(
+                anyLong(), eq("GCASH"), anyString(), anyString(), anyString()))
+            .thenReturn(new com.mermaid.app.service.PaymentGatewayService.PaymentRequestResult(
+                "pr_gcash_1", "https://gcash.redirect/pay", null, null));
+        when(paymentGatewayService.getGatewayName()).thenReturn("XENDIT");
+
+        mockMvc.perform(post("/buyer/orders/10/payment-intent?method=GCASH")
+                .with(asBuyer(42L)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.redirectUrl").value("https://gcash.redirect/pay"))
+            .andExpect(jsonPath("$.gateway").value("XENDIT"));
+    }
+
+    @Test
+    void createPaymentIntent_card_returns201WithClientKey() throws Exception {
+        var order = minimalOrder(11L, 42L, 99L);
+        when(orderRepository.findById(11L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(11L)).thenReturn(Optional.empty());
+        when(paymentGatewayService.createPaymentRequest(
+                anyLong(), eq("CARD"), anyString(), anyString(), anyString()))
+            .thenReturn(new com.mermaid.app.service.PaymentGatewayService.PaymentRequestResult(
+                "pr_card_1", null, "ck_xendit", "pk_xendit"));
+        when(paymentGatewayService.getGatewayName()).thenReturn("XENDIT");
+
+        mockMvc.perform(post("/buyer/orders/11/payment-intent?method=CARD")
+                .with(asBuyer(42L)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.clientKey").value("ck_xendit"));
+    }
+
     // --- helpers ---
+
+    private static com.mermaid.app.domain.Order minimalOrder(Long id, Long buyerId, Long sellerId) {
+        var o = new com.mermaid.app.domain.Order();
+        o.setId(id); o.setBuyerId(buyerId); o.setSellerId(sellerId);
+        o.setAgreedPricePerKg(java.math.BigDecimal.valueOf(150));
+        o.setOrderedQtyKg(java.math.BigDecimal.TEN);
+        o.setStatus("PENDING");
+        o.setKind(com.mermaid.app.domain.OrderKind.RETAIL);
+        return o;
+    }
 
     private Order sampleOrder() {
         return new Order(
