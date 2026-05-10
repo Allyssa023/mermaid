@@ -42,7 +42,7 @@ public class Payment {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
-    // ── PayMongo integration fields (Phase 3.1) ─────────────────────────────────
+    // ── Xendit integration fields ──────────────────────────────────────────────
 
     @Column(name = "payment_intent_id", length = 100)
     private String paymentIntentId;
@@ -55,6 +55,9 @@ public class Payment {
 
     @Column(name = "idempotency_key", length = 64)
     private String idempotencyKey;
+
+    @Column(name = "payout_id", length = 100)
+    private String payoutId;
 
     @Column(length = 20)
     private String gateway = "CASH";
@@ -96,6 +99,8 @@ public class Payment {
     public void setSourceId(String sourceId) { this.sourceId = sourceId; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+    public String getPayoutId() { return payoutId; }
+    public void setPayoutId(String payoutId) { this.payoutId = payoutId; }
     public String getGateway() { return gateway; }
     public void setGateway(String gateway) { this.gateway = gateway; }
 }

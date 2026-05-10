@@ -118,6 +118,12 @@ public class User {
     @Column(name = "emergency_contact_phone", length = 20)
     private String emergencyContactPhone;
 
+    @Column(name = "gcash_number", length = 20)
+    private String gcashNumber;
+
+    @Column(name = "maya_number", length = 20)
+    private String mayaNumber;
+
     public String getVesselName() { return vesselName; }
     public void setVesselName(String vesselName) { this.vesselName = vesselName; }
     public String getLandingSite() { return landingSite; }
@@ -126,6 +132,10 @@ public class User {
     public void setEmergencyContactName(String emergencyContactName) { this.emergencyContactName = emergencyContactName; }
     public String getEmergencyContactPhone() { return emergencyContactPhone; }
     public void setEmergencyContactPhone(String emergencyContactPhone) { this.emergencyContactPhone = emergencyContactPhone; }
+    public String getGcashNumber() { return gcashNumber; }
+    public void setGcashNumber(String gcashNumber) { this.gcashNumber = gcashNumber; }
+    public String getMayaNumber() { return mayaNumber; }
+    public void setMayaNumber(String mayaNumber) { this.mayaNumber = mayaNumber; }
 
     // ── Lifecycle callbacks ──────────────────────────────────────────────────────
 
