@@ -4,6 +4,7 @@ import { getProfile, updateProfile } from './api/profile'
 export default function Profile() {
   const [form, setForm] = useState({
     vesselName: '', landingSite: '', emergencyContactName: '', emergencyContactPhone: '',
+    gcashNumber: '', mayaNumber: '',
   })
   const [fullName, setFullName] = useState('')
   const [loading, setLoading]   = useState(true)
@@ -20,6 +21,8 @@ export default function Profile() {
           landingSite:           p.landingSite || '',
           emergencyContactName:  p.emergencyContactName || '',
           emergencyContactPhone: p.emergencyContactPhone || '',
+          gcashNumber:           p.gcashNumber || '',
+          mayaNumber:            p.mayaNumber || '',
         })
       })
       .catch(() => setError('Failed to load profile.'))
@@ -74,6 +77,13 @@ export default function Profile() {
         </div>
       )}
 
+      {!loading && !form.gcashNumber && !form.mayaNumber && (
+        <div style={{ background: 'var(--caution-soft, #fff9e6)', color: 'var(--caution, #b45309)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span>⚠️</span>
+          <span>Add a GCash or Maya number to receive vendor payouts directly to your e-wallet.</span>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <div className="card">
           <div className="card__title" style={{ marginBottom: 16 }}>Vessel Info</div>
@@ -116,6 +126,37 @@ export default function Profile() {
           <div style={{ marginTop: 16, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 8, fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
             <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-3)', marginBottom: 4 }}>SMS preview on departure</div>
             {smsPreview}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__title" style={{ marginBottom: 16 }}>E-Wallet for Payouts</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-4)', marginBottom: 12 }}>
+            Vendors can pay you directly to your GCash or Maya account after a PROCUREMENT order is completed.
+          </div>
+          <div className="form-grid">
+            <div className="form-row">
+              <label>GCash number</label>
+              <input
+                className="input"
+                type="tel"
+                value={form.gcashNumber}
+                onChange={e => f('gcashNumber', e.target.value)}
+                placeholder="09XX XXX XXXX"
+                maxLength={11}
+              />
+            </div>
+            <div className="form-row">
+              <label>Maya number</label>
+              <input
+                className="input"
+                type="tel"
+                value={form.mayaNumber}
+                onChange={e => f('mayaNumber', e.target.value)}
+                placeholder="09XX XXX XXXX"
+                maxLength={11}
+              />
+            </div>
           </div>
         </div>
       </div>

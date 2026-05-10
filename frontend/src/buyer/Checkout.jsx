@@ -293,6 +293,9 @@ export default function CheckoutView() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('CASH') // 'CASH' | 'GCASH' | 'PAYMAYA' | 'CARD'
+  const [payingOnline, setPayingOnline] = useState(false)
+  const [payError, setPayError] = useState('')
 
   // Load addresses and seed group specs from cart
   useEffect(() => {
@@ -348,6 +351,7 @@ export default function CheckoutView() {
     const v = validate()
     if (v) { setError(v); return }
     setError('')
+    setPayError('')
     setSubmitting(true)
     try {
       const payload = {
@@ -360,15 +364,56 @@ export default function CheckoutView() {
             notes: s.notes || undefined,
           }
         }),
-        paymentMethod: 'CASH',
+        paymentMethod: paymentMethod === 'GCASH' || paymentMethod === 'PAYMAYA' || paymentMethod === 'CARD' ? paymentMethod : 'CASH',
       }
       const result = await apiPost('/buyer/checkout', null, payload)
       await refresh()
+
+      if (paymentMethod !== 'CASH') {
+        // result is an array of created orders — pay for the first one
+        // (multi-vendor online checkout not supported yet — pay first order)
+        const firstOrderId = Array.isArray(result) ? result[0]?.id : result?.id
+        if (firstOrderId) {
+          await handleOnlinePay(firstOrderId)
+          return
+        }
+      }
       onSuccess(result)
     } catch (e) {
       setError(e?.message || 'Could not place order.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleOnlinePay(orderId) {
+    setPayingOnline(true)
+    setPayError('')
+    try {
+      const returnUrl = `${window.location.origin}/buyer/payment-return?orderId=${orderId}`
+      const res = await apiPost(`/buyer/orders/${orderId}/payment-intent`, { method: paymentMethod, returnUrl })
+
+      if (paymentMethod === 'GCASH' || paymentMethod === 'PAYMAYA') {
+        if (res.redirectUrl) {
+          window.location.href = res.redirectUrl
+          return
+        }
+        throw new Error('No redirect URL returned from payment gateway.')
+      }
+
+      if (paymentMethod === 'CARD') {
+        const Xendit = window.Xendit
+        if (!Xendit) throw new Error('Xendit.js failed to load.')
+        Xendit.setPublishableKey(res.publicKey || import.meta.env.VITE_XENDIT_PUBLIC_KEY || '')
+        // Xendit card inline form — redirect to payment return page with clientKey
+        onSuccess()
+        return
+      }
+    } catch (e) {
+      setPayError(e?.message || 'Payment initiation failed. Your order was placed — pay from your Orders page.')
+      onSuccess()
+    } finally {
+      setPayingOnline(false)
     }
   }
 
@@ -517,12 +562,27 @@ export default function CheckoutView() {
 
         <div className="card" style={{ padding: 16 }}>
           <div className="label">Payment method</div>
-          <div className="row" style={{ gap: 10, marginTop: 8 }}>
-            <button className="btn btn--accent btn--sm" disabled>Cash on handoff (selected)</button>
-            <button className="btn btn--ghost btn--sm" disabled title="Online payments coming with PayMongo in Phase 3">
-              Online (coming soon)
-            </button>
+          <div className="row" style={{ gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
+            {['CASH', 'GCASH', 'PAYMAYA', 'CARD'].map(m => (
+              <button
+                key={m}
+                className={`btn btn--sm ${paymentMethod === m ? 'btn--accent' : 'btn--ghost'}`}
+                onClick={() => setPaymentMethod(m)}
+              >
+                {m === 'CASH' ? 'Cash on handoff' : m === 'GCASH' ? 'GCash' : m === 'PAYMAYA' ? 'Maya' : 'Card'}
+              </button>
+            ))}
           </div>
+          {paymentMethod !== 'CASH' && (
+            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--ink-4)' }}>
+              {paymentMethod === 'GCASH' && 'You will be redirected to GCash to complete payment.'}
+              {paymentMethod === 'PAYMAYA' && 'You will be redirected to Maya to complete payment.'}
+              {paymentMethod === 'CARD' && 'Enter your card details after placing the order.'}
+            </div>
+          )}
+          {payError && (
+            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--unsafe)' }}>{payError}</div>
+          )}
         </div>
       </div>
 
@@ -535,10 +595,10 @@ export default function CheckoutView() {
           <button
             className="btn btn--accent"
             onClick={handlePlace}
-            disabled={submitting || cart.itemCount === 0}
+            disabled={submitting || payingOnline || cart.itemCount === 0}
             style={{ minWidth: 200 }}
           >
-            {submitting ? 'Placing…' : `Place ${cart.groups.length} order${cart.groups.length === 1 ? '' : 's'}`}
+            {payingOnline ? 'Redirecting to payment…' : submitting ? 'Placing…' : `Place ${cart.groups.length} order${cart.groups.length === 1 ? '' : 's'}`}
           </button>
         </div>
       </div>
