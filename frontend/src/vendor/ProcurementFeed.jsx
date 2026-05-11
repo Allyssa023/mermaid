@@ -13,7 +13,7 @@ export default function ProcurementFeed() {
   const feedQ   = useQuery({ queryKey: ['vendor', 'feed'],            queryFn: () => getFeed() })
   const cartQ   = useQuery({ queryKey: ['vendor', 'cart'],            queryFn: getCart })
   const ordersQ = useQuery({
-    queryKey: ['vendor', 'procOrders', tab],
+    queryKey: ['vendor', 'procOrders', bucket],
     queryFn: () => listProcurementOrders(tab === 'orders' ? bucket : undefined),
     enabled: tab === 'orders',
   })
@@ -74,7 +74,7 @@ export default function ProcurementFeed() {
                       className={`btn btn--sm ${inCart ? '' : 'btn--accent'}`}
                       style={{flex: 1}}
                       onClick={() => addMut.mutate({ catchAlertId: a.id, qtyKg: a.availableKg })}
-                      disabled={!!inCart || addMut.isPending}
+                      disabled={!!inCart || addMut.isPending || a.availableKg == null}
                     >
                       {inCart ? <><I.Check size={11} /> In cart</> : <><I.Plus size={11} /> Add to cart</>}
                     </button>

@@ -199,7 +199,7 @@ export default function ProcurementOrders() {
                   </div>
                 )}
                 <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
-                  Placed {new Date(order.createdAt).toLocaleString()}
+                  Placed {order.createdAt ? new Date(order.createdAt).toLocaleString() : '—'}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
