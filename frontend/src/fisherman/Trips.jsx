@@ -1,11 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { I } from '../icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { listTrips, getTrip, startTrip, endTrip, saveChecklist,
          listCatchLogs, createCatchLog, updateCatchLog, deleteCatchLog } from './api/trips'
-import { fetchSpecies } from '../api/lookup.js'
+
 import { TableRowSkeleton, CardSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
+
+// ── Module-scope constants ─────────────────────────────────────────────────────
+
+const checklistItems = [
+  { k: 'fuel',         label: 'Fuel topped off' },
+  { k: 'engine',       label: 'Engine check' },
+  { k: 'radio',        label: 'Radio comms OK' },
+  { k: 'lifeVest',     label: 'Life vests (x4)' },
+  { k: 'weather',      label: 'Weather briefed' },
+  { k: 'emergencyKit', label: 'Emergency kit' },
+  { k: 'ice',          label: 'Ice & cooler loaded' },
+  { k: 'bait',         label: 'Bait & lures' },
+]
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -14,7 +27,6 @@ export default function TripsPage() {
   const qc = useQueryClient()
 
   const tripsQ   = useQuery({ queryKey: ['trips'], queryFn: () => listTrips() })
-  const speciesQ = useQuery({ queryKey: ['species'], queryFn: fetchSpecies })
 
   const activeTrip   = (tripsQ.data ?? []).find(t => t.status === 'ACTIVE') ?? null
   const pastTrips    = (tripsQ.data ?? []).filter(t => t.status === 'COMPLETED' || t.status === 'CANCELLED')
@@ -22,7 +34,7 @@ export default function TripsPage() {
 
   const catchLogsQ = useQuery({
     queryKey: ['catchLogs', activeTrip?.id],
-    queryFn: () => listCatchLogs(activeTrip.id),
+    queryFn: () => listCatchLogs(activeTrip?.id),
     enabled: !!activeTrip,
   })
 
@@ -31,16 +43,6 @@ export default function TripsPage() {
 
   const t = activeTrip
 
-  const checklistItems = [
-    { k: 'fuel',         label: 'Fuel topped off' },
-    { k: 'engine',       label: 'Engine check' },
-    { k: 'radio',        label: 'Radio comms OK' },
-    { k: 'lifeVest',     label: 'Life vests (x4)' },
-    { k: 'weather',      label: 'Weather briefed' },
-    { k: 'emergencyKit', label: 'Emergency kit' },
-    { k: 'ice',          label: 'Ice & cooler loaded' },
-    { k: 'bait',         label: 'Bait & lures' },
-  ]
   const checkedCount = t ? checklistItems.filter(it => t.checklist?.[it.k]).length : 0
 
   const catches = catchLogsQ.data ?? []
