@@ -235,16 +235,17 @@ export default function FishermanHomePage({ setPage }) {
           <button className="btn btn--sm" onClick={() => setPage('procurement')}>Open procurement <I.Arrow size={11} /></button>
         </div>
         <table className="tbl">
-          <thead><tr><th>Code</th><th>Vendor</th><th>Species</th><th>Qty</th><th>Total</th><th>Payment</th><th>Status</th></tr></thead>
+          <thead>
+            <tr><th>ID</th><th>Species</th><th>Qty</th><th>Total</th><th>Payment</th><th>Status</th></tr>
+          </thead>
           <tbody>
             {pendingOrders.map(o => (
               <tr key={o.id}>
-                <td><span className="kbd">{o.orderCode ?? o.code ?? '—'}</span></td>
-                <td>{o.vendorName ?? o.vendor?.name ?? o.vendor ?? '—'}</td>
-                <td>{o.speciesName ?? o.species ?? '—'}</td>
-                <td>{o.quantityKg ?? o.qtyKg ?? '—'} kg</td>
-                <td>₱{(o.totalAmount ?? o.total ?? 0).toLocaleString()}</td>
-                <td><span className={`chip ${(o.paymentMethod ?? o.payment) === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{o.paymentMethod ?? o.payment ?? '—'}</span></td>
+                <td><span className="kbd">#{o.id}</span></td>
+                <td>{o.speciesName}</td>
+                <td>{o.qtyKg != null ? `${o.qtyKg} kg` : '—'}</td>
+                <td>{o.qtyKg && o.pricePerKg ? `₱${(o.qtyKg * o.pricePerKg).toLocaleString('en-PH')}` : '—'}</td>
+                <td><span className={`chip ${o.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{o.paymentMethod ?? '—'}</span></td>
                 <td><span className={`status status--${o.status === 'PENDING' ? 'pending' : 'confirmed'}`}><span className="status__dot" /> {o.status}</span></td>
               </tr>
             ))}
