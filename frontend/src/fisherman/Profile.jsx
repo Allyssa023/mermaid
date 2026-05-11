@@ -1,166 +1,112 @@
-import { useState, useEffect } from 'react'
-import { getProfile, updateProfile } from './api/profile'
+import { useState, useEffect, useRef } from 'react'
+import { I } from '../icons'
 
-export default function Profile() {
-  const [form, setForm] = useState({
-    vesselName: '', landingSite: '', emergencyContactName: '', emergencyContactPhone: '',
-    gcashNumber: '', mayaNumber: '',
-  })
-  const [fullName, setFullName] = useState('')
-  const [loading, setLoading]   = useState(true)
-  const [saving, setSaving]     = useState(false)
-  const [success, setSuccess]   = useState(false)
-  const [error, setError]       = useState('')
+// ── Inline mock data ─────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    getProfile()
-      .then(p => {
-        setFullName(p.fullName || '')
-        setForm({
-          vesselName:            p.vesselName || '',
-          landingSite:           p.landingSite || '',
-          emergencyContactName:  p.emergencyContactName || '',
-          emergencyContactPhone: p.emergencyContactPhone || '',
-          gcashNumber:           p.gcashNumber || '',
-          mayaNumber:            p.mayaNumber || '',
-        })
-      })
-      .catch(() => setError('Failed to load profile.'))
-      .finally(() => setLoading(false))
-  }, [])
+const USER = {
+  id: 101,
+  fullName: 'Ramiro Delgado',
+  first: 'Ramiro',
+  email: 'ramiro@mermaid.ph',
+  role: 'FISHERMAN',
+  vessel: 'MV Sirena II',
+  license: 'PH-FL-2421',
+  port: 'Bauan · Batangas',
+}
 
-  const save = async () => {
-    setSaving(true); setSuccess(false); setError('')
-    try {
-      await updateProfile(form)
-      setSuccess(true)
-    } catch (e) {
-      setError(e.message || 'Save failed.')
-    } finally {
-      setSaving(false)
-    }
-  }
+// ── Component ─────────────────────────────────────────────────────────────────
 
-  const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
-
-  const smsPreview = `${fullName || 'You'} has departed for fishing. Vessel: ${form.vesselName || 'vessel'}. Expected return: early morning. - MERMAID Safety`
-
-  if (loading) return (
-    <div className="page">
-      <div className="empty" style={{ padding: '60px 0' }}><div className="empty__title">Loading…</div></div>
-    </div>
-  )
+export default function FishermanProfilePage() {
+  const [wallet, setWallet] = useState('GCash · +63 917 ●●● 4421')
+  const [saved, setSaved] = useState(false)
+  const noWallet = false
 
   return (
     <div className="page">
       <div className="page__head">
         <div>
-          <div className="eyebrow">Fisherman · Account</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}>My <em>Profile.</em></h1>
-          <p className="page__sub">Vessel details and safety contact.</p>
+          <div className="eyebrow">Account</div>
+          <h1 className="page__title" style={{marginTop: 4}}>Your <em>profile</em></h1>
+          <p className="page__sub">Vessel info and how vendors pay you out.</p>
         </div>
-        <div className="page__actions">
-          <button className="btn btn--primary btn--sm" disabled={saving} onClick={save}>
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+        {saved && <span className="chip chip--safe" style={{alignSelf: 'flex-end'}}><I.Check size={11} /> Saved</span>}
       </div>
 
-      {success && (
-        <div style={{ background: 'var(--safe-soft)', color: 'var(--safe)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-          Profile saved.
-        </div>
-      )}
-      {error && (
-        <div style={{ background: 'var(--unsafe-soft)', color: 'var(--unsafe)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
-          {error}
+      {noWallet && (
+        <div style={{marginTop: 14, padding: '12px 16px', background: 'var(--caution-soft)', border: '1px solid var(--caution)', borderRadius: 8, color: 'var(--caution)', display: 'flex', alignItems: 'center', gap: 10}}>
+          <I.Alert size={16} />
+          <div><strong>Add an e-wallet to receive payouts.</strong> Vendors can't pay you digitally without one.</div>
         </div>
       )}
 
-      {!loading && !form.gcashNumber && !form.mayaNumber && (
-        <div style={{ background: 'var(--caution-soft)', border: '1px solid color-mix(in oklch, var(--caution), transparent 60%)', color: 'var(--caution)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13, display: 'flex', gap: 10, alignItems: 'center' }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-          <span>Add a GCash or Maya number so vendors can pay you directly after procurement orders.</span>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid grid--2-1" style={{marginTop: 18}}>
         <div className="card">
-          <div className="card__title" style={{ marginBottom: 16 }}>Vessel Info</div>
+          <div className="card__head"><div className="card__title">Vessel & landing</div></div>
           <div className="form-grid">
             <div className="form-row">
               <label>Full name</label>
-              <input className="input" value={fullName} disabled />
+              <input className="input" defaultValue={USER.fullName} />
             </div>
             <div className="form-row">
               <label>Vessel name</label>
-              <input className="input" value={form.vesselName}
-                onChange={e => f('vesselName', e.target.value)}
-                placeholder="e.g. MV Diwata" />
+              <input className="input" defaultValue={USER.vessel || 'MV Sirena II'} />
             </div>
             <div className="form-row">
-              <label>Landing site</label>
-              <input className="input" value={form.landingSite}
-                onChange={e => f('landingSite', e.target.value)}
-                placeholder="e.g. Navotas Fish Landing" />
+              <label>Vessel type</label>
+              <input className="input" defaultValue="Banca · 30 ft" />
+            </div>
+            <div className="form-row">
+              <label>Primary landing site</label>
+              <input className="input" defaultValue="Verde Passage" />
+            </div>
+            <div className="form-row" style={{gridColumn: '1 / -1'}}>
+              <label>Phone (verified)</label>
+              <input className="input" defaultValue="+63 917 442 1188" disabled />
             </div>
           </div>
         </div>
 
         <div className="card">
-          <div className="card__title" style={{ marginBottom: 16 }}>Safety Contact</div>
+          <div className="card__head"><div className="card__title">Safety contact</div></div>
+          <p className="muted-data" style={{fontSize: 12, marginTop: 0, marginBottom: 14}}>SMS sent if you don't return on schedule.</p>
           <div className="form-grid">
-            <div className="form-row">
+            <div className="form-row" style={{gridColumn: '1 / -1'}}>
               <label>Contact name</label>
-              <input className="input" value={form.emergencyContactName}
-                onChange={e => f('emergencyContactName', e.target.value)}
-                placeholder="Contact person name" />
+              <input className="input" defaultValue="Maria Delgado" />
             </div>
-            <div className="form-row">
-              <label>Phone number</label>
-              <input className="input" type="tel" value={form.emergencyContactPhone}
-                onChange={e => f('emergencyContactPhone', e.target.value)}
-                placeholder="09XX XXX XXXX" />
+            <div className="form-row" style={{gridColumn: '1 / -1'}}>
+              <label>Phone</label>
+              <input className="input" defaultValue="+63 918 221 4421" />
             </div>
           </div>
-          <div style={{ marginTop: 16, padding: '10px 12px', background: 'var(--paper)', border: '1px solid var(--line-soft)', borderRadius: 8, fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMS preview on departure</div>
-            {smsPreview}
+          <div style={{marginTop: 14, padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12, color: 'var(--ink-2)', fontFamily: 'var(--font-mono)'}}>
+            <span className="muted-data">SMS preview</span><br />
+            "Hello Maria — Ramiro hasn't returned from Verde Passage as planned (ETA 13:00). Please check on him. — Mermaid"
           </div>
         </div>
+      </div>
 
-        <div className="card">
-          <div className="card__title" style={{ marginBottom: 4 }}>E-Wallet for Payouts</div>
-          <p style={{ fontSize: 12, color: 'var(--ink-4)', marginBottom: 16, lineHeight: 1.5 }}>
-            Vendors send procurement payments directly to your GCash or Maya. Add at least one number to receive payouts.
-          </p>
-          <div className="form-grid">
-            <div className="form-row">
-              <label>GCash number</label>
-              <input
-                className="input"
-                type="tel"
-                value={form.gcashNumber}
-                onChange={e => f('gcashNumber', e.target.value)}
-                placeholder="09XX XXX XXXX"
-                maxLength={11}
-              />
-            </div>
-            <div className="form-row">
-              <label>Maya number</label>
-              <input
-                className="input"
-                type="tel"
-                value={form.mayaNumber}
-                onChange={e => f('mayaNumber', e.target.value)}
-                placeholder="09XX XXX XXXX"
-                maxLength={11}
-              />
-            </div>
+      <div className="card" style={{marginTop: 18}}>
+        <div className="card__head">
+          <div>
+            <div className="card__title">E-wallet for payouts</div>
+            <div className="card__sub">Vendors pay you here when settling cash orders or utang.</div>
           </div>
+          <button className="btn btn--sm"><I.Wallet size={12} /> Change</button>
         </div>
+        <div className="row" style={{gap: 16, alignItems: 'center'}}>
+          <div style={{width: 56, height: 56, borderRadius: 12, background: 'oklch(0.7 0.14 220)', color: 'white', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 13, letterSpacing: '0.5px'}}>GCash</div>
+          <div style={{flex: 1}}>
+            <div style={{fontFamily: 'var(--font-mono)', fontSize: 16}}>{wallet}</div>
+            <div className="muted-data" style={{fontSize: 12, marginTop: 4}}>Verified · default payout</div>
+          </div>
+          <span className="status status--completed"><span className="status__dot" /> ACTIVE</span>
+        </div>
+      </div>
+
+      <div className="row" style={{marginTop: 18, gap: 8, justifyContent: 'flex-end'}}>
+        <button className="btn">Cancel</button>
+        <button className="btn btn--primary" onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2200) }}>Save profile</button>
       </div>
     </div>
   )

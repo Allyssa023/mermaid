@@ -89,8 +89,8 @@ public class CatchLogService {
         log.setQuantityEstimate(req.getQuantityEstimate());
         Double qtKg = unwrap(req.getQuantityKg());
         log.setQuantityKg(qtKg != null ? BigDecimal.valueOf(qtKg) : null);
-        log.setEstimatedPricePerKg(req.getEstimatedPricePerKg() != null && req.getEstimatedPricePerKg().isPresent()
-            ? BigDecimal.valueOf(req.getEstimatedPricePerKg().get()) : null);
+        Double estPrice = unwrap(req.getEstimatedPricePerKg());
+        log.setEstimatedPricePerKg(estPrice != null ? BigDecimal.valueOf(estPrice) : null);
         log.setMatchedListingId(listingId);
         log.setNotes(unwrap(req.getNotes()));
 

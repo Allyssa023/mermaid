@@ -8,6 +8,7 @@ import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.model.*;
 import com.mermaid.app.repository.UserRepository;
 import com.mermaid.app.security.JwtTokenService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,6 +31,9 @@ public class AuthService {
     private final JwtTokenService jwtTokenService;
     private final EmailService emailService;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    @Value("${app.skip-email-verification:false}")
+    private boolean skipEmailVerification;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
@@ -57,8 +61,17 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
-        if (!user.isEmailVerified()) {
+        if (!skipEmailVerification && !user.isEmailVerified()) {
             throw new EmailNotVerifiedException();
+        }
+
+        // E2E / test mode: skip OTP, issue JWT directly
+        if (skipEmailVerification) {
+            String token = jwtTokenService.issueToken(user);
+            UserProfile profile = toUserProfile(user);
+            LoginResponse response = new LoginResponse(token, "Bearer", profile);
+            response.setExpiresIn(jwtTokenService.getExpirySeconds());
+            return response;
         }
 
         // Generate 6-digit OTP
@@ -185,19 +198,25 @@ public class AuthService {
         user.setFullName(request.getFullName().trim());
         user.setRole(com.mermaid.app.model.Role.fromValue(request.getRole().getValue()));
         user.setActive(true);
-        user.setEmailVerified(false);
+        user.setEmailVerified(skipEmailVerification);
 
-        // Generate verification token
-        String token = UUID.randomUUID().toString();
-        user.setVerificationToken(token);
-        user.setVerificationTokenExp(OffsetDateTime.now().plusHours(24));
+        if (!skipEmailVerification) {
+            // Generate verification token
+            String token = UUID.randomUUID().toString();
+            user.setVerificationToken(token);
+            user.setVerificationTokenExp(OffsetDateTime.now().plusHours(24));
 
-        user = userRepository.save(user);
+            user = userRepository.save(user);
 
-        // Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), token);
+            // Send verification email
+            emailService.sendVerificationEmail(user.getEmail(), token);
+        } else {
+            user = userRepository.save(user);
+        }
 
-        return new MessageResponse("Check your email to verify your account.");
+        return new MessageResponse(skipEmailVerification
+                ? "Account created (email verification skipped)."
+                : "Check your email to verify your account.");
     }
 
     /**
@@ -214,17 +233,21 @@ public class AuthService {
         user.setFullName(request.getFullName().trim());
         user.setRole(com.mermaid.app.model.Role.fromValue(request.getRole().getValue()));
         user.setActive(true);
-        user.setEmailVerified(false);
+        user.setEmailVerified(skipEmailVerification);
 
-        // Generate verification token
-        String token = UUID.randomUUID().toString();
-        user.setVerificationToken(token);
-        user.setVerificationTokenExp(OffsetDateTime.now().plusHours(24));
+        if (!skipEmailVerification) {
+            // Generate verification token
+            String token = UUID.randomUUID().toString();
+            user.setVerificationToken(token);
+            user.setVerificationTokenExp(OffsetDateTime.now().plusHours(24));
 
-        user = userRepository.save(user);
+            user = userRepository.save(user);
 
-        // Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), token);
+            // Send verification email
+            emailService.sendVerificationEmail(user.getEmail(), token);
+        } else {
+            user = userRepository.save(user);
+        }
 
         return toUserProfile(user);
     }

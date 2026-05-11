@@ -1,7 +1,7 @@
 // ─── App root ─────────────────────────────────────────────────────────
 function App() {
   const [role, setRole] = useState(() => localStorage.getItem('mermaid.role') || 'FISHERMAN');
-  const defaultPages = { FISHERMAN: 'dashboard', VENDOR: 'vdashboard', BUYER: 'bbrowse', ADMIN: 'aoverview' };
+  const defaultPages = { FISHERMAN: 'dashboard', VENDOR: 'vdashboard', BUYER: 'bhome', ADMIN: 'aoverview' };
   const [page, setPage] = useState(() => localStorage.getItem('mermaid.page') || defaultPages[role]);
   const [tweakOpen, setTweakOpen] = useState(false);
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(() => !localStorage.getItem('mermaid.role'));
@@ -37,25 +37,39 @@ function App() {
   // Page registry per role
   const PAGES = {
     // Fisherman
-    dashboard: DashboardPage,
-    planner: PlannerPage,
-    trips: TripsPage,
-    alerts: AlertsPage,
-    orders: OrdersPage,
-    market: MarketplacePage,
-    messages: MessagesPage,
+    dashboard:   FishermanHomePage,
+    planner:     PlannerPage,
+    trips:       TripsPage,
+    alerts:      AlertsPage,
+    procurement: FishermanProcurementPage,
+    orders:      OrdersPage,
+    earnings:    FishermanEarningsPage,
+    market:      MarketplacePage,
+    messages:    MessagesPage,
+    profile:     FishermanProfilePage,
     // Vendor
-    vdashboard: VendorDashboardPage,
-    vlistings:  VendorListingsPage,
-    vinterests: VendorInterestsPage,
-    vbrowse:    VendorBrowsePage,
-    vorders:    VendorOrdersPage,
-    vmessages:  MessagesPage, // reuse generic messages
+    vdashboard:   VendorHomePage,
+    vstore:       VendorStorefrontPage,
+    vinventory:   VendorInventoryPage,
+    vorders:      VendorOrdersPage,
+    vprocurement: VendorProcurementPage,
+    vwatchlist:   VendorWatchlistPage,
+    vanalytics:   VendorAnalyticsPage,
+    vreviews:     VendorReviewsPage,
+    vpayouts:     VendorPayoutsPage,
+    vshop:        VendorShopProfilePage,
+    vmessages:    MessagesPage,
     // Buyer
+    bhome:     BuyerHomePage,
     bbrowse:   BuyerBrowsePage,
+    bcart:     BuyerCartPage,
+    bcheckout: BuyerCheckoutPage,
+    blisting:  BuyerListingDetailPage,
+    bvendor:   BuyerVendorStorefrontPage,
     borders:   BuyerOrdersPage,
     bsaved:    BuyerSavedPage,
     bmessages: BuyerMessagesPage,
+    bprofile:  BuyerProfilePage,
     // Admin
     aoverview:   AdminOverviewPage,
     ausers:      AdminUsersPage,

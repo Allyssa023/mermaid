@@ -5037,16 +5037,15 @@ components:
 
     TripStartRequest:
       type: object
-      required: [departurePoint, targetArea]
       properties:
         departurePoint:
           type: string
-          minLength: 2
           maxLength: 150
+          nullable: true
         targetArea:
           type: string
-          minLength: 2
           maxLength: 150
+          nullable: true
         vesselName:
           type: string
           maxLength: 100

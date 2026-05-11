@@ -1,135 +1,51 @@
-import { useState, useEffect } from 'react'
-import { apiGet, apiPatch } from '../api'
-import { fmt } from './utils/format'
-import ImageUpload from './components/ImageUpload'
+import { useState } from 'react'
+import { I } from '../icons'
 
-export default function Profile({ user, onProfileUpdated }) {
-  const [profile, setProfile]   = useState(null)
-  const [loading, setLoading]   = useState(true)
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState('')
-  const [success, setSuccess]   = useState('')
-  const [fullName, setFullName] = useState('')
-  const [avatarUrl, setAvatarUrl] = useState(null)
+// ─── Mock data ────────────────────────────────────────────────────────────────
+const BUYER_USER = {
+  id: 401,
+  fullName: 'Sofia Mendez',
+  first: 'Sofia',
+  email: 'sofia.m@example.ph',
+  role: 'BUYER',
+  business: 'Casa Mendez Kitchen',
+  port: 'Tagaytay · Cavite',
+}
 
-  function load() {
-    setLoading(true)
-    apiGet('/buyer/profile')
-      .then(p => {
-        setProfile(p)
-        setFullName(p.fullName || '')
-        setAvatarUrl(p.avatarUrl || null)
-      })
-      .catch(e => setError(e?.message || 'Failed to load profile.'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { load() }, [])
-
-  async function handleSave() {
-    setSaving(true); setError(''); setSuccess('')
-    try {
-      const updated = await apiPatch('/buyer/profile', null, {
-        fullName: fullName.trim() || undefined,
-        avatarUrl,
-      })
-      setProfile(updated)
-      setSuccess('Profile saved.')
-      onProfileUpdated?.(updated)
-      setTimeout(() => setSuccess(''), 2500)
-    } catch (e) {
-      setError(e?.message || 'Could not save profile.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleAvatarChange(url) {
-    setAvatarUrl(url)
-    // Auto-persist avatar so the upload feels immediate.
-    setSaving(true); setError('')
-    try {
-      const updated = await apiPatch('/buyer/profile', null, { avatarUrl: url })
-      setProfile(updated)
-      onProfileUpdated?.(updated)
-    } catch (e) {
-      setError(e?.message || 'Could not update avatar.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="page">
-        <div className="page__head">
-          <div>
-            <div className="eyebrow">Account</div>
-            <h1 className="page__title" style={{ marginTop: 4 }}>My <em>Profile</em></h1>
-          </div>
-        </div>
-        <div className="card" style={{ marginTop: 18, padding: 20 }}>
-          <div className="skeleton" style={{ height: 24, width: '40%' }} />
-          <div className="skeleton" style={{ height: 96, marginTop: 12, width: 96, borderRadius: '50%' }} />
-          <div className="skeleton" style={{ height: 16, marginTop: 16 }} />
-        </div>
-      </div>
-    )
-  }
-
-  const dirty = (fullName.trim() !== (profile?.fullName || '').trim())
-
+export default function Profile({ setPage }) {
   return (
     <div className="page">
       <div className="page__head">
         <div>
           <div className="eyebrow">Account</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}>My <em>Profile</em></h1>
-          <p className="page__sub">
-            Member since {profile?.memberSince ? fmt(profile.memberSince) : '—'} · {profile?.totalOrders || 0} orders ·{' '}
-            {profile?.totalReviews || 0} reviews · {profile?.totalFavorites || 0} saved
-          </p>
+          <h1 className="page__title" style={{marginTop: 4}}>Your <em>profile</em></h1>
         </div>
       </div>
-
-      <div className="card" style={{ marginTop: 18, padding: 20 }}>
-        <div className="label">Avatar</div>
-        <div style={{ marginTop: 8 }}>
-          <ImageUpload
-            value={avatarUrl}
-            onChange={handleAvatarChange}
-            subDir="avatars"
-            label="Upload avatar"
-          />
-        </div>
-
-        <div className="label" style={{ marginTop: 18 }}>Full name</div>
-        <input
-          className="input"
-          value={fullName}
-          onChange={e => setFullName(e.target.value)}
-          maxLength={200}
-          style={{ marginTop: 6 }}
-        />
-
-        <div className="label" style={{ marginTop: 14 }}>Email</div>
-        <input
-          className="input"
-          value={profile?.email || ''}
-          disabled
-          style={{ marginTop: 6, opacity: 0.65 }}
-        />
-        <div className="muted-data" style={{ fontSize: 11, marginTop: 4 }}>
-          Email changes are not supported yet.
-        </div>
-
-        {error && <div style={{ color: 'var(--unsafe)', fontSize: 13, marginTop: 12 }}>{error}</div>}
-        {success && <div style={{ color: 'var(--safe, #22a37e)', fontSize: 13, marginTop: 12 }}>{success}</div>}
-
-        <div className="row" style={{ gap: 10, marginTop: 18, justifyContent: 'flex-end' }}>
-          <button className="btn btn--accent" disabled={!dirty || saving} onClick={handleSave}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
+      <div className="orders-strip orders-strip--4" style={{marginTop: 18}}>
+        <div className="stat"><div className="l">Member since</div><div className="v" style={{fontSize: 26}}>Jan 2024</div><div className="s">1y 3mo</div></div>
+        <div className="stat"><div className="l">Total orders</div><div className="v">42</div><div className="s">across 8 vendors</div></div>
+        <div className="stat"><div className="l">Saved vendors</div><div className="v">6</div></div>
+        <div className="stat"><div className="l">Saved listings</div><div className="v">11</div></div>
+      </div>
+      <div className="card" style={{marginTop: 18}}>
+        <div className="row" style={{gap: 20, alignItems: 'flex-start'}}>
+          <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8}}>
+            <div style={{width: 88, height: 88, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 600}}>SM</div>
+            <button className="btn btn--ghost btn--sm"><I.Camera size={11} /> Upload</button>
+          </div>
+          <div style={{flex: 1}}>
+            <div className="form-grid">
+              <div className="form-row"><label>Full name</label><input className="input" defaultValue={BUYER_USER.fullName} /></div>
+              <div className="form-row"><label>Display name</label><input className="input" defaultValue="Sofia M." /></div>
+              <div className="form-row"><label>Email</label><input className="input" defaultValue={BUYER_USER.email} disabled /></div>
+              <div className="form-row"><label>Phone</label><input className="input" defaultValue="+63 917 555 0042" /></div>
+              <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Business name</label><input className="input" defaultValue={BUYER_USER.business} /></div>
+            </div>
+            <div className="row" style={{gap: 8, marginTop: 14, justifyContent: 'flex-end'}}>
+              <button className="btn">Cancel</button>
+              <button className="btn btn--primary">Save profile</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

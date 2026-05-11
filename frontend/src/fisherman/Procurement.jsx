@@ -1,313 +1,91 @@
-import { useState, useCallback } from 'react'
-import { listProcurementOrders, acceptOrder, markReady, completeOrder, cancelOrder, raiseDispute, getDispute } from './api/procurement'
-import { useFishermanPolling } from './hooks/useFishermanPolling'
+import { useState, useEffect, useRef } from 'react'
+import { I } from '../icons'
 
-const BUCKETS = ['PENDING','ACCEPTED','READY','COMPLETED','CANCELLED','DISPUTED']
+// ── Inline mock data ─────────────────────────────────────────────────────────
 
-const STATUS_CLS = {
-  PENDING: 'status--pending', ACCEPTED: 'status--confirmed', READY: 'status--active',
-  COMPLETED: 'status--completed', CANCELLED: 'status--cancelled', DISPUTED: 'status--disputed',
-}
+const FISHERMAN_PROCUREMENT_ORDERS = [
+  { id: 9012, code: 'VO-9012', vendor: 'Marina Seafoods',    species: 'Yellowfin Tuna',        qtyKg: 18, pricePerKg: 380, total: 6840,  payment: 'CASH',  preorder: false, status: 'PENDING',   placedAt: 'Apr 23, 08:12', readyBy: 'Apr 23, 16:00', note: 'Export-grade, ice at sea.' },
+  { id: 9008, code: 'VO-9008', vendor: 'Bay City Market',    species: 'Grouper (Lapu-lapu)',   qtyKg: 4,  pricePerKg: 540, total: 2160,  payment: 'UTANG', preorder: false, status: 'ACCEPTED',  placedAt: 'Apr 23, 06:40', readyBy: 'Apr 24, 09:00', note: 'Live, 1.5kg+' },
+  { id: 9001, code: 'VO-9001', vendor: 'Marina Seafoods',    species: 'Skipjack',              qtyKg: 32, pricePerKg: 170, total: 5440,  payment: 'CASH',  preorder: true,  status: 'READY',     placedAt: 'Apr 22, 14:30', readyBy: 'Apr 24, 10:00', note: '' },
+  { id: 8987, code: 'VO-8987', vendor: 'J. Aquino & Sons',   species: 'Spanish Mackerel',     qtyKg: 14, pricePerKg: 320, total: 4480,  payment: 'CASH',  preorder: false, status: 'COMPLETED', placedAt: 'Apr 20, 11:00', readyBy: 'Apr 21, 09:00', note: '' },
+  { id: 8975, code: 'VO-8975', vendor: 'Del Mar Cold Chain', species: 'Squid',                qtyKg: 22, pricePerKg: 210, total: 4620,  payment: 'UTANG', preorder: false, status: 'DISPUTED',  placedAt: 'Apr 19, 07:15', readyBy: 'Apr 19, 16:00', note: 'Buyer claims short-weight; 1.4kg gap reported.' },
+  { id: 8950, code: 'VO-8950', vendor: 'Marina Seafoods',    species: 'Mahi-mahi',            qtyKg: 12, pricePerKg: 250, total: 3000,  payment: 'CASH',  preorder: false, status: 'CANCELLED', placedAt: 'Apr 18, 17:20', readyBy: 'Apr 19, 10:00', note: 'Vendor cancelled — supply found elsewhere.' },
+]
 
-const QUALITY_OPTIONS = ['FRESH', 'SUBSTANDARD', 'DAMAGED']
+// ── Component ─────────────────────────────────────────────────────────────────
 
-export default function Procurement() {
-  const [bucket, setBucket]       = useState('PENDING')
-  const [busy, setBusy]           = useState(null)
-  const [cancelTarget, setCancelTarget] = useState(null)
-  const [cancelReason, setCancelReason] = useState('')
+export default function ProcurementPage({ setPage }) {
+  const [tab, setTab] = useState('PENDING')
+  const buckets = ['PENDING', 'ACCEPTED', 'READY', 'COMPLETED', 'CANCELLED', 'DISPUTED']
+  const counts = buckets.reduce((a, b) => ({ ...a, [b]: FISHERMAN_PROCUREMENT_ORDERS.filter(o => o.status === b).length }), {})
+  const orders = FISHERMAN_PROCUREMENT_ORDERS.filter(o => o.status === tab)
 
-  const [disputeTarget, setDisputeTarget] = useState(null)
-  const [disputeWeight, setDisputeWeight] = useState('')
-  const [disputeQuality, setDisputeQuality] = useState('')
-  const [disputeNotes, setDisputeNotes]   = useState('')
-  const [disputeError, setDisputeError]   = useState('')
-
-  const [viewDispute, setViewDispute]   = useState(null)
-  const [viewDisputeData, setViewDisputeData] = useState(null)
-  const [viewDisputeLoading, setViewDisputeLoading] = useState(false)
-
-  const fetcher = useCallback(() => listProcurementOrders(bucket), [bucket])
-  const { data, loading, error, isStale, refetch } = useFishermanPolling(fetcher, [bucket])
-  const orders = Array.isArray(data) ? data : []
-
-  const act = async (action, id, extra) => {
-    setBusy(id)
-    try { await action(id, extra); refetch() }
-    catch {}
-    finally { setBusy(null) }
-  }
-
-  const openDisputeModal = (order) => {
-    setDisputeTarget(order)
-    setDisputeWeight('')
-    setDisputeQuality('')
-    setDisputeNotes('')
-    setDisputeError('')
-  }
-
-  const submitDispute = async () => {
-    setDisputeError('')
-    const body = {}
-    if (disputeWeight) body.claimedWeightKg = parseFloat(disputeWeight)
-    if (disputeQuality) body.claimedQuality = disputeQuality
-    if (disputeNotes)   body.notes = disputeNotes
-    try {
-      await raiseDispute(disputeTarget.id, body)
-      setDisputeTarget(null)
-      setBucket('DISPUTED')
-      refetch()
-    } catch (e) {
-      setDisputeError(e.message || 'Failed to raise dispute.')
-    }
-  }
-
-  const openViewDispute = async (order) => {
-    setViewDispute(order)
-    setViewDisputeData(null)
-    setViewDisputeLoading(true)
-    try {
-      const d = await getDispute(order.id)
-      setViewDisputeData(d)
-    } catch {}
-    finally { setViewDisputeLoading(false) }
+  const statusActions = {
+    PENDING:   [{ label: 'Accept', kind: 'accent' }, { label: 'Decline', kind: 'ghost' }],
+    ACCEPTED:  [{ label: 'Mark ready', kind: 'accent' }, { label: 'Message vendor', kind: 'ghost' }],
+    READY:     [{ label: 'Mark completed', kind: 'accent' }, { label: 'Report dispute', kind: 'ghost' }],
+    COMPLETED: [{ label: 'View receipt', kind: 'ghost' }],
+    CANCELLED: [{ label: 'View reason', kind: 'ghost' }],
+    DISPUTED:  [{ label: 'Open case', kind: 'accent' }],
   }
 
   return (
     <div className="page">
       <div className="page__head">
         <div>
-          <div className="eyebrow">Fisherman · Sales</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}>Vendor <em>Orders.</em></h1>
-          <p className="page__sub">Orders from vendors — accept, prepare, complete.</p>
-        </div>
-        <div className="page__actions">
-          {isStale && <span className="chip chip--caution chip--dot">Stale</span>}
-          <button className="btn btn--ghost btn--sm" onClick={refetch}>Refresh</button>
+          <div className="eyebrow">Vendor orders</div>
+          <h1 className="page__title" style={{marginTop: 4}}>Your <em>procurement</em> inbox</h1>
+          <p className="page__sub">Orders vendors placed against your catch. Confirm, prepare, complete.</p>
         </div>
       </div>
 
-      <div className="seg" style={{ marginBottom: 16 }}>
-        {BUCKETS.map(b => (
-          <button
-            key={b}
-            className={`seg__btn${bucket === b ? ' on' : ''}`}
-            onClick={() => setBucket(b)}
-          >
-            {b.charAt(0) + b.slice(1).toLowerCase()}
+      <div className="seg" style={{marginTop: 14, alignSelf: 'flex-start'}}>
+        {buckets.map(b => (
+          <button key={b} className={tab === b ? 'on' : ''} onClick={() => setTab(b)}>
+            {b[0] + b.slice(1).toLowerCase()} ({counts[b]})
           </button>
         ))}
       </div>
 
-      {error && (
-        <div style={{ color: 'var(--unsafe)', background: 'var(--unsafe-soft)', padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>
-          {error.message || 'Failed to load orders.'}
-        </div>
-      )}
-
-      {loading && orders.length === 0 ? (
-        <div className="empty" style={{ padding: '60px 0' }}><div className="empty__title">Loading…</div></div>
-      ) : orders.length === 0 ? (
-        <div className="empty" style={{ padding: '64px 0' }}>
-          <div className="empty__title">No {bucket.toLowerCase()} orders</div>
+      {orders.length === 0 ? (
+        <div className="empty" style={{marginTop: 32}}>
+          <div className="empty__title">No {tab.toLowerCase()} orders</div>
+          <p>Vendors who place orders against your catch will appear here.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {orders.map(order => (
-            <div key={order.id} className="card">
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 12, marginTop: 18}}>
+          {orders.map(o => (
+            <div key={o.id} className="card" style={{display: 'flex', flexDirection: 'column'}}>
               <div className="card__head">
                 <div>
-                  {order.isPreorder && (
-                    <span className="chip chip--accent" style={{ marginBottom: 4, display: 'inline-block' }}>Preorder</span>
-                  )}
-                  <div className="card__title">
-                    {order.speciesName}
-                    <span className="kbd" style={{ marginLeft: 8, fontSize: 11 }}>#{order.id}</span>
+                  <div className="row" style={{gap: 6, alignItems: 'center'}}>
+                    <span className="kbd">{o.code}</span>
+                    <span className={`chip ${o.payment === 'CASH' ? 'chip--safe' : 'chip--caution'}`} style={{fontSize: 10}}>{o.payment}</span>
+                    {o.preorder && <span className="chip chip--accent" style={{fontSize: 10}}>Pre-order</span>}
                   </div>
-                  <div className="card__sub">
-                    from {order.vendorName || `Vendor #${order.fishermanId}`}
-                    {order.qtyKg != null && ` · ${order.qtyKg} kg`}
-                    {order.pricePerKg != null && ` · ₱${order.pricePerKg}/kg`}
-                  </div>
-                  {order.paymentMethod && (
-                    <span className={`chip ${order.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`} style={{ marginTop: 4, display: 'inline-block' }}>
-                      {order.paymentMethod === 'CASH' ? 'Cash' : 'Credit / Utang'}
-                    </span>
-                  )}
+                  <div className="card__title" style={{fontSize: 18, marginTop: 6}}>{o.species}</div>
+                  <div className="card__sub">{o.vendor}</div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                  <span className={`status ${STATUS_CLS[order.status] || ''}`}>{order.status}</span>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {order.status === 'PENDING' && (
-                      <>
-                        <button className="btn btn--accent btn--sm" disabled={busy === order.id}
-                          onClick={() => act(acceptOrder, order.id)}>Accept</button>
-                        <button className="btn btn--ghost btn--sm"
-                          style={{ color: 'var(--unsafe)', borderColor: 'var(--unsafe)' }}
-                          onClick={() => { setCancelTarget(order); setCancelReason('') }}>Cancel</button>
-                      </>
-                    )}
-                    {order.status === 'ACCEPTED' && (
-                      <button className="btn btn--primary btn--sm" disabled={busy === order.id}
-                        onClick={() => act(markReady, order.id)}>Mark Ready</button>
-                    )}
-                    {order.status === 'READY' && (
-                      <>
-                        <button className="btn btn--primary btn--sm" disabled={busy === order.id}
-                          onClick={() => act(completeOrder, order.id)}>Complete</button>
-                        <button className="btn btn--ghost btn--sm"
-                          style={{ color: 'var(--caution)', borderColor: 'var(--caution)' }}
-                          onClick={() => openDisputeModal(order)}>Dispute</button>
-                      </>
-                    )}
-                    {order.status === 'COMPLETED' && (
-                      <button className="btn btn--ghost btn--sm"
-                        style={{ color: 'var(--caution)', borderColor: 'var(--caution)' }}
-                        onClick={() => openDisputeModal(order)}>Dispute</button>
-                    )}
-                    {order.status === 'DISPUTED' && (
-                      <button className="btn btn--ghost btn--sm"
-                        onClick={() => openViewDispute(order)}>View Dispute</button>
-                    )}
-                  </div>
-                </div>
+                <span className={`status status--${o.status === 'PENDING' ? 'pending' : o.status === 'ACCEPTED' ? 'confirmed' : o.status === 'READY' ? 'active' : o.status === 'COMPLETED' ? 'completed' : o.status === 'DISPUTED' ? 'disputed' : 'cancelled'}`}>
+                  <span className="status__dot" /> {o.status}
+                </span>
               </div>
-              {order.notes && (
-                <div style={{ fontSize: 12, color: 'var(--ink-4)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-                  {order.notes}
-                </div>
-              )}
+              <div className="grid grid--kpi" style={{gridTemplateColumns: '1fr 1fr 1fr'}}>
+                <div className="kpi"><div className="kpi__label">Quantity</div><div className="kpi__value">{o.qtyKg}<small>kg</small></div></div>
+                <div className="kpi"><div className="kpi__label">Price/kg</div><div className="kpi__value">₱{o.pricePerKg}</div></div>
+                <div className="kpi"><div className="kpi__label">Total</div><div className="kpi__value" style={{color: 'var(--accent)'}}>₱{o.total.toLocaleString()}</div></div>
+              </div>
+              <div className="muted-data" style={{fontSize: 12, marginTop: 8}}>
+                Ready by <strong style={{color: 'var(--ink)'}}>{o.readyBy}</strong> · placed {o.placedAt}
+              </div>
+              {o.note && <div style={{marginTop: 8, fontSize: 13, color: 'var(--ink-2)', borderLeft: '2px solid var(--line)', paddingLeft: 10}}>{o.note}</div>}
+              <div className="row" style={{gap: 8, marginTop: 14}}>
+                {statusActions[o.status].map((a, i) => (
+                  <button key={i} className={`btn btn--sm btn--${a.kind}`} style={{flex: 1}}>{a.label}</button>
+                ))}
+              </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* Cancel confirmation modal */}
-      {cancelTarget && (
-        <div className="modal-overlay" onClick={() => setCancelTarget(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
-            <div className="modal__head">
-              <div className="modal__title">Cancel order?</div>
-            </div>
-            <div className="form-row" style={{ padding: '12px 0' }}>
-              <label>Reason (optional)</label>
-              <input className="input" value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
-            </div>
-            <div className="modal__foot">
-              <button className="btn btn--ghost btn--sm" onClick={() => setCancelTarget(null)}>Back</button>
-              <button
-                className="btn btn--sm"
-                style={{ background: 'var(--unsafe)', color: 'var(--paper)', border: 'none' }}
-                onClick={() => { act(cancelOrder, cancelTarget.id, cancelReason || undefined); setCancelTarget(null) }}
-              >Cancel Order</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Raise dispute modal */}
-      {disputeTarget && (
-        <div className="modal-overlay" onClick={() => setDisputeTarget(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <div className="modal__head">
-              <div className="modal__title">Raise Dispute</div>
-              <div className="modal__sub">Order #{disputeTarget.id} · {disputeTarget.speciesName}</div>
-            </div>
-            <div style={{ padding: '4px 0 12px' }}>
-              {disputeError && (
-                <div style={{ background: 'var(--unsafe-soft)', color: 'var(--unsafe)', padding: '8px 12px', borderRadius: 6, marginBottom: 12, fontSize: 13 }}>
-                  {disputeError}
-                </div>
-              )}
-              <div className="form-grid">
-                <div className="form-row">
-                  <label>Claimed weight (kg) <span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>optional</span></label>
-                  <input className="input" type="number" min="0" step="0.1"
-                    value={disputeWeight} onChange={e => setDisputeWeight(e.target.value)}
-                    placeholder={disputeTarget.qtyKg ? `Ordered: ${disputeTarget.qtyKg} kg` : 'e.g. 12.5'} />
-                </div>
-                <div className="form-row">
-                  <label>Quality claim <span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>optional</span></label>
-                  <select className="input" value={disputeQuality} onChange={e => setDisputeQuality(e.target.value)}>
-                    <option value="">— none —</option>
-                    {QUALITY_OPTIONS.map(q => <option key={q} value={q}>{q}</option>)}
-                  </select>
-                </div>
-                <div className="form-row">
-                  <label>Notes <span style={{ color: 'var(--ink-4)', fontWeight: 400 }}>optional</span></label>
-                  <textarea className="input" rows={3} value={disputeNotes}
-                    onChange={e => setDisputeNotes(e.target.value)}
-                    placeholder="Describe the issue…" style={{ resize: 'vertical' }} />
-                </div>
-              </div>
-            </div>
-            <div className="modal__foot">
-              <button className="btn btn--ghost btn--sm" onClick={() => setDisputeTarget(null)}>Cancel</button>
-              <button
-                className="btn btn--sm"
-                style={{ background: 'var(--caution)', color: 'var(--paper)', border: 'none' }}
-                onClick={submitDispute}
-              >Raise Dispute</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* View dispute modal */}
-      {viewDispute && (
-        <div className="modal-overlay" onClick={() => setViewDispute(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <div className="modal__head">
-              <div className="modal__title">Dispute Details</div>
-              <div className="modal__sub">Order #{viewDispute.id}</div>
-            </div>
-            <div style={{ padding: '8px 0 12px' }}>
-              {viewDisputeLoading ? (
-                <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
-              ) : viewDisputeData ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--ink-4)' }}>Status</span>
-                    <span className={`status ${viewDisputeData.status === 'OPEN' ? 'status--disputed' : 'status--completed'}`}>
-                      {viewDisputeData.status}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--ink-4)' }}>Raised by</span>
-                    <span>{viewDisputeData.raisedBy}</span>
-                  </div>
-                  {viewDisputeData.claimedWeightKg != null && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--ink-4)' }}>Claimed weight</span>
-                      <span>{viewDisputeData.claimedWeightKg} kg</span>
-                    </div>
-                  )}
-                  {viewDisputeData.claimedQuality && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: 'var(--ink-4)' }}>Quality claim</span>
-                      <span>{viewDisputeData.claimedQuality}</span>
-                    </div>
-                  )}
-                  {viewDisputeData.notes && (
-                    <div style={{ paddingTop: 8, borderTop: '1px solid var(--line)', color: 'var(--ink-3)' }}>
-                      {viewDisputeData.notes}
-                    </div>
-                  )}
-                  {viewDisputeData.resolution && (
-                    <div style={{ paddingTop: 8, borderTop: '1px solid var(--line)' }}>
-                      <div style={{ color: 'var(--ink-4)', fontSize: 11, marginBottom: 4 }}>Resolution</div>
-                      <div>{viewDisputeData.resolution}</div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>No dispute found.</div>
-              )}
-            </div>
-            <div className="modal__foot">
-              <button className="btn btn--ghost btn--sm" onClick={() => setViewDispute(null)}>Close</button>
-            </div>
-          </div>
         </div>
       )}
     </div>

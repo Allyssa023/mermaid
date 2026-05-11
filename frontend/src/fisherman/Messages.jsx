@@ -1,162 +1,58 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Client } from '@stomp/stompjs'
+import { useState, useEffect, useRef } from 'react'
 import { I } from '../icons'
-import { apiGet } from '../api'
 
-// ── Helpers ─────────────────────────────────────────────────────────────────────
+// ── Inline mock data ─────────────────────────────────────────────────────────
 
-function initials(name = '') {
-  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-}
+const CONVERSATIONS = [
+  {
+    id: 'c1', userId: 210, name: 'Marina Seafoods', tag: 'Vendor', avatar: 'MS', initial: 'M', color: 'accent',
+    online: true, unread: 2,
+    last: 'Great, we can match the price. When can you deliver?',
+    lastTime: '09:42',
+    messages: [
+      { from: 'them', ts: '09:12', content: 'Kumusta, Ramiro! Saw your Mahi listing at ₱260/kg.' },
+      { from: 'them', ts: '09:12', content: 'Quote:Mahi-mahi·Brgy. Pinagbayanan::Interested at ₱260. We need it by tomorrow if possible.' },
+      { from: 'me',   ts: '09:20', content: 'Available — 9kg total, 2 whole fish. Quality is top-grade, iced at sea.' },
+      { from: 'me',   ts: '09:21', content: 'I can deliver to your Pinagbayanan depot.' },
+      { from: 'them', ts: '09:36', content: 'Perfect. Can you do ₱255?' },
+      { from: 'me',   ts: '09:38', content: '₱258 and I cover the ice. Fair?' },
+      { from: 'them', ts: '09:42', content: 'Great, we can match the price. When can you deliver?' },
+    ]
+  },
+  { id: 'c2', userId: 211, name: 'Bay City Market',  tag: 'Vendor',              avatar: 'BC', initial: 'B', color: 'warm',
+    online: true,  unread: 0, last: 'Handoff at 15:00 works. Ipapasok ko na sa system.', lastTime: '08:14' },
+  { id: 'c3', userId: 301, name: 'Capt. Arturo R.',  tag: 'Fisherman · Sirena I', avatar: 'AR', initial: 'A', color: 'sage',
+    online: false, unread: 0, last: 'Tide reading looks good for Thursday. Talk tonight.', lastTime: 'Yest.' },
+  { id: 'c4', userId: 213, name: 'Puerto Azul Resto', tag: 'Vendor',             avatar: 'PA', initial: 'P', color: 'accent',
+    online: false, unread: 1, last: 'Need 15kg of Lapu-lapu by Saturday, live if possible.', lastTime: 'Yest.' },
+  { id: 'c5', userId: 1,   name: 'BFAR Region IV-A', tag: 'Authority',           avatar: 'BF', initial: 'B', color: 'warm',
+    online: false, unread: 0, last: 'License renewal reminder: expires June 14.', lastTime: 'Apr 21' },
+  { id: 'c6', userId: 214, name: 'Del Mar Cold Chain', tag: 'Vendor',            avatar: 'DM', initial: 'D', color: 'sage',
+    online: true,  unread: 0, last: 'Weekly bulk contract ready for review.', lastTime: 'Apr 21' },
+  { id: 'c7', userId: 302, name: 'Ka Benjie (Port)',  tag: 'Harbor Master',      avatar: 'BP', initial: 'K', color: 'accent',
+    online: false, unread: 0, last: 'Slip 7 is yours for Friday morning.', lastTime: 'Apr 20' },
+]
 
-function avatarColor(id) {
-  const colors = ['accent', 'warm', 'sage']
-  return colors[(id || 0) % colors.length]
-}
+// ── Component ─────────────────────────────────────────────────────────────────
 
-function parseInterestMessage(content) {
-  if (!content) return null
-  const match = content.match(/^Interested in (.+?) at (.+?)\.\nNote: (.+)$/s)
-  if (!match) return null
-  return { species: match[1], location: match[2], note: match[3] }
-}
+export default function MessagesPage() {
+  const [activeId, setActiveId] = useState('c1')
+  const active = CONVERSATIONS.find(c => c.id === activeId)
+  const [draft, setDraft] = useState('')
 
-function groupByDate(messages) {
-  const groups = []
-  let currentDate = null
-  messages.forEach(m => {
-    const d = new Date(m.sentAt).toLocaleDateString('en', { month: 'long', day: 'numeric', year: 'numeric' })
-    if (d !== currentDate) {
-      currentDate = d
-      groups.push({ type: 'date', label: d })
-    }
-    groups.push({ type: 'msg', data: m })
-  })
-  return groups
-}
-
-// ── Main Component ─────────────────────────────────────────────────────────────
-
-export default function Messages({ token, userProfile, initialContact }) {
-  const [contacts, setContacts]         = useState([])
-  const [activeContact, setActiveContact] = useState(null)
-  const [messages, setMessages]         = useState([])
-  const [draft, setDraft]               = useState('')
-  const [connected, setConnected]       = useState(false)
-  const [searchQuery, setSearchQuery]   = useState('')
-  const stompClientRef  = useRef(null)
-  const messagesEndRef  = useRef(null)
-  const textareaRef     = useRef(null)
-
-  const loadContacts = useCallback(async () => {
-    try {
-      const data = await apiGet('/messages/users', token)
-      setContacts(data)
-      return data
-    } catch (e) {
-      console.error(e)
-      return []
-    }
-  }, [token])
-
-  // On mount: load contacts, then select initialContact if provided
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const data = await loadContacts()
-      if (cancelled) return
-      if (initialContact) {
-        const existing = data.find(c => Number(c.id) === Number(initialContact.id))
-        if (existing) {
-          setActiveContact(existing)
-        } else {
-          setContacts(prev => {
-            if (prev.some(c => Number(c.id) === Number(initialContact.id))) return prev
-            return [initialContact, ...prev]
-          })
-          setActiveContact(initialContact)
-        }
-      }
-    })()
-    return () => { cancelled = true }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const client = new Client({
-      brokerURL: `ws://localhost:8080/api/ws-chat`,
-      onConnect: () => {
-        setConnected(true)
-        client.subscribe('/user/queue/messages', (msg) => {
-          const body = JSON.parse(msg.body)
-          setMessages(prev => {
-            if (prev.some(m => m.id === body.id)) return prev
-            return [...prev, body]
-          })
-          loadContacts()
-        })
-      },
-      onDisconnect: () => setConnected(false),
-    })
-    client.activate()
-    stompClientRef.current = client
-    return () => { client.deactivate() }
-  }, [loadContacts])
-
-  const loadConversation = useCallback(async (userId) => {
-    try {
-      const data = await apiGet(`/messages/${userId}`, token)
-      setMessages(data)
-    } catch (e) {
-      console.error(e)
-    }
-  }, [token])
-
-  useEffect(() => {
-    if (activeContact) loadConversation(activeContact.id)
-  }, [activeContact, loadConversation])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const send = (e) => {
-    e.preventDefault()
-    if (!draft.trim() || !activeContact || !stompClientRef.current) return
-    stompClientRef.current.publish({
-      destination: '/app/chat.send',
-      body: JSON.stringify({ recipientId: activeContact.id, content: draft.trim() }),
-    })
-    setDraft('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-  }
-
-  const handleTextareaInput = (e) => {
-    setDraft(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'
-  }
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      send(e)
-    }
-  }
-
-  const filteredContacts = contacts.filter(c =>
-    !searchQuery || c.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const grouped = groupByDate(messages)
-  const totalUnread = contacts.reduce((a, c) => a + (c.unreadCount || 0), 0)
+  const msgs = active.messages || [
+    { from: 'them', ts: '14:22', content: 'Hi Ramiro, following up on the listing.' },
+    { from: 'me',   ts: '14:30', content: 'Hi! I have availability. What volume are you looking for?' },
+    { from: 'them', ts: '14:32', content: active.last },
+  ]
 
   return (
-    <div className="page" style={{ paddingBottom: 24 }}>
-      <div className="page__head" style={{ marginBottom: 14 }}>
+    <div className="page" style={{paddingBottom: 24}}>
+      <div className="page__head" style={{marginBottom: 14}}>
         <div>
-          <div className="eyebrow">Fisherman · Comms</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}><em>Messages.</em></h1>
-          <p className="page__sub">{contacts.length} conversations · {totalUnread} unread</p>
+          <div className="eyebrow">Inbox</div>
+          <h1 className="page__title" style={{marginTop: 4}}><em>Messages</em></h1>
+          <p className="page__sub">{CONVERSATIONS.length} conversations · {CONVERSATIONS.reduce((a,c)=>a+c.unread,0)} unread</p>
         </div>
         <div className="page__actions">
           <button className="btn btn--sm"><I.Filter size={12} /> Filter</button>
@@ -165,190 +61,146 @@ export default function Messages({ token, userProfile, initialContact }) {
       </div>
 
       <div className="msgs">
-        {/* ── Left: Contact List ── */}
+        {/* List */}
         <div className="msgs__list">
           <div className="msgs__head">
-            <strong style={{ fontSize: 13 }}>All conversations</strong>
-            <span className="kbd">{contacts.length}</span>
+            <strong style={{fontSize: 13}}>All conversations</strong>
+            <span className="kbd">{CONVERSATIONS.length}</span>
           </div>
           <div className="msgs__search">
-            <input
-              placeholder="Search contacts, messages…"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+            <input placeholder="Search contacts, messages…" />
           </div>
-          {filteredContacts.length === 0 ? (
-            <div style={{ padding: 20, color: 'var(--ink-4)', fontSize: 13 }}>No conversations yet.</div>
-          ) : (
-            filteredContacts.map(c => {
-              const isActive = activeContact?.id === c.id
-              const color    = avatarColor(c.id)
-              const unread   = c.unreadCount || 0
-              return (
-                <div
-                  key={c.id}
-                  className={`contact${isActive ? ' contact--on' : ''}`}
-                  onClick={() => setActiveContact(c)}
-                >
-                  <div className={`contact__avatar contact__avatar--${color}${connected ? ' contact__avatar--online' : ''}`}>
-                    {initials(c.fullName)}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="contact__name">{c.fullName}</div>
-                    <div className="contact__preview">
-                      <span style={{
-                        fontSize: 10,
-                        color: 'var(--ink-4)',
-                        fontFamily: 'var(--font-mono)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        marginRight: 6,
-                      }}>{c.role}</span>
-                    </div>
-                    {c.lastMessage && (
-                      <div className="contact__preview" style={{ marginTop: 1 }}>
-                        {c.lastMessage?.length > 40 ? c.lastMessage.substring(0, 40) + '…' : c.lastMessage}
-                      </div>
-                    )}
-                  </div>
-                  <div className="contact__meta">
-                    {c.lastMessageAt && (
-                      <div>{new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                    )}
-                    {unread > 0 && <span className="contact__unread">{unread}</span>}
-                  </div>
+          {CONVERSATIONS.map(c => (
+            <div key={c.id} className={`contact${activeId === c.id ? ' contact--on' : ''}`} onClick={() => setActiveId(c.id)}>
+              <div className={`contact__avatar contact__avatar--${c.color}${c.online ? ' contact__avatar--online' : ''}`}>
+                {c.avatar}
+              </div>
+              <div style={{minWidth: 0}}>
+                <div className="contact__name">{c.name}</div>
+                <div className="contact__preview">
+                  <span style={{
+                    fontSize: 10,
+                    color: 'var(--ink-4)',
+                    fontFamily: 'var(--font-mono)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    marginRight: 6,
+                  }}>{c.tag}</span>
                 </div>
-              )
-            })
-          )}
+                <div className="contact__preview" style={{marginTop: 1}}>{c.last}</div>
+              </div>
+              <div className="contact__meta">
+                <div>{c.lastTime}</div>
+                {c.unread > 0 && <span className="contact__unread">{c.unread}</span>}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* ── Center: Thread ── */}
-        {activeContact ? (
-          <div className="thread">
-            <div className="thread__head">
-              <div className={`contact__avatar contact__avatar--${avatarColor(activeContact.id)}${connected ? ' contact__avatar--online' : ''}`}>
-                {initials(activeContact.fullName)}
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{activeContact.fullName}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
-                  {activeContact.role} · {connected ? 'Online now' : 'Offline'}
-                </div>
-              </div>
-              <div className="spacer" />
-              <button className="topbar__icon-btn"><I.Receipt size={14} /></button>
-              <button className="topbar__icon-btn"><I.Dots size={14} /></button>
+        {/* Thread */}
+        <div className="thread">
+          <div className="thread__head">
+            <div className={`contact__avatar contact__avatar--${active.color}${active.online ? ' contact__avatar--online' : ''}`}>
+              {active.avatar}
             </div>
-
-            <div className="thread__body">
-              {grouped.map((item, i) => {
-                if (item.type === 'date') {
-                  return <div key={`d-${i}`} className="thread__date-sep">— {item.label} —</div>
-                }
-                const m = item.data
-                const isMine   = m.senderId === userProfile?.id
-                const interest = parseInterestMessage(m.content)
-
-                if (interest) {
-                  return (
-                    <div key={m.id} className={`bubble bubble--${isMine ? 'mine' : 'theirs'}`}>
-                      <div className="bubble--quote">
-                        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7, fontFamily: 'var(--font-mono)', marginBottom: 2 }}>Re: listing</div>
-                        {interest.species} · {interest.location}
-                      </div>
-                      {interest.note}
-                      <div className="bubble__time">
-                        {new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
-                  )
-                }
-
+            <div>
+              <div style={{fontSize: 14, fontWeight: 500}}>{active.name}</div>
+              <div style={{fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)'}}>
+                {active.tag} · {active.online ? 'Online now' : 'Last seen 2h ago'}
+              </div>
+            </div>
+            <div className="spacer" />
+            <button className="topbar__icon-btn"><I.Receipt size={14} /></button>
+            <button className="topbar__icon-btn"><I.Dots size={14} /></button>
+          </div>
+          <div className="thread__body">
+            <div className="thread__date-sep">— Today —</div>
+            {msgs.map((m, i) => {
+              // Handle quote format
+              if (m.content.startsWith('Quote:')) {
+                const [quote, body] = m.content.slice(6).split('::')
                 return (
-                  <div key={m.id} className={`bubble bubble--${isMine ? 'mine' : 'theirs'}`}>
-                    {m.content}
-                    <div className="bubble__time">
-                      {new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div key={i} className={`bubble bubble--${m.from === 'me' ? 'mine' : 'theirs'}`}>
+                    <div className="bubble--quote">
+                      <div style={{fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.7, fontFamily: 'var(--font-mono)', marginBottom: 2}}>Re: listing</div>
+                      {quote}
                     </div>
+                    {body}
+                    <div className="bubble__time">{m.ts}</div>
                   </div>
                 )
-              })}
-
-              {messages.length > 0 && (
-                <div className="bubble bubble--theirs" style={{ padding: '8px 14px', opacity: 0 }}>
-                  <span style={{ display: 'inline-flex', gap: 3 }}>
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                    <span className="typing-dot" />
-                  </span>
+              }
+              return (
+                <div key={i} className={`bubble bubble--${m.from === 'me' ? 'mine' : 'theirs'}`}>
+                  {m.content}
+                  <div className="bubble__time">{m.ts}</div>
                 </div>
-              )}
-
-              <div ref={messagesEndRef} />
+              )
+            })}
+            <div className="bubble bubble--theirs" style={{padding: '8px 14px', opacity: 0.7}}>
+              <span style={{display: 'inline-flex', gap: 3}}>
+                <span style={{width: 4, height: 4, borderRadius: 99, background: 'var(--ink-4)', animation: 'typing 1.2s infinite'}} />
+                <span style={{width: 4, height: 4, borderRadius: 99, background: 'var(--ink-4)', animation: 'typing 1.2s infinite 0.2s'}} />
+                <span style={{width: 4, height: 4, borderRadius: 99, background: 'var(--ink-4)', animation: 'typing 1.2s infinite 0.4s'}} />
+              </span>
             </div>
-
-            <form className="thread__input" onSubmit={send}>
-              <button type="button" className="topbar__icon-btn"><I.Paperclip size={14} /></button>
-              <textarea
-                ref={textareaRef}
-                placeholder="Type a message…"
-                value={draft}
-                onChange={handleTextareaInput}
-                onKeyDown={handleKeyDown}
-                disabled={!connected}
-                rows={1}
-              />
-              <button type="submit" className="btn btn--primary btn--sm" disabled={!draft.trim() || !connected}>
-                <I.Send size={12} /> Send
-              </button>
-            </form>
           </div>
-        ) : (
-          <div className="msgs-empty">
-            <I.Message size={40} />
-            <div style={{ fontSize: 16, fontWeight: 600, marginTop: 8 }}>Select a conversation</div>
-            <div style={{ fontSize: 13 }}>Choose a contact to start messaging</div>
+          <div className="thread__input">
+            <button className="topbar__icon-btn"><I.Paperclip size={14} /></button>
+            <textarea placeholder="Type a message…" value={draft} onChange={e => setDraft(e.target.value)} />
+            <button className="btn btn--accent"><I.Send size={12} /> Send</button>
           </div>
-        )}
+        </div>
 
-        {/* ── Right: Info Panel ── */}
-        {activeContact ? (
-          <div className="thread__info">
-            <div>
-              <h4>Contact</h4>
-              <div className="info-item"><span className="l">Name</span><span className="v">{activeContact.fullName}</span></div>
-              <div className="info-item"><span className="l">Type</span><span className="v">{activeContact.role}</span></div>
-              <div className="info-item"><span className="l">Status</span><span className="v">{connected ? 'Online' : 'Offline'}</span></div>
+        {/* Info */}
+        <div className="thread__info">
+          <div>
+            <h4>Contact</h4>
+            <div className="info-item"><span className="l">Organization</span><span className="v">{active.name}</span></div>
+            <div className="info-item"><span className="l">Type</span><span className="v">{active.tag}</span></div>
+            <div className="info-item"><span className="l">Location</span><span className="v">Pinagbayanan, QZ</span></div>
+            <div className="info-item"><span className="l">Rating</span><span className="v">4.8 ★ (42)</span></div>
+          </div>
+          <div>
+            <h4>Active deal</h4>
+            <div style={{padding: 12, background: 'var(--paper)', borderRadius: 10, border: '1px solid var(--line-soft)'}}>
+              <div style={{fontSize: 13, fontWeight: 500}}>Mahi-mahi · 9kg</div>
+              <div style={{fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2}}>From alert CA-840</div>
+              <div style={{fontFamily: 'var(--font-display)', fontSize: 24, marginTop: 8}}>₱2,322</div>
+              <div style={{fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)'}}>₱258/kg agreed</div>
+              <button className="btn btn--accent btn--sm" style={{marginTop: 10, width: '100%', justifyContent: 'center'}}>Finalize as order</button>
             </div>
-
-            <div>
-              <h4>Active deal</h4>
-              <div style={{ padding: 12, background: 'var(--paper)', borderRadius: 10, border: '1px solid var(--line)' }}>
-                <div style={{ fontSize: 13, fontWeight: 500 }}>No active deals</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                  Deals appear when orders are matched
-                </div>
+          </div>
+          <div>
+            <h4>Recent orders together</h4>
+            <div style={{fontSize: 12, color: 'var(--ink-3)', display: 'flex', flexDirection: 'column', gap: 6}}>
+              <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                <span>ORD-7412</span>
+                <span className="data" style={{color: 'var(--ink-2)'}}>₱2,340</span>
+              </div>
+              <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                <span>ORD-7398</span>
+                <span className="data" style={{color: 'var(--ink-2)'}}>₱7,350</span>
+              </div>
+              <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                <span>ORD-7376</span>
+                <span className="data" style={{color: 'var(--ink-2)'}}>₱4,100</span>
               </div>
             </div>
-
-            <div>
-              <h4>Recent orders together</h4>
-              <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>No shared orders yet</div>
-            </div>
-
-            <div>
-              <h4>Shared files</h4>
-              <div style={{ fontSize: 12, color: 'var(--ink-2)' }}>No files yet</div>
-            </div>
           </div>
-        ) : (
-          <div className="thread__info" style={{ justifyContent: 'center', alignItems: 'center' }}>
-            <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>Select a conversation to view details</div>
+          <div>
+            <h4>Shared files</h4>
+            <div style={{fontSize: 12, color: 'var(--ink-3)'}}>No files yet</div>
           </div>
-        )}
+        </div>
       </div>
+
+      <style>{`
+        @keyframes typing {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-3px); opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }

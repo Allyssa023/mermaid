@@ -48,12 +48,16 @@ public class TripService {
         return entities.stream().map(e -> tripMapper.toModel(e, fishermanName)).toList();
     }
 
+    private static <T> T unwrap(org.openapitools.jackson.nullable.JsonNullable<T> jn) {
+        return (jn != null && jn.isPresent()) ? jn.get() : null;
+    }
+
     @Transactional
     public com.mermaid.app.model.Trip startTrip(TripStartRequest req, Long fishermanId) {
         Trip trip = new Trip();
         trip.setFishermanId(fishermanId);
-        trip.setDeparturePoint(req.getDeparturePoint());
-        trip.setTargetArea(req.getTargetArea());
+        trip.setDeparturePoint(unwrap(req.getDeparturePoint()));
+        trip.setTargetArea(unwrap(req.getTargetArea()));
         if (req.getVesselName() != null && req.getVesselName().isPresent()) {
             trip.setVesselName(req.getVesselName().get());
         }
@@ -76,8 +80,8 @@ public class TripService {
         Trip trip = tripRepo.findByIdAndFishermanId(tripId, fishermanId)
             .orElseThrow(() -> new ResourceNotFoundException("Trip not found: " + tripId));
             
-        trip.setDeparturePoint(req.getDeparturePoint());
-        trip.setTargetArea(req.getTargetArea());
+        trip.setDeparturePoint(unwrap(req.getDeparturePoint()));
+        trip.setTargetArea(unwrap(req.getTargetArea()));
         if (req.getVesselName() != null && req.getVesselName().isPresent()) {
             trip.setVesselName(req.getVesselName().get());
         }

@@ -65,7 +65,9 @@ class TripServiceTest {
         when(userRepo.findById(42L)).thenReturn(Optional.empty());
         when(tripMapper.toModel(savedTrip, null)).thenReturn(new com.mermaid.app.model.Trip());
 
-        TripStartRequest req = new TripStartRequest("Navotas Port", "Manila Bay");
+        TripStartRequest req = new TripStartRequest();
+        req.setDeparturePoint(org.openapitools.jackson.nullable.JsonNullable.of("Navotas Port"));
+        req.setTargetArea(org.openapitools.jackson.nullable.JsonNullable.of("Manila Bay"));
         tripService.startTrip(req, 42L);
 
         ArgumentCaptor<Trip> captor = ArgumentCaptor.forClass(Trip.class);

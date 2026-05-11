@@ -58,7 +58,9 @@ class TripControllerTest {
 
     @Test
     void startTrip_asFisherman_returns201() throws Exception {
-        TripStartRequest req = new TripStartRequest("Navotas Port", "Manila Bay");
+        TripStartRequest req = new TripStartRequest();
+        req.setDeparturePoint(org.openapitools.jackson.nullable.JsonNullable.of("Navotas Port"));
+        req.setTargetArea(org.openapitools.jackson.nullable.JsonNullable.of("Manila Bay"));
         com.mermaid.app.model.Trip trip = new com.mermaid.app.model.Trip(1L, 42L, TripStatus.ACTIVE, OffsetDateTime.now());
         when(tripService.startTrip(any(), eq(42L))).thenReturn(trip);
 

@@ -1,355 +1,135 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { useVendorPolling } from './hooks/useVendorPolling'
-import { getFeed, getCart, addToCart, listPreviousFishermen, placePreorder } from './api/procurement'
-import { apiGet } from '../api'
+import { useState, useEffect, useRef } from 'react'
+import { I } from '../icons'
 
-const FRESHNESS = (mins) => {
-  if (mins < 60)  return { cls: 'chip chip--safe chip--dot',    label: 'Very Fresh' }
-  if (mins < 180) return { cls: 'chip chip--caution chip--dot', label: 'Fresh' }
-  return              { cls: 'chip chip--unsafe chip--dot',   label: 'Aging' }
-}
+const V_PROC_FEED = [
+  { id: 841, code: 'CA-841', species: 'Yellowfin Tuna', tag: 'YT', fisher: 'Ramiro Delgado',  qty: 42,  price: 380, expires: '3h 12m', match: 96 },
+  { id: 839, code: 'CA-839', species: 'Grouper',        tag: 'LL', fisher: 'Ramiro Delgado',  qty: 3.2, price: 420, expires: '0h 41m', match: 88, urgent: true },
+  { id: 833, code: 'CA-833', species: 'Skipjack',       tag: 'SK', fisher: 'Tomas Reyes',     qty: 56,  price: 170, expires: '1h 45m', match: 92, urgent: true },
+  { id: 831, code: 'CA-831', species: 'Mahi-mahi',      tag: 'MM', fisher: 'Helena Cruz',     qty: 16,  price: 265, expires: '5h 20m', match: 78 },
+]
 
-function OrderModal({ alert, cartSellerIds, onClose, onAdded }) {
-  const [qty, setQty]     = useState('')
-  const [price, setPrice] = useState(alert.askingPricePerKg ?? '')
-  const [busy, setBusy]   = useState(false)
-  const [err, setErr]     = useState('')
-
-  const available = alert.availableKg ?? alert.quantityKg
-
-  const submit = async () => {
-    const q = parseFloat(qty)
-    if (!q || q <= 0) { setErr('Enter a valid quantity.'); return }
-    if (available != null && q > available) { setErr(`Only ${available} kg available.`); return }
-    setBusy(true); setErr('')
-    try {
-      await addToCart(alert.id, q, price ? parseFloat(price) : undefined)
-      onAdded()
-      onClose()
-    } catch (e) {
-      setErr(e.message || 'Failed to add.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const alreadyFromSeller = cartSellerIds.has(alert.fishermanId)
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
-        <div className="modal__head">
-          <div>
-            <div className="eyebrow">Procurement</div>
-            <div className="modal__title">
-              {alreadyFromSeller ? `Add more from ${alert.fishermanName || 'this fisherman'}` : 'Place Order'}
-            </div>
-            <div className="modal__sub">
-              {alert.speciesName}{available != null ? ` · ${available} kg available` : ''}
-            </div>
-          </div>
-        </div>
-        <div className="form-grid" style={{ padding: '16px 0 0' }}>
-          <div className="form-row">
-            <label>Quantity (kg)</label>
-            <input className="input" type="number" min="0.1" step="0.1"
-              value={qty} onChange={e => setQty(e.target.value)}
-              placeholder={available != null ? `max ${available}` : ''} />
-          </div>
-          <div className="form-row">
-            <label>Offered price (₱/kg)</label>
-            <input className="input" type="number" min="0" step="0.5"
-              value={price} onChange={e => setPrice(e.target.value)}
-              placeholder={alert.askingPricePerKg ? `asking ₱${alert.askingPricePerKg}` : 'optional'} />
-          </div>
-        </div>
-        {err && <div style={{ color: 'var(--unsafe)', fontSize: 13, marginTop: 8 }}>{err}</div>}
-        <div className="modal__foot">
-          <button className="btn btn--ghost btn--sm" onClick={onClose}>Cancel</button>
-          <button className="btn btn--primary btn--sm" disabled={busy} onClick={submit}>
-            {busy ? '…' : 'Add to Order'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PreorderModal({ onClose, onPlaced }) {
-  const [fishermen, setFishermen] = useState([])
-  const [species, setSpecies]     = useState([])
-  const [form, setForm]           = useState({ fishermanId: '', speciesId: '', qtyKg: '', pricePerKg: '', notes: '' })
-  const [busy, setBusy]           = useState(false)
-  const [err, setErr]             = useState('')
-
-  useEffect(() => {
-    listPreviousFishermen().then(setFishermen).catch(() => {})
-    apiGet('/fish-species').then(d => setSpecies(Array.isArray(d) ? d : d?.content || [])).catch(() => {})
-  }, [])
-
-  const f = (k, v) => setForm(p => ({ ...p, [k]: v }))
-
-  const submit = async () => {
-    if (!form.fishermanId || !form.speciesId || !form.qtyKg || !form.pricePerKg) {
-      setErr('All fields except notes are required.'); return
-    }
-    setBusy(true); setErr('')
-    try {
-      await placePreorder(+form.fishermanId, +form.speciesId,
-        parseFloat(form.qtyKg), parseFloat(form.pricePerKg), form.notes || undefined)
-      onPlaced()
-      onClose()
-    } catch (e) {
-      setErr(e.message || 'Failed to place preorder.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-        <div className="modal__head">
-          <div>
-            <div className="eyebrow">Procurement</div>
-            <div className="modal__title">Place Preorder</div>
-            <div className="modal__sub">Reserve fish before the catch alert — fisherman confirms when available.</div>
-          </div>
-        </div>
-        <div className="form-grid" style={{ padding: '16px 0 0' }}>
-          {[
-            ['Fisherman', 'fishermanId', fishermen.map(fm => ({ value: fm.id, label: fm.name }))],
-            ['Species',   'speciesId',  species.map(s  => ({ value: s.id,  label: s.commonName || s.name }))],
-          ].map(([label, key, opts]) => (
-            <div key={key} className="form-row">
-              <label>{label}</label>
-              <select className="input" value={form[key]} onChange={e => f(key, e.target.value)}>
-                <option value="">Select {label.toLowerCase()}</option>
-                {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div className="form-row" style={{ flex: 1 }}>
-              <label>Qty (kg)</label>
-              <input className="input" type="number" min="0.1" step="0.1"
-                value={form.qtyKg} onChange={e => f('qtyKg', e.target.value)} />
-            </div>
-            <div className="form-row" style={{ flex: 1 }}>
-              <label>Price (₱/kg)</label>
-              <input className="input" type="number" min="0" step="0.5"
-                value={form.pricePerKg} onChange={e => f('pricePerKg', e.target.value)} />
-            </div>
-          </div>
-          <div className="form-row">
-            <label>Notes (optional)</label>
-            <textarea className="input" rows={2} placeholder="Optional notes for the fisherman"
-              value={form.notes} onChange={e => f('notes', e.target.value)}
-              style={{ resize: 'vertical' }} />
-          </div>
-        </div>
-        {err && <div style={{ color: 'var(--unsafe)', fontSize: 13, marginTop: 8 }}>{err}</div>}
-        <div className="modal__foot">
-          <button className="btn btn--ghost btn--sm" onClick={onClose}>Cancel</button>
-          <button className="btn btn--primary btn--sm" disabled={busy} onClick={submit}>
-            {busy ? '…' : 'Send Preorder'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+const PROC_ORDERS = [
+  { id: 7012, code: 'PO-7012', species: 'Yellowfin Tuna', fisher: 'Ramiro Delgado', qty: 20, total: 7600,  status: 'CONFIRMED', date: 'Apr 23' },
+  { id: 7008, code: 'PO-7008', species: 'Skipjack',       fisher: 'Tomas Reyes',    qty: 30, total: 5100,  status: 'AT_SEA',    date: 'Apr 23' },
+  { id: 6998, code: 'PO-6998', species: 'Grouper',        fisher: 'Helena Cruz',    qty: 4,  total: 2160,  status: 'COMPLETED', date: 'Apr 21' },
+]
 
 export default function ProcurementFeed() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const highlightAlertId = searchParams.get('highlightAlertId')
-    ? +searchParams.get('highlightAlertId') : null
-  const highlightRef = useRef(null)
-
-  const [speciesFilter, setSpeciesFilter] = useState('')
-  const [maxAgeMins, setMaxAgeMins]       = useState('')
-  const [species, setSpecies]             = useState([])
-  const [orderModal, setOrderModal]       = useState(null)
-  const [preorderModal, setPreorderModal] = useState(false)
-  const [cartSellerIds, setCartSellerIds] = useState(new Set())
-  const [cartCount, setCartCount]         = useState(0)
-
-  const refreshCart = useCallback(() => {
-    getCart().then(items => {
-      setCartSellerIds(new Set(items.map(i => i.fishermanId)))
-      setCartCount(items.length)
-    }).catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    apiGet('/fish-species').then(d => setSpecies(Array.isArray(d) ? d : d?.content || [])).catch(() => {})
-    refreshCart()
-  }, [refreshCart])
-
-  const fetcher = useCallback(
-    () => getFeed(speciesFilter || undefined, maxAgeMins || undefined),
-    [speciesFilter, maxAgeMins]
-  )
-  const { data, isStale, loading, error, refetch } = useVendorPolling(fetcher, [speciesFilter, maxAgeMins])
-  const alerts = Array.isArray(data) ? data : []
-
-  useEffect(() => {
-    if (highlightAlertId && highlightRef.current) {
-      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [highlightAlertId, alerts.length])
+  const [tab, setTab] = useState('feed')
+  const [cart, setCart] = useState([{ id: 841, qty: 20 }, { id: 833, qty: 30 }])
+  const addToCart = id => setCart(c => c.find(x => x.id === id) ? c : [...c, { id, qty: 10 }])
+  const tabs = [
+    { id: 'feed',   label: 'Live feed' },
+    { id: 'cart',   label: `Cart (${cart.length})` },
+    { id: 'orders', label: 'My procurement orders' },
+  ]
+  const statusMap = { CONFIRMED: 'confirmed', AT_SEA: 'active', COMPLETED: 'completed' }
 
   return (
     <div className="page">
-      {orderModal && (
-        <OrderModal
-          alert={orderModal}
-          cartSellerIds={cartSellerIds}
-          onClose={() => setOrderModal(null)}
-          onAdded={() => { refreshCart(); refetch() }}
-        />
-      )}
-      {preorderModal && (
-        <PreorderModal
-          onClose={() => setPreorderModal(false)}
-          onPlaced={() => navigate('/vendor/procurement/orders')}
-        />
-      )}
-
       <div className="page__head">
         <div>
-          <div className="eyebrow">Vendor · Procurement</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}>
-            Catch <em>Feed</em>
-          </h1>
-          <p className="page__sub">Live catch alerts from fishermen — order direct from the shore.</p>
-        </div>
-        <div className="page__actions">
-          {isStale && <span className="chip chip--caution chip--dot">Stale data</span>}
-          <button className="btn btn--ghost btn--sm" onClick={() => setPreorderModal(true)}>Preorder</button>
-          <button className="btn btn--primary btn--sm" onClick={() => navigate('/vendor/procurement/cart')}>
-            Cart{cartCount > 0 ? ` (${cartCount})` : ''}
-          </button>
+          <div className="eyebrow">Procurement</div>
+          <h1 className="page__title" style={{marginTop: 4}}>Source <em>fresh catch</em></h1>
+          <p className="page__sub">Live alerts from fishermen, your watchlist matched first.</p>
         </div>
       </div>
-
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <select className="input" value={speciesFilter} onChange={e => setSpeciesFilter(e.target.value)} style={{ width: 180 }}>
-            <option value="">All species</option>
-            {species.map(s => <option key={s.id} value={s.id}>{s.commonName || s.name}</option>)}
-          </select>
-          <select className="input" value={maxAgeMins} onChange={e => setMaxAgeMins(e.target.value)} style={{ width: 160 }}>
-            <option value="">Any age</option>
-            <option value="60">Under 1 hour</option>
-            <option value="180">Under 3 hours</option>
-            <option value="360">Under 6 hours</option>
-          </select>
-          <button className="btn btn--ghost btn--sm" onClick={refetch}>Refresh</button>
-        </div>
+      <div className="seg" style={{marginTop: 14, alignSelf: 'flex-start'}}>
+        {tabs.map(t => <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>{t.label}</button>)}
       </div>
 
-      {loading && alerts.length === 0 && (
-        <div className="empty" style={{ padding: '60px 0' }}>
-          <div className="empty__title">Loading…</div>
-        </div>
-      )}
-      {error && alerts.length === 0 && (
-        <div style={{
-          color: 'var(--unsafe)', padding: '10px 14px',
-          background: 'var(--unsafe-soft)', borderRadius: 8,
-          marginBottom: 16, fontSize: 13,
-        }}>
-          {error.message || 'Failed to load feed.'}
-        </div>
-      )}
-      {!loading && alerts.length === 0 && !error && (
-        <div className="empty" style={{ padding: '64px 0' }}>
-          <div className="empty__title">No active catch alerts</div>
-          <p style={{ fontSize: 13, color: 'var(--ink-4)', marginTop: 6 }}>Nothing in the feed right now.</p>
-          <button className="btn btn--primary btn--sm" style={{ marginTop: 14 }}
-            onClick={() => setPreorderModal(true)}>
-            Place a Preorder
-          </button>
+      {tab === 'feed' && (
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12, marginTop: 18}}>
+          {V_PROC_FEED.map(a => {
+            const inCart = cart.find(x => x.id === a.id)
+            return (
+              <div key={a.id} className={`alert-card${a.urgent ? ' alert-card--urgent' : ''}`}>
+                <div className="row" style={{gap: 6, alignItems: 'center', marginBottom: 6}}>
+                  <span className="kbd">{a.code}</span>
+                  <span className="chip chip--accent" style={{fontSize: 10}}>{a.match}% match</span>
+                  {a.urgent && <span className="chip chip--unsafe" style={{fontSize: 10}}>urgent</span>}
+                </div>
+                <div className="alert-card__species" style={{fontSize: 18}}>{a.species}</div>
+                <div className="alert-card__sub">{a.fisher}</div>
+                <div className="grid grid--kpi" style={{gridTemplateColumns: '1fr 1fr 1fr', marginTop: 8}}>
+                  <div className="kpi"><div className="kpi__label">Qty</div><div className="kpi__value">{a.qty}<small>kg</small></div></div>
+                  <div className="kpi"><div className="kpi__label">Price</div><div className="kpi__value">₱{a.price}</div></div>
+                  <div className="kpi"><div className="kpi__label">Expires</div><div className="kpi__value" style={{fontSize: 16}}>{a.expires}</div></div>
+                </div>
+                <div className="row" style={{gap: 6, marginTop: 12}}>
+                  <button className="btn btn--ghost btn--sm" style={{flex: 1}}>View detail</button>
+                  <button className={`btn btn--sm ${inCart ? '' : 'btn--accent'}`} style={{flex: 1}} onClick={() => addToCart(a.id)} disabled={!!inCart}>
+                    {inCart ? <><I.Check size={11} /> In cart</> : <><I.Plus size={11} /> Add to cart</>}
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {alerts.map(alert => {
-          const freshness        = FRESHNESS(alert.ageMinutes || 0)
-          const alreadyFromSeller = cartSellerIds.has(alert.fishermanId)
-          const available        = alert.availableKg ?? alert.quantityKg
-          const isHighlighted    = highlightAlertId && alert.id === highlightAlertId
-
-          return (
-            <div
-              key={alert.id}
-              ref={isHighlighted ? highlightRef : null}
-              className="alert-card"
-              style={isHighlighted ? { outline: '2px solid var(--accent)', outlineOffset: 2 } : undefined}
-            >
-              <div className="alert-card__head">
+      {tab === 'cart' && (
+        <div className="card" style={{marginTop: 18}}>
+          <div className="card__head"><div className="card__title">Your cart</div><div className="card__sub">{cart.length} items pending order</div></div>
+          {cart.length === 0 ? (
+            <div className="empty"><div className="empty__title">Cart is empty</div><p>Add alerts from the live feed.</p></div>
+          ) : (
+            <>
+              <table className="tbl">
+                <thead><tr><th>Code</th><th>Species</th><th>Fisher</th><th>Qty (kg)</th><th>Price/kg</th><th>Subtotal</th><th></th></tr></thead>
+                <tbody>
+                  {cart.map(c => {
+                    const a = V_PROC_FEED.find(x => x.id === c.id)
+                    if (!a) return null
+                    return (
+                      <tr key={c.id}>
+                        <td><span className="kbd">{a.code}</span></td>
+                        <td>{a.species}</td>
+                        <td className="muted-data">{a.fisher}</td>
+                        <td><input className="input" style={{width: 80}} defaultValue={c.qty} /></td>
+                        <td style={{fontFamily: 'var(--font-mono)'}}>₱{a.price}</td>
+                        <td style={{fontFamily: 'var(--font-mono)'}}>₱{(a.price * c.qty).toLocaleString()}</td>
+                        <td style={{textAlign: 'right'}}><button className="btn btn--ghost btn--sm" onClick={() => setCart(x => x.filter(y => y.id !== c.id))}><I.Trash size={11} /></button></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="row" style={{justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginTop: 14, padding: '14px 0 0', borderTop: '1px solid var(--line)'}}>
                 <div>
-                  <h3 className="alert-card__species" style={{ fontSize: 18 }}>{alert.speciesName}</h3>
-                  <div className="alert-card__sub">
-                    {alert.fishermanName || `Fisherman #${alert.fishermanId}`}
-                    {alert.landingSite && ` · ${alert.landingSite}`}
+                  <div className="eyebrow">Grand total</div>
+                  <div style={{fontSize: 28, fontFamily: 'var(--font-display)', fontStyle: 'italic', color: 'var(--accent)'}}>
+                    ₱{cart.reduce((a, c) => a + (V_PROC_FEED.find(x => x.id === c.id)?.price || 0) * c.qty, 0).toLocaleString()}
                   </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
-                    {alert.ageMinutes < 60
-                      ? `${alert.ageMinutes}m ago`
-                      : `${Math.round(alert.ageMinutes / 60)}h ago`}
-                  </span>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    <span className={freshness.cls}>{freshness.label}</span>
-                    {alert.inCart && <span className="chip chip--accent">In Cart</span>}
-                    {alert.watchlistMatched && <span className="chip chip--safe">Watchlist</span>}
-                  </div>
-                </div>
+                <button className="btn btn--primary">Place procurement orders <I.Arrow size={12} /></button>
               </div>
-              <div className="alert-card__stats" style={{ marginTop: 10, paddingTop: 10 }}>
-                {available != null && (
-                  <div>
-                    <div className="l">Available</div>
-                    <div className="v" style={{ fontSize: 18 }}>
-                      {available}
-                      <small style={{ fontFamily: 'var(--font-ui)', fontSize: 11, marginLeft: 2 }}>kg</small>
-                      {alert.quantityKg && alert.claimedKg > 0 && (
-                        <span style={{ fontSize: 11, color: 'var(--ink-4)', fontWeight: 400, marginLeft: 6 }}>
-                          of {alert.quantityKg} kg
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {alert.askingPricePerKg && (
-                  <div>
-                    <div className="l">Asking</div>
-                    <div className="v" style={{ fontSize: 18 }}>
-                      ₱{alert.askingPricePerKg}
-                      <small style={{ fontFamily: 'var(--font-ui)', fontSize: 11, marginLeft: 2 }}>/kg</small>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  className={alreadyFromSeller ? 'btn btn--ghost btn--sm' : 'btn btn--primary btn--sm'}
-                  onClick={() => setOrderModal(alert)}
-                >
-                  {alreadyFromSeller
-                    ? `Add more from ${alert.fishermanName?.split(' ')[0] || 'seller'}`
-                    : 'Order'}
-                </button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === 'orders' && (
+        <div className="card" style={{marginTop: 18}}>
+          <div className="card__head"><div className="card__title">Procurement orders</div></div>
+          <table className="tbl">
+            <thead><tr><th>Code</th><th>Date</th><th>Species</th><th>Fisher</th><th>Qty</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody>
+              {PROC_ORDERS.map(o => (
+                <tr key={o.id}>
+                  <td><span className="kbd">{o.code}</span></td>
+                  <td className="muted-data">{o.date}</td>
+                  <td>{o.species}</td>
+                  <td>{o.fisher}</td>
+                  <td>{o.qty} kg</td>
+                  <td style={{fontFamily: 'var(--font-mono)'}}>₱{o.total.toLocaleString()}</td>
+                  <td><span className={`status status--${statusMap[o.status]}`}><span className="status__dot" /> {o.status}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

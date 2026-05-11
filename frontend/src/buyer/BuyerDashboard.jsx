@@ -1,72 +1,141 @@
-import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { apiGet } from '../api'
-import { useCart } from '../context/CartContext'
-import '../buyer.css'
-import BuyerLayout from './BuyerLayout'
+import { useState } from 'react'
+import { I } from '../icons'
 import Home from './Home'
-import Marketplace from './Marketplace'
-import ListingDetailView, { VendorStorefrontView } from './ListingDetail'
 import Cart from './Cart'
-import CheckoutView, { InstantCheckoutView } from './Checkout'
+import Checkout from './Checkout'
+import Profile from './Profile'
+import ListingDetail from './ListingDetail'
+import Marketplace from './Marketplace'
 import Orders from './Orders'
 import Favorites from './Favorites'
-import Profile from './Profile'
-import MessagesRoute from './components/MessagesRoute'
-import PaymentReturn from './PaymentReturn'
+import Messages from './Messages'
 
-export default function BuyerDashboard({ user, onLogout }) {
-  const [badges, setBadges]       = useState({ orders: 0, messages: 0 })
-  const [quickOrderListing, setQuickOrderListing] = useState(null)
-  const { cart } = useCart()
-  const railBadges = { ...badges, cart: cart.itemCount }
+// ─── Buyer nav config ────────────────────────────────────────────────────────
+const BUYER_NAV = [
+  { id: 'bhome',     icon: 'Dashboard', label: 'Home' },
+  { id: 'bbrowse',   icon: 'Store',     label: 'Marketplace' },
+  { id: 'bcart',     icon: 'Cart',      label: 'Cart',       badge: 3 },
+  { id: 'borders',   icon: 'Clipboard', label: 'My Orders',  badge: 1 },
+  { id: 'bsaved',    icon: 'Heart',     label: 'Saved' },
+  { id: 'bmessages', icon: 'Message',   label: 'Messages',   badge: 1 },
+  { id: 'bprofile',  icon: 'User',      label: 'Profile' },
+]
 
-  function loadPendingBadge() {
-    apiGet('/buyer/orders?status=PENDING')
-      .then(d => {
-        const arr = d?.content || d || []
-        setBadges(prev => ({ ...prev, orders: arr.length }))
-      })
-      .catch(() => {})
-  }
+const PAGE_LABELS = {
+  bhome: 'Home', bbrowse: 'Browse Marketplace', bcart: 'Cart',
+  bcheckout: 'Checkout', blisting: 'Listing detail', bvendor: 'Vendor storefront',
+  borders: 'My Orders', bsaved: 'Saved Vendors',
+  bmessages: 'Messages', bprofile: 'Profile',
+}
 
-  useEffect(() => { loadPendingBadge() }, [])
-
-  function handleOrderSuccess() {
-    setQuickOrderListing(null)
-    loadPendingBadge()
-  }
+// ─── Rail ────────────────────────────────────────────────────────────────────
+function Rail({ page, setPage, user, onLogout }) {
+  const first = user?.fullName?.split(' ')[0] || 'Buyer'
+  const initials = (user?.fullName || 'B').split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()
 
   return (
-    <Routes>
-      <Route element={
-        <BuyerLayout
-          user={user}
-          onLogout={onLogout}
-          badges={railBadges}
-          quickOrderListing={quickOrderListing}
-          setQuickOrderListing={setQuickOrderListing}
-          onOrderSuccess={handleOrderSuccess}
-        />
-      }>
-        <Route path="/buyer" element={<Navigate to="/buyer/dashboard" replace />} />
-        <Route path="/buyer/dashboard" element={
-          <Home user={user} onOrderListing={setQuickOrderListing} />
-        } />
-        <Route path="/buyer/browse" element={<Marketplace />} />
-        <Route path="/buyer/listing/:listingId" element={<ListingDetailView />} />
-        <Route path="/buyer/vendor/:vendorId" element={<VendorStorefrontView />} />
-        <Route path="/buyer/cart" element={<Cart />} />
-        <Route path="/buyer/checkout" element={<CheckoutView />} />
-        <Route path="/buyer/instant-checkout" element={<InstantCheckoutView />} />
-        <Route path="/buyer/payment-return" element={<PaymentReturn />} />
-        <Route path="/buyer/orders" element={<Orders />} />
-        <Route path="/buyer/orders/:orderId" element={<Orders />} />
-        <Route path="/buyer/saved" element={<Favorites />} />
-        <Route path="/buyer/messages" element={<MessagesRoute user={user} />} />
-        <Route path="/buyer/profile" element={<Profile user={user} />} />
-        <Route path="*" element={<Navigate to="/buyer/dashboard" replace />} />
-      </Route>
-    </Routes>
+    <aside className="rail">
+      <div className="rail__logo">
+        <div className="rail__logo-mark">M</div>
+      </div>
+      <div className="rail__items">
+        <div className="rail__label">Workspace</div>
+        {BUYER_NAV.map(it => {
+          const Icon = I[it.icon]
+          return (
+            <div
+              key={it.id}
+              className={`rail-item${page === it.id ? ' rail-item--on' : ''}`}
+              onClick={() => setPage(it.id)}
+              data-tip={it.label}
+            >
+              <div className="rail-item__icon"><Icon size={18} /></div>
+              <div className="rail-item__text">{it.label}</div>
+              {it.badge ? <span className="rail-item__badge">{it.badge}</span> : null}
+            </div>
+          )
+        })}
+
+        <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
+        <div className="rail-item" onClick={onLogout} data-tip="Log out">
+          <div className="rail-item__icon"><I.Logout size={18} /></div>
+          <div className="rail-item__text">Log out</div>
+        </div>
+        <div className="rail-item" data-tip="Help & docs">
+          <div className="rail-item__icon"><I.Help size={18} /></div>
+          <div className="rail-item__text">Help</div>
+        </div>
+      </div>
+
+      <div className="rail__bottom">
+        <div className="rail__user">
+          <div className="rail__avatar">{initials}</div>
+          <div className="rail__user-info">
+            <span className="rail__user-name">{first}</span>
+            <span className="rail__user-role">BUYER</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
+// ─── Topbar ──────────────────────────────────────────────────────────────────
+function Topbar({ page }) {
+  const label = PAGE_LABELS[page] || page
+  return (
+    <div className="topbar">
+      <div className="crumbs">
+        <span>Mermaid</span>
+        <span>/</span>
+        <span style={{ color: 'var(--ink-3)' }}>Buyer</span>
+        <span>/</span>
+        <strong>{label}</strong>
+      </div>
+      <div className="topbar__spacer" />
+      <div className="topbar__search">
+        <I.Search size={14} />
+        <input placeholder="Search vendors, species, listings…" />
+        <kbd>⌘K</kbd>
+      </div>
+      <button className="topbar__icon-btn" title="Notifications">
+        <I.Bell size={16} /><span className="dot" />
+      </button>
+      <button className="topbar__icon-btn" title="Help"><I.Help size={16} /></button>
+    </div>
+  )
+}
+
+// ─── Page renderer ───────────────────────────────────────────────────────────
+function renderPage(page, setPage, user, onLogout) {
+  switch (page) {
+    case 'bhome':     return <Home setPage={setPage} user={user} />
+    case 'bbrowse':   return <Marketplace setPage={setPage} />
+    case 'bcart':     return <Cart setPage={setPage} />
+    case 'bcheckout': return <Checkout setPage={setPage} />
+    case 'blisting':  return <ListingDetail setPage={setPage} />
+    case 'bvendor':   return <ListingDetail setPage={setPage} vendorView />
+    case 'borders':   return <Orders setPage={setPage} />
+    case 'bsaved':    return <Favorites setPage={setPage} />
+    case 'bmessages': return <Messages setPage={setPage} user={user} />
+    case 'bprofile':  return <Profile setPage={setPage} user={user} />
+    default:          return <Home setPage={setPage} user={user} />
+  }
+}
+
+// ─── BuyerDashboard ──────────────────────────────────────────────────────────
+export default function BuyerDashboard({ user, onLogout }) {
+  const [page, setPage] = useState('bhome')
+
+  return (
+    <div className="app" data-accent="sage" data-density="balanced">
+      <Rail page={page} setPage={setPage} user={user} onLogout={onLogout} />
+      <div className="main">
+        <Topbar page={page} />
+        <div className="content">
+          {renderPage(page, setPage, user, onLogout)}
+        </div>
+      </div>
+    </div>
   )
 }
