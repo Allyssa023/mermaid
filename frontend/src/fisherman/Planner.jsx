@@ -1,39 +1,29 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ── Inline mock data ─────────────────────────────────────────────────────────
-
-const ADVISORIES = [
-  { id: 1, severity: 'HIGH',   affectedArea: 'Sibuyan Sea', title: 'Tropical Depression Emong',
-    message: 'Sustained winds 65 km/h; gusts to 90 km/h. Cancel all offshore trips through Friday.', ts: '2h ago' },
-  { id: 2, severity: 'MEDIUM', affectedArea: 'Balayan Bay', title: 'Small-craft advisory',
-    message: 'Wave heights 1.5–2.0m expected between 14:00–20:00. Exercise caution.', ts: '5h ago' },
-]
-
-const PAST_TRIPS = [
-  { id: 2811, date: '2026-04-18', day: '18', month: 'APR', name: 'Balayan Bay Night Run',  zone: 'Balayan Bay',        status: 'COMPLETED' },
-  { id: 2807, date: '2026-04-15', day: '15', month: 'APR', name: 'Verde Island Morning',   zone: 'Verde Passage',      status: 'COMPLETED' },
-  { id: 2802, date: '2026-04-11', day: '11', month: 'APR', name: 'Tayabas Scout Trip',     zone: 'Tayabas Bay',        status: 'COMPLETED' },
-  { id: 2794, date: '2026-04-07', day: '07', month: 'APR', name: 'Sibuyan Deepwater',      zone: 'Sibuyan Sea',        status: 'CANCELLED' },
-  { id: 2788, date: '2026-04-03', day: '03', month: 'APR', name: 'Batangas Channel Dawn',  zone: 'Batangas Channel',   status: 'COMPLETED' },
-]
-
-const PLANNED_TRIPS = [
-  { id: 2821, date: '2026-04-25', day: '25', month: 'APR', name: 'Verde Island Long Run',  zone: 'Verde Island Passage', status: 'PLANNED', crew: 4, depart: '03:30' },
-  { id: 2823, date: '2026-04-28', day: '28', month: 'APR', name: 'Tayabas Grouper Hunt',   zone: 'Tayabas Bay',          status: 'PLANNED', crew: 3, depart: '04:15' },
-]
-
-const LISTINGS = [
-  { id: 512, species: 'Yellowfin Tuna',      vendor: 'Marina Seafoods',    qty: 60,  price: 400 },
-  { id: 510, species: 'Mahi-mahi',           vendor: 'Bay City Market',    qty: 40,  price: 270 },
-  { id: 509, species: 'Spanish Mackerel',    vendor: 'J. Aquino & Sons',   qty: 25,  price: 340 },
-]
+import { fetchAdvisories } from './api/marine'
+import { listTrips } from './api/trips'
+import { browseDemandListings } from './api/marketplace'
+import { CardSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function PlannerPage() {
-  const [month, setMonth] = useState(new Date(2026, 3, 1)) // April 2026
-  const [selected, setSelected] = useState(new Date(2026, 3, 23))
+  const [month, setMonth] = useState(new Date())
+  const [selected, setSelected] = useState(new Date())
+
+  const advQ      = useQuery({ queryKey: ['advisories', 'active'], queryFn: () => fetchAdvisories(true) })
+  const tripsQ    = useQuery({ queryKey: ['trips'], queryFn: () => listTrips() })
+  const listingsQ = useQuery({ queryKey: ['fisherman', 'marketplace', null], queryFn: () => browseDemandListings({ status: 'OPEN' }) })
+
+  const advisories   = advQ.data ?? []
+  const pastTrips    = (tripsQ.data ?? []).filter(t => t.status === 'COMPLETED' || t.status === 'CANCELLED')
+  const plannedTrips = (tripsQ.data ?? []).filter(t => t.status === 'PLANNED')
+  const listings     = (listingsQ.data ?? []).slice(0, 3)
+
+  if (tripsQ.isLoading) return <div className="page"><CardSkeleton /><CardSkeleton /></div>
+  if (tripsQ.error) return <div className="page"><ApiError error={tripsQ.error} onRetry={tripsQ.refetch} /></div>
 
   // Build 42-cell grid
   const firstDow    = new Date(month.getFullYear(), month.getMonth(), 1).getDay()
@@ -63,16 +53,22 @@ export default function PlannerPage() {
   }
 
   const tripsByDay = {}
-  ;[...PAST_TRIPS, ...PLANNED_TRIPS].forEach(t => {
-    const key = t.date
+  ;[...pastTrips, ...plannedTrips].forEach(t => {
+    // trips use startedAt (ISO string); fall back to nothing if missing
+    const rawDate = t.startedAt ?? t.departureDate ?? null
+    if (!rawDate) return
+    const d = new Date(rawDate)
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     tripsByDay[key] = tripsByDay[key] || []
     tripsByDay[key].push(t)
   })
 
-  const advisoriesByDay = { '2026-04-23': [ADVISORIES[0]], '2026-04-24': [ADVISORIES[1]] }
+  // Advisories from API have no day-level date field — skip calendar dot mapping
+  const advisoriesByDay = {}
 
   const selF = forecastFor(selected)
   const monthLabel = month.toLocaleDateString('en', { month: 'long', year: 'numeric' })
+  const today = new Date()
 
   return (
     <div className="page">
@@ -99,7 +95,7 @@ export default function PlannerPage() {
             <div className="cal__title">{monthLabel}</div>
             <div className="cal__nav">
               <button className="btn btn--sm btn--ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()-1, 1))}><I.ChevL size={14} /></button>
-              <button className="btn btn--sm btn--ghost" onClick={() => setMonth(new Date(2026, 3, 1))}>Today</button>
+              <button className="btn btn--sm btn--ghost" onClick={() => { const n = new Date(); setMonth(new Date(n.getFullYear(), n.getMonth(), 1)); setSelected(n) }}>Today</button>
               <button className="btn btn--sm btn--ghost" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth()+1, 1))}><I.ChevR size={14} /></button>
             </div>
           </div>
@@ -109,14 +105,14 @@ export default function PlannerPage() {
           <div className="cal__grid">
             {cells.map((c, i) => {
               const f = forecastFor(c.date)
-              const today = c.date.toDateString() === new Date(2026, 3, 23).toDateString()
+              const isToday = c.date.toDateString() === today.toDateString()
               const sel   = c.date.toDateString() === selected.toDateString()
               const dateKey = `${c.date.getFullYear()}-${String(c.date.getMonth()+1).padStart(2,'0')}-${String(c.date.getDate()).padStart(2,'0')}`
               const trips = tripsByDay[dateKey] || []
               const advs  = advisoriesByDay[dateKey] || []
               return (
                 <div key={i}
-                     className={`cal-day${c.other ? ' cal-day--other' : ''}${today ? ' cal-day--today' : ''}${sel ? ' cal-day--sel' : ''}`}
+                     className={`cal-day${c.other ? ' cal-day--other' : ''}${isToday ? ' cal-day--today' : ''}${sel ? ' cal-day--sel' : ''}`}
                      onClick={() => setSelected(c.date)}>
                   <div className="row" style={{justifyContent: 'space-between', alignItems: 'flex-start'}}>
                     <span className="cal-day__num">{c.date.getDate()}</span>
@@ -128,7 +124,7 @@ export default function PlannerPage() {
                   {!c.other && trips.length > 0 && (
                     <div className="cal-day__event cal-day__event--trip">
                       <I.Anchor size={9} style={{marginRight:3, verticalAlign:-1}} />
-                      {trips[0].name.split(' ').slice(0,2).join(' ')}
+                      {(trips[0].targetArea ?? 'Trip').split(' ').slice(0,2).join(' ')}
                     </div>
                   )}
                   {!c.other && advs.length > 0 && (
@@ -193,14 +189,17 @@ export default function PlannerPage() {
                 <div className="card__sub">Vendors seeking on this day</div>
               </div>
             </div>
-            {LISTINGS.map(l => (
+            {listings.length === 0 && (
+              <p style={{fontSize: 13, color: 'var(--ink-3)', margin: 0}}>No open listings.</p>
+            )}
+            {listings.map(l => (
               <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, padding: '10px 0', borderBottom: '1px dashed var(--line-soft)' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{l.species}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{l.vendor} · {l.qty}kg</div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{l.fishSpecies?.commonName ?? '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{l.vendorName ?? '—'} · {l.quantityKg ?? '—'}kg</div>
                 </div>
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)' }}>
-                  ₱{l.price}<small style={{fontSize:10, color:'var(--ink-4)', fontFamily:'var(--font-mono)', marginLeft:2}}>/kg</small>
+                  ₱{l.offerPricePerKg}<small style={{fontSize:10, color:'var(--ink-4)', fontFamily:'var(--font-mono)', marginLeft:2}}>/kg</small>
                 </div>
               </div>
             ))}
@@ -211,21 +210,30 @@ export default function PlannerPage() {
           <div className="card">
             <div className="card__title">Upcoming trips</div>
             <div style={{marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10}}>
-              {PLANNED_TRIPS.map(t => (
-                <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '44px 1fr auto', gap: 12, padding: 10, background: 'var(--paper)', borderRadius: 10 }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{fontSize: 10, color: 'var(--ink-4)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)'}}>{t.month}</div>
-                    <div style={{fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--ink)', lineHeight: 1}}>{t.day}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{t.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                      Depart {t.depart} · {t.crew} crew
+              {plannedTrips.length === 0 && (
+                <p style={{fontSize: 13, color: 'var(--ink-3)', margin: 0}}>No planned trips.</p>
+              )}
+              {plannedTrips.map(t => {
+                const rawDate = t.startedAt ?? t.departureDate ?? null
+                const dateObj = rawDate ? new Date(rawDate) : null
+                const day   = dateObj ? String(dateObj.getDate()).padStart(2, '0') : '—'
+                const monthStr = dateObj ? dateObj.toLocaleString('en', { month: 'short' }).toUpperCase() : '—'
+                return (
+                  <div key={t.id} style={{ display: 'grid', gridTemplateColumns: '44px 1fr auto', gap: 12, padding: 10, background: 'var(--paper)', borderRadius: 10 }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{fontSize: 10, color: 'var(--ink-4)', textTransform: 'uppercase', fontFamily: 'var(--font-mono)'}}>{monthStr}</div>
+                      <div style={{fontFamily: 'var(--font-display)', fontSize: 22, color: 'var(--ink)', lineHeight: 1}}>{day}</div>
                     </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{t.targetArea ?? 'Unnamed trip'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                        {`T-${t.id}`}{t.crewCount ? ` · ${t.crewCount} crew` : ''}
+                      </div>
+                    </div>
+                    <span className="chip chip--accent chip--dot">Planned</span>
                   </div>
-                  <span className="chip chip--accent chip--dot">Planned</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
