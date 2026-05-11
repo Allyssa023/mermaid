@@ -20,16 +20,16 @@ export default function ProcurementPage({ setPage }) {
     queryFn: () => listProcurementOrders(tab),
   })
 
-  if (ordersQ.isLoading) return <div className="page"><TableRowSkeleton rows={5} /></div>
-  if (ordersQ.error) return <div className="page"><ApiError error={ordersQ.error} onRetry={ordersQ.refetch} /></div>
-
-  const orders = ordersQ.data ?? []
-
   const acceptMut   = useMutation({ mutationFn: (id) => acceptOrder(id),   onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
   const readyMut    = useMutation({ mutationFn: (id) => markReady(id),     onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
   const completeMut = useMutation({ mutationFn: (id) => completeOrder(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
   const cancelMut   = useMutation({ mutationFn: (id) => cancelOrder(id, 'Fisherman declined'), onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
   const disputeMut  = useMutation({ mutationFn: (id) => raiseDispute(id, { reason: 'Dispute raised' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
+
+  if (ordersQ.isLoading) return <div className="page"><TableRowSkeleton rows={5} /></div>
+  if (ordersQ.error) return <div className="page"><ApiError error={ordersQ.error} onRetry={ordersQ.refetch} /></div>
+
+  const orders = ordersQ.data ?? []
 
   return (
     <div className="page">
