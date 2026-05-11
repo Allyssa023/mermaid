@@ -42,9 +42,12 @@ public class AdvisoryService {
 
     @Transactional(readOnly = true)
     public com.mermaid.app.model.Advisory getById(Long id) {
-        return repo.findById(id)
-            .map(mapper::toModel)
+        Advisory entity = repo.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Advisory not found: " + id));
+        if (!entity.isActive()) {
+            throw new ResourceNotFoundException("Advisory not found: " + id);
+        }
+        return mapper.toModel(entity);
     }
 
     @Transactional

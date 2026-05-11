@@ -1,8 +1,10 @@
 package com.mermaid.app.repository;
 
 import com.mermaid.app.domain.Order;
+import com.mermaid.app.domain.OrderKind;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,4 +35,44 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT DISTINCT o.sellerId FROM Order o WHERE o.buyerId = :buyerId AND o.kind = 'PROCUREMENT'")
     List<Long> findDistinctFishermenByVendor(Long buyerId);
+
+    @Query(value = """
+            SELECT o.buyer_id AS buyerId,
+                   COUNT(*) AS orderCount,
+                   SUM(o.agreed_price_per_kg * o.ordered_qty_kg) AS totalSpent,
+                   MAX(o.completed_at) AS lastOrder
+            FROM orders o
+            WHERE o.seller_id = :vendorId
+              AND o.order_kind = 'RETAIL'
+              AND o.status = 'COMPLETED'
+              AND o.completed_at BETWEEN :from AND :to
+            GROUP BY o.buyer_id
+            HAVING COUNT(*) >= :minOrders
+            ORDER BY orderCount DESC, totalSpent DESC
+            LIMIT 50
+            """, nativeQuery = true)
+    List<Object[]> findRepeatBuyers(@Param("vendorId") Long vendorId,
+                                    @Param("from") java.time.OffsetDateTime from,
+                                    @Param("to") java.time.OffsetDateTime to,
+                                    @Param("minOrders") int minOrders);
+
+    @Query("SELECT o FROM Order o WHERE o.sellerId = :vendorId AND o.kind = :kind AND o.status = 'COMPLETED' AND o.completedAt BETWEEN :from AND :to")
+    List<Order> findCompletedByVendorAndKindInRange(@Param("vendorId") Long vendorId,
+                                                    @Param("kind") OrderKind kind,
+                                                    @Param("from") java.time.OffsetDateTime from,
+                                                    @Param("to") java.time.OffsetDateTime to);
+
+    @Query("SELECT o FROM Order o WHERE o.buyerId = :vendorId AND o.kind = :kind AND o.status = 'COMPLETED' AND o.completedAt BETWEEN :from AND :to")
+    List<Order> findCompletedByBuyerAndKindInRange(@Param("vendorId") Long vendorId,
+                                                   @Param("kind") OrderKind kind,
+                                                   @Param("from") java.time.OffsetDateTime from,
+                                                   @Param("to") java.time.OffsetDateTime to);
+
+    @Query("SELECT o FROM Order o WHERE o.sellerId = :sellerId AND o.kind = :kind AND o.status = :status AND o.completedAt BETWEEN :from AND :to ORDER BY o.completedAt DESC")
+    List<Order> findBySellerIdAndKindAndStatusAndCompletedAtBetween(
+        @Param("sellerId") Long sellerId,
+        @Param("kind") OrderKind kind,
+        @Param("status") String status,
+        @Param("from") java.time.OffsetDateTime from,
+        @Param("to") java.time.OffsetDateTime to);
 }

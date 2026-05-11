@@ -13,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -112,6 +113,9 @@ public class VendorOrderService {
                     "Cannot transition order " + orderId + " from " + from + " to " + toStatus);
         }
         order.setStatus(toStatus);
+        if ("COMPLETED".equals(toStatus)) {
+            order.setCompletedAt(OffsetDateTime.now());
+        }
         Order saved = orderRepo.save(order);
         recordStatusEvent(orderId, toStatus, vendorId, note, saved.getBuyerId(), saved.getSellerId());
         return saved;

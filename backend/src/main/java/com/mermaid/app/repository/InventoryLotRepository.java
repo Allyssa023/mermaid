@@ -22,4 +22,7 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
 
     @Query("SELECT SUM(l.remainingKg) FROM InventoryLot l WHERE l.vendorId = :vendorId AND l.speciesId = :speciesId")
     BigDecimal sumAvailableByVendorAndSpecies(@Param("vendorId") Long vendorId, @Param("speciesId") Long speciesId);
+
+    @Query("SELECT DISTINCT l.speciesId FROM InventoryLot l WHERE l.vendorId = :vendorId")
+    List<Long> findDistinctSpeciesIdsByVendor(@Param("vendorId") Long vendorId);
 }

@@ -561,27 +561,42 @@ export default function CheckoutView() {
         </div>
 
         <div className="card" style={{ padding: 16 }}>
-          <div className="label">Payment method</div>
-          <div className="row" style={{ gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-            {['CASH', 'GCASH', 'PAYMAYA', 'CARD'].map(m => (
+          <div className="card__head" style={{ marginBottom: 14 }}>
+            <div className="card__title">Payment method</div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[
+              { id: 'CASH',    label: 'Cash on handoff', desc: 'Pay when you receive your order' },
+              { id: 'GCASH',   label: 'GCash',           desc: 'Redirect to GCash · ~2.23% fee' },
+              { id: 'PAYMAYA', label: 'Maya',            desc: 'Redirect to Maya · ~1.79% fee' },
+              { id: 'CARD',    label: 'Credit / Debit',  desc: 'Domestic card · 2.9% + ₱15' },
+            ].map(m => (
               <button
-                key={m}
-                className={`btn btn--sm ${paymentMethod === m ? 'btn--accent' : 'btn--ghost'}`}
-                onClick={() => setPaymentMethod(m)}
+                key={m.id}
+                onClick={() => setPaymentMethod(m.id)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+                  gap: 3, padding: '10px 12px',
+                  background: paymentMethod === m.id ? 'var(--accent-soft)' : 'var(--paper)',
+                  border: `1px solid ${paymentMethod === m.id ? 'var(--accent)' : 'var(--line-soft)'}`,
+                  borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                  boxShadow: paymentMethod === m.id ? '0 0 0 2px color-mix(in oklch, var(--accent), transparent 80%)' : 'none',
+                  transition: 'all 0.14s ease',
+                }}
               >
-                {m === 'CASH' ? 'Cash on handoff' : m === 'GCASH' ? 'GCash' : m === 'PAYMAYA' ? 'Maya' : 'Card'}
+                <span style={{ fontWeight: 600, fontSize: 13, color: paymentMethod === m.id ? 'var(--accent-ink)' : 'var(--ink)' }}>
+                  {m.label}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
+                  {m.desc}
+                </span>
               </button>
             ))}
           </div>
-          {paymentMethod !== 'CASH' && (
-            <div style={{ marginTop: 10, fontSize: 12, color: 'var(--ink-4)' }}>
-              {paymentMethod === 'GCASH' && 'You will be redirected to GCash to complete payment.'}
-              {paymentMethod === 'PAYMAYA' && 'You will be redirected to Maya to complete payment.'}
-              {paymentMethod === 'CARD' && 'Enter your card details after placing the order.'}
-            </div>
-          )}
           {payError && (
-            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--unsafe)' }}>{payError}</div>
+            <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--unsafe-soft)', color: 'var(--unsafe)', borderRadius: 8, fontSize: 13 }}>
+              {payError}
+            </div>
           )}
         </div>
       </div>

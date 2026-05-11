@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -170,6 +171,25 @@ public class InventoryService {
         }
 
         maybeFireLowStock(listing.getVendorId(), listing.getSpeciesId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> lowStockItems(Long vendorId) {
+        List<Long> speciesIds = lotRepo.findDistinctSpeciesIdsByVendor(vendorId);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Long sid : speciesIds) {
+            BigDecimal available = availableKg(vendorId, sid);
+            if (available.compareTo(DEFAULT_LOW_STOCK_KG) < 0) {
+                String name = speciesRepo.findById(sid)
+                        .map(FishSpecies::getCommonName).orElse("Species #" + sid);
+                Map<String, Object> item = new java.util.LinkedHashMap<>();
+                item.put("speciesId", sid);
+                item.put("speciesName", name);
+                item.put("availableKg", available.doubleValue());
+                result.add(item);
+            }
+        }
+        return result;
     }
 
     private void maybeFireLowStock(Long vendorId, Long speciesId) {

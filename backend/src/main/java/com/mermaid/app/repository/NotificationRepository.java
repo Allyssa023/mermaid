@@ -38,4 +38,17 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
            nativeQuery = true)
     boolean existsByCatchAlertNotification(@Param("vendorId") Long vendorId,
                                            @Param("catchAlertId") Long catchAlertId);
+
+    @Query(value = """
+            SELECT id, (payload_json::jsonb)->>'catchAlertId' AS catchAlertId,
+                   (payload_json::jsonb)->>'speciesName' AS speciesName,
+                   (payload_json::jsonb)->>'fishermanName' AS fishermanName,
+                   created_at AS createdAt
+            FROM notifications
+            WHERE user_id = :userId AND type = 'CATCH_ALERT_NEW'
+            ORDER BY created_at DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> findRecentCatchAlertNotifications(@Param("userId") Long userId,
+                                                     @Param("limit") int limit);
 }

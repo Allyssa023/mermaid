@@ -46,7 +46,7 @@ The fisherman role is the platform's primary supply-side actor. Isidro (fisherma
 ```
 frontend/src/fisherman/
   FishermanDashboard.jsx      ← router only (like VendorDashboard.jsx)
-  FishermanLayout.jsx         ← Rail + Topbar + Outlet, data-accent="ocean"
+  FishermanLayout.jsx         ← Rail + Topbar + Outlet
   Home.jsx                    ← dashboard overview
   Trips.jsx                   ← My Trips list + Start Trip modal
   CatchAlerts.jsx             ← catch alert management
@@ -85,18 +85,7 @@ frontend/src/fisherman/
 
 ### Design System
 
-**`data-accent="ocean"` CSS rule** — this rule does NOT yet exist. It must be added to **both** `design-system.css` and `index.css` in Phase 0 (the existing `warm`, `sage`, `plum` rules are present in both files — ocean must follow the same pattern):
-
-```css
-[data-accent="ocean"] {
-  --accent:      oklch(0.55 0.09 220);
-  --accent-2:    oklch(0.45 0.09 220);
-  --accent-soft: oklch(0.93 0.03 220);
-  --accent-ink:  oklch(0.98 0.01 220);
-}
-```
-
-The attribute is placed on the `.app` root `<div>` inside **`FishermanLayout.jsx`** (not `FishermanDashboard.jsx`). The root div carries **both** `data-accent="ocean"` and `data-density="balanced"` — matching the pattern in `VendorLayout.jsx` and `BuyerLayout.jsx` (both carry both attributes; without `data-density`, spacing variables `--pad-card`, `--pad-row`, `--gap` will be unset).
+`FishermanLayout.jsx` root div uses `data-density="balanced"` (same as VendorLayout; required for spacing variables `--pad-card`, `--pad-row`, `--gap` to be set). No `data-accent` override — `design-system.css` `:root` already defaults to the ocean palette.
 
 `FishermanDashboard.jsx` passes `user` and `onLogout` props (received from `App.jsx`) down to `FishermanLayout` which renders them in the topbar.
 
@@ -116,11 +105,10 @@ The existing fisherman branch in `App.jsx` renders `<FishermanDashboard>` withou
 ### Phase 0 — Scaffold & Architecture
 
 **Deliverables:**
-- `fisherman/FishermanLayout.jsx` — Rail (9 nav items), Topbar, Outlet; root `<div className="app" data-accent="ocean" data-density="balanced">`; receives `user` and `onLogout` props
+- `fisherman/FishermanLayout.jsx` — Rail (9 nav items), Topbar, Outlet; root `<div className="app" data-density="balanced">`; receives `user` and `onLogout` props
 - `fisherman/FishermanDashboard.jsx` — React Router `<Routes>` only, imports `'../design-system.css'` and `'../handoff.css'`, passes `user`/`onLogout` to `FishermanLayout`
 - `fisherman/api/` modules (stubs for all endpoints)
 - `fisherman/hooks/useFishermanPolling.js`
-- `[data-accent="ocean"]` block added to **both** `design-system.css` and `index.css` (verbatim rule above)
 - `App.jsx` updated: fisherman branch wrapped in `<BrowserRouter>`, old import replaced, `user`/`token`/`onLogout` threaded
 
 Old `src/FishermanDashboard.jsx` removed after cutover.

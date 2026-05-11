@@ -78,9 +78,11 @@ export default function Profile() {
       )}
 
       {!loading && !form.gcashNumber && !form.mayaNumber && (
-        <div style={{ background: 'var(--caution-soft, #fff9e6)', color: 'var(--caution, #b45309)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span>⚠️</span>
-          <span>Add a GCash or Maya number to receive vendor payouts directly to your e-wallet.</span>
+        <div style={{ background: 'var(--caution-soft)', border: '1px solid color-mix(in oklch, var(--caution), transparent 60%)', color: 'var(--caution)', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13, display: 'flex', gap: 10, alignItems: 'center' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>Add a GCash or Maya number so vendors can pay you directly after procurement orders.</span>
         </div>
       )}
 
@@ -123,17 +125,17 @@ export default function Profile() {
                 placeholder="09XX XXX XXXX" />
             </div>
           </div>
-          <div style={{ marginTop: 16, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 8, fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-3)', marginBottom: 4 }}>SMS preview on departure</div>
+          <div style={{ marginTop: 16, padding: '10px 12px', background: 'var(--paper)', border: '1px solid var(--line-soft)', borderRadius: 8, fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: 10, fontFamily: 'var(--font-ui)', color: 'var(--ink-3)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMS preview on departure</div>
             {smsPreview}
           </div>
         </div>
 
         <div className="card">
-          <div className="card__title" style={{ marginBottom: 16 }}>E-Wallet for Payouts</div>
-          <div style={{ fontSize: 12, color: 'var(--ink-4)', marginBottom: 12 }}>
-            Vendors can pay you directly to your GCash or Maya account after a PROCUREMENT order is completed.
-          </div>
+          <div className="card__title" style={{ marginBottom: 4 }}>E-Wallet for Payouts</div>
+          <p style={{ fontSize: 12, color: 'var(--ink-4)', marginBottom: 16, lineHeight: 1.5 }}>
+            Vendors send procurement payments directly to your GCash or Maya. Add at least one number to receive payouts.
+          </p>
           <div className="form-grid">
             <div className="form-row">
               <label>GCash number</label>

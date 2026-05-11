@@ -103,6 +103,9 @@ public class CatchAlertService {
     public com.mermaid.app.model.CatchAlert cancel(Long alertId, Long fishermanId) {
         CatchAlert alert = alertRepo.findByIdAndFishermanId(alertId, fishermanId)
             .orElseThrow(() -> new ResourceNotFoundException("Catch alert not found: " + alertId));
+        if ("CANCELLED".equals(alert.getStatus())) {
+            throw new IllegalStateException("Catch alert is already cancelled");
+        }
         alert.setStatus("CANCELLED");
         CatchAlert saved = alertRepo.save(alert);
         return mapper.toModel(saved, resolveName(fishermanId), List.of());

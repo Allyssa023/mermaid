@@ -368,60 +368,61 @@ export default function ProcurementOrders() {
       {/* Pay Fisherman modal */}
       {payoutModal && (
         <div className="modal-overlay" onClick={() => setPayoutModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380 }}>
             <div className="modal__head">
-              <div className="modal__title">Pay Fisherman</div>
-              <div className="modal__sub">
-                Order #{payoutModal.id} · {payoutModal.speciesName}
+              <div>
+                <div className="modal__title">Pay Fisherman</div>
+                <div className="modal__sub">Order #{payoutModal.id} · {payoutModal.speciesName}</div>
               </div>
             </div>
-            <div style={{ padding: '12px 0' }}>
-              <div style={{ fontSize: 13, marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ color: 'var(--ink-4)' }}>Fisherman</span>
-                  <span style={{ fontWeight: 500 }}>{payoutModal.fishermanName ?? `#${payoutModal.fishermanId}`}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ color: 'var(--ink-4)' }}>Amount</span>
-                  <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
-                    ₱{((payoutModal.qtyKg || 0) * (payoutModal.pricePerKg || 0)).toFixed(2)}
-                  </span>
-                </div>
+
+            <div className="detail-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: 16 }}>
+              <div>
+                <div className="l">Fisherman</div>
+                <div className="v" style={{ fontSize: 17 }}>{payoutModal.fishermanName ?? `#${payoutModal.fishermanId}`}</div>
               </div>
-              <label style={{ display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
-                Send via
-              </label>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {[['PH_GCASH', 'GCash'], ['PH_PAYMAYA', 'Maya']].map(([code, label]) => (
-                  <label key={code} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="payoutChannel"
-                      value={code}
-                      checked={payoutChannel === code}
-                      onChange={() => setPayoutChannel(code)}
-                    />
-                    {label}
-                  </label>
+              <div>
+                <div className="l">Amount</div>
+                <div className="v">₱{((payoutModal.qtyKg || 0) * (payoutModal.pricePerKg || 0)).toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--font-mono)', marginBottom: 8 }}>Send via</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[['PH_GCASH', 'GCash', '~2.23% fee'], ['PH_PAYMAYA', 'Maya', '~1.79% fee']].map(([code, label, fee]) => (
+                  <button
+                    key={code}
+                    onClick={() => setPayoutChannel(code)}
+                    style={{
+                      display: 'flex', flexDirection: 'column', gap: 2,
+                      padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                      background: payoutChannel === code ? 'var(--accent-soft)' : 'var(--paper)',
+                      border: `1px solid ${payoutChannel === code ? 'var(--accent)' : 'var(--line-soft)'}`,
+                      boxShadow: payoutChannel === code ? '0 0 0 2px color-mix(in oklch, var(--accent), transparent 80%)' : 'none',
+                      transition: 'all 0.14s ease',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, fontSize: 13, color: payoutChannel === code ? 'var(--accent-ink)' : 'var(--ink)' }}>{label}</span>
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>{fee}</span>
+                  </button>
                 ))}
               </div>
-              <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-4)' }}>
-                The fisherman must have their {payoutChannel === 'PH_GCASH' ? 'GCash' : 'Maya'} number saved in their profile.
+              <div className="muted-data" style={{ marginTop: 8 }}>
+                Fisherman must have their {payoutChannel === 'PH_GCASH' ? 'GCash' : 'Maya'} number saved in their profile.
               </div>
-              {payoutError && (
-                <div style={{ marginTop: 10, fontSize: 12, color: 'var(--unsafe)', background: 'var(--unsafe-soft)', padding: '8px 10px', borderRadius: 6 }}>
-                  {payoutError}
-                </div>
-              )}
             </div>
+
+            {payoutError && (
+              <div style={{ padding: '8px 12px', background: 'var(--unsafe-soft)', color: 'var(--unsafe)', borderRadius: 8, fontSize: 13, marginBottom: 4 }}>
+                {payoutError}
+              </div>
+            )}
+
             <div className="modal__foot">
               <button className="btn btn--ghost btn--sm" onClick={() => setPayoutModal(null)}>Cancel</button>
-              <button
-                className="btn btn--primary btn--sm"
-                disabled={payingOut}
-                onClick={handlePayout}
-              >
-                {payingOut ? 'Sending…' : `Send payment`}
+              <button className="btn btn--primary btn--sm" disabled={payingOut} onClick={handlePayout}>
+                {payingOut ? 'Sending…' : 'Send payment'}
               </button>
             </div>
           </div>
