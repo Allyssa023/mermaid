@@ -17,7 +17,7 @@ function wrap(ui) {
 
 const MOCK_SUMMARY = { totalGross: 184320, cashCollected: 142500, creditOutstanding: 41820, orderCount: 28 }
 const MOCK_LEDGER  = [
-  { orderId: 1, date: '2026-04-23', speciesName: 'Grouper', qtyKg: 4, gross: 2160, paymentMethod: 'UTANG' },
+  { orderId: 1, date: '2026-04-23', vendorName: 'Test Vendor', speciesName: 'Grouper', qtyKg: 4, gross: 2160, paymentMethod: 'UTANG' },
 ]
 
 beforeEach(() => {
@@ -35,5 +35,10 @@ describe('EarningsPage', () => {
   it('renders ledger row species', async () => {
     wrap(<EarningsPage />)
     expect(await screen.findByText(/Grouper/)).toBeInTheDocument()
+  })
+
+  it('renders ledger vendor name', async () => {
+    wrap(<EarningsPage />)
+    expect(await screen.findByText(/Test Vendor/)).toBeInTheDocument()
   })
 })

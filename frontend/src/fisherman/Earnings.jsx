@@ -24,6 +24,7 @@ export default function EarningsPage() {
 
   if (summaryQ.isLoading) return <div className="page"><StatTileSkeleton /><TableRowSkeleton /></div>
   if (summaryQ.error) return <div className="page"><ApiError error={summaryQ.error} onRetry={summaryQ.refetch} /></div>
+  if (ledgerQ.error) return <div className="page"><ApiError error={ledgerQ.error} onRetry={ledgerQ.refetch} /></div>
 
   const e      = summaryQ.data ?? {}
   const ledger = ledgerQ.data ?? []
