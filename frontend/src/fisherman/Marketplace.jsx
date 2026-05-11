@@ -1,40 +1,44 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ── Inline mock data ─────────────────────────────────────────────────────────
-
-const SPECIES = [
-  { id: 's1', name: 'Yellowfin Tuna' },
-  { id: 's2', name: 'Skipjack' },
-  { id: 's3', name: 'Mahi-mahi' },
-  { id: 's4', name: 'Red Snapper' },
-  { id: 's5', name: 'Grouper (Lapu-lapu)' },
-  { id: 's6', name: 'Spanish Mackerel' },
-  { id: 's7', name: 'Squid (Pusit)' },
-  { id: 's8', name: 'Blue Marlin' },
-]
-
-const LISTINGS = [
-  { id: 512, listingCode: 'L-512', vendor: 'Marina Seafoods',    species: 'Yellowfin Tuna',      location: 'Marina Seafoods Depot · Quezon',   qty: 60,  price: 400, neededBy: '2026-04-25', urgent: false, new: true },
-  { id: 510, listingCode: 'L-510', vendor: 'Bay City Market',    species: 'Mahi-mahi',           location: 'Bay City Market · Lucena City',     qty: 40,  price: 270, neededBy: '2026-04-24', urgent: true,  new: false },
-  { id: 509, listingCode: 'L-509', vendor: 'J. Aquino & Sons',   species: 'Spanish Mackerel',    location: 'Lipa Port · Lipa',                  qty: 25,  price: 340, neededBy: '2026-04-25', urgent: false, new: false },
-  { id: 505, listingCode: 'L-505', vendor: 'Puerto Azul Resto',  species: 'Grouper (Lapu-lapu)', location: 'Anilao Landing · Mabini',           qty: 15,  price: 560, neededBy: '2026-04-26', urgent: false, new: false },
-  { id: 504, listingCode: 'L-504', vendor: 'Del Mar Cold Chain', species: 'Red Snapper',         location: 'Batangas Port · Batangas City',     qty: 80,  price: 390, neededBy: '2026-04-27', urgent: false, new: false },
-  { id: 501, listingCode: 'L-501', vendor: 'Taal Lake Fresh',    species: 'Squid (Pusit)',        location: 'Taal Fresh · Taal',                qty: 30,  price: 220, neededBy: '2026-04-24', urgent: false, new: false },
-  { id: 497, listingCode: 'L-497', vendor: 'Marina Seafoods',    species: 'Skipjack',            location: 'Marina Seafoods Depot · Quezon',   qty: 100, price: 175, neededBy: '2026-04-28', urgent: false, new: false },
-  { id: 493, listingCode: 'L-493', vendor: 'Puerto Azul Resto',  species: 'Blue Marlin',         location: 'Anilao Landing · Mabini',           qty: 20,  price: 620, neededBy: '2026-04-30', urgent: false, new: false },
-]
-
-// ── Component ─────────────────────────────────────────────────────────────────
+import { browseDemandListings } from './api/marketplace'
+import { fetchSpecies } from '../api/lookup.js'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 export default function MarketplacePage() {
   const [sort, setSort] = useState('priceDesc')
-  let list = [...LISTINGS]
-  if (sort === 'priceDesc') list.sort((a,b) => b.price - a.price)
-  if (sort === 'qtyDesc')   list.sort((a,b) => b.qty - a.qty)
-  if (sort === 'date')      list.sort((a,b) => a.neededBy.localeCompare(b.neededBy))
+  const [speciesFilter, setSpeciesFilter] = useState(null)
 
-  const topPrice = Math.max(...LISTINGS.map(l => l.price))
+  const listingsQ = useQuery({
+    queryKey: ['fisherman', 'marketplace', speciesFilter],
+    queryFn: () => browseDemandListings({ speciesId: speciesFilter ?? undefined }),
+  })
+  const speciesQ = useQuery({ queryKey: ['species'], queryFn: fetchSpecies })
+
+  if (listingsQ.isLoading) return <div className="page"><TableRowSkeleton rows={6} /></div>
+  if (listingsQ.error) return <div className="page"><ApiError error={listingsQ.error} onRetry={listingsQ.refetch} /></div>
+
+  const listings = listingsQ.data ?? []
+  const species  = speciesQ.data ?? []
+
+  let list = [...listings]
+  if (sort === 'priceDesc') list.sort((a,b) => b.offerPricePerKg - a.offerPricePerKg)
+  if (sort === 'qtyDesc')   list.sort((a,b) => b.quantityKg - a.quantityKg)
+  if (sort === 'date')      list.sort((a,b) => new Date(a.neededBy ?? 0) - new Date(b.neededBy ?? 0))
+
+  const topPrice = Math.max(...listings.map(l => l.offerPricePerKg), 0)
+  const topPricedListing = listings.find(l => l.offerPricePerKg === topPrice)
+
+  const urgentCount = listings.filter(l => l.neededBy && (new Date(l.neededBy).getTime() - Date.now() < 48 * 3600 * 1000)).length
+
+  const distanceValues = listings.map(l => l.distanceKm).filter(Boolean)
+  const nearestKm = distanceValues.length > 0 ? Math.min(...distanceValues).toFixed(1) : null
+
+  const tunaListings = listings.filter(l => l.fishSpecies?.commonName?.toLowerCase().includes('tuna'))
+  const avgTunaPrice = tunaListings.length > 0
+    ? Math.round(tunaListings.reduce((s, l) => s + l.offerPricePerKg, 0) / tunaListings.length)
+    : null
 
   return (
     <div className="page">
@@ -44,7 +48,7 @@ export default function MarketplacePage() {
           <h1 className="page__title" style={{marginTop: 4}}>
             Vendor <em>demand</em>
           </h1>
-          <p className="page__sub">{LISTINGS.length} active vendor listings · updated 2 min ago</p>
+          <p className="page__sub">{listings.length} active vendor listings · updated 2 min ago</p>
         </div>
         <div className="page__actions">
           <div className="topbar__search" style={{width: 240}}>
@@ -55,50 +59,54 @@ export default function MarketplacePage() {
         </div>
       </div>
 
-      {/* Insight strip */}
       <div className="orders-strip">
         <div className="stat">
           <div className="l">Best price today</div>
           <div className="v">₱{topPrice}<span style={{fontSize: 14, color: 'var(--ink-4)'}}> /kg</span></div>
-          <div className="s">Blue Marlin · Puerto Azul</div>
+          <div className="s">{topPricedListing?.fishSpecies?.commonName ?? '—'}</div>
         </div>
         <div className="stat">
           <div className="l">Urgent listings</div>
-          <div className="v">{LISTINGS.filter(l => l.urgent).length}</div>
+          <div className="v">{urgentCount}</div>
           <div className="s">Deadline within 48h</div>
         </div>
         <div className="stat">
           <div className="l">Nearest vendor</div>
-          <div className="v">4.2<span style={{fontSize: 14, color: 'var(--ink-4)'}}> km</span></div>
-          <div className="s">Taal Lake Fresh · Taal</div>
+          <div className="v">
+            {nearestKm
+              ? <>{nearestKm}<span style={{fontSize: 14, color: 'var(--ink-4)'}}> km</span></>
+              : '—'}
+          </div>
+          <div className="s">By distance</div>
         </div>
         <div className="stat">
           <div className="l">Avg tuna price</div>
-          <div className="v">₱398</div>
-          <div className="s">↑ ₱12 vs last week</div>
+          <div className="v">{avgTunaPrice !== null ? `₱${avgTunaPrice}` : '—'}</div>
+          <div className="s">From current listings</div>
         </div>
         <div className="stat">
-          <div className="l">Your match rate</div>
-          <div className="v">82<span style={{fontSize: 14, color: 'var(--ink-4)'}}>%</span></div>
-          <div className="s">12 matches / 14 alerts</div>
+          <div className="l">Total listings</div>
+          <div className="v">{listings.length}</div>
+          <div className="s">Open vendor demand</div>
         </div>
       </div>
 
       <div className="mkt-grid">
-        {/* Filters */}
         <div className="mkt-filter">
           <h4>Species</h4>
-          {SPECIES.map(s => (
-            <label key={s.id} className="mkt-check">
-              <span><input type="checkbox" defaultChecked={['s1','s3','s5'].includes(s.id)} />{s.name}</span>
-              <span className="count">{Math.floor(Math.random() * 6) + 1}</span>
+          {species.map(s => (
+            <label key={s.id} className="mkt-check" style={{cursor: 'pointer'}} onClick={() => setSpeciesFilter(speciesFilter === s.id ? null : s.id)}>
+              <span>
+                <input type="checkbox" readOnly checked={speciesFilter === s.id} />
+                {s.commonName}
+              </span>
+              <span className="count">{listings.filter(l => l.fishSpecies?.id === s.id).length}</span>
             </label>
           ))}
           <h4>Location</h4>
           {['Batangas', 'Quezon', 'Lucena', 'Anilao', 'Lipa'].map(l => (
             <label key={l} className="mkt-check">
               <span><input type="checkbox" />{l}</span>
-              <span className="count">{Math.floor(Math.random() * 4) + 1}</span>
             </label>
           ))}
           <h4>Price per kg</h4>
@@ -113,10 +121,9 @@ export default function MarketplacePage() {
           <label className="mkt-check"><span><input type="checkbox" />New this week</span></label>
         </div>
 
-        {/* Listings */}
         <div>
           <div className="row" style={{marginBottom: 10, gap: 6}}>
-            <span className="chip chip--ink">{LISTINGS.length} results</span>
+            <span className="chip chip--ink">{listings.length} results</span>
             <div className="spacer" />
             <span style={{fontSize: 12, color: 'var(--ink-4)'}}>Sort by</span>
             <button className={`btn btn--sm ${sort === 'priceDesc' ? '' : 'btn--ghost'}`} onClick={() => setSort('priceDesc')}>Highest price</button>
@@ -125,44 +132,52 @@ export default function MarketplacePage() {
           </div>
 
           <div className="mkt-listings">
-            {list.map(l => (
-              <div key={l.id} className="mkt-row">
-                <div className="mkt-row__icon"><I.Fish size={20} /></div>
-                <div>
-                  <div className="mkt-row__name">{l.species}</div>
-                  <div className="mkt-row__vendor">{l.vendor} · {l.listingCode}</div>
-                </div>
-                <div>
-                  <div className="row" style={{gap: 6}}>
-                    {l.urgent && <span className="chip chip--unsafe chip--dot">Urgent</span>}
-                    {l.new && <span className="chip chip--accent chip--dot">New</span>}
+            {list.map(l => {
+              const isUrgent = l.neededBy && (new Date(l.neededBy).getTime() - Date.now() < 48 * 3600 * 1000)
+              const isNew = l.postedAt && (Date.now() - new Date(l.postedAt).getTime() < 7 * 24 * 3600 * 1000)
+              const neededByDisplay = l.neededBy
+                ? new Date(l.neededBy).toLocaleDateString('en-PH', {month: '2-digit', day: '2-digit'})
+                : '—'
+              return (
+                <div key={l.id} className="mkt-row">
+                  <div className="mkt-row__icon"><I.Fish size={20} /></div>
+                  <div>
+                    <div className="mkt-row__name">{l.fishSpecies?.commonName ?? '—'}</div>
+                    <div className="mkt-row__vendor">{l.vendorName ?? '—'} · {`L-${l.id}`}</div>
                   </div>
-                  <div className="mkt-row__loc" style={{marginTop: 4}}>
-                    <I.MapPin size={11} style={{verticalAlign: -1, marginRight: 3}} />{l.location}
+                  <div>
+                    <div className="row" style={{gap: 6}}>
+                      {isUrgent && <span className="chip chip--unsafe chip--dot">Urgent</span>}
+                      {isNew && <span className="chip chip--accent chip--dot">New</span>}
+                    </div>
+                    <div className="mkt-row__loc" style={{marginTop: 4}}>
+                      <I.MapPin size={11} style={{verticalAlign: -1, marginRight: 3}} />
+                      {`${l.marketLocation?.name ?? '—'} · ${l.marketLocation?.municipality ?? ''}`}
+                    </div>
+                  </div>
+                  <div style={{textAlign: 'center'}}>
+                    <div className="mkt-row__price" style={{textAlign: 'center'}}>
+                      {l.quantityKg}<small>kg</small>
+                    </div>
+                    <div style={{fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em'}}>Wanted</div>
+                  </div>
+                  <div style={{textAlign: 'center'}}>
+                    <div style={{fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)'}}>
+                      by {neededByDisplay}
+                    </div>
+                    <div style={{fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2}}>Deadline</div>
+                  </div>
+                  <div style={{textAlign: 'right'}}>
+                    <div className="mkt-row__price">₱{l.offerPricePerKg}<small>/kg</small></div>
+                    <div style={{fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em'}}>Offered</div>
+                  </div>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: 4}}>
+                    <button className="btn btn--accent btn--sm" style={{justifyContent: 'center'}}>Make offer</button>
+                    <button className="btn btn--ghost btn--sm" style={{justifyContent: 'center'}}><I.Message size={11} /> Message</button>
                   </div>
                 </div>
-                <div style={{textAlign: 'center'}}>
-                  <div className="mkt-row__price" style={{textAlign: 'center'}}>
-                    {l.qty}<small>kg</small>
-                  </div>
-                  <div style={{fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em'}}>Wanted</div>
-                </div>
-                <div style={{textAlign: 'center'}}>
-                  <div style={{fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)'}}>
-                    by {l.neededBy.split('-').slice(1).join('/')}
-                  </div>
-                  <div style={{fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: 2}}>Deadline</div>
-                </div>
-                <div style={{textAlign: 'right'}}>
-                  <div className="mkt-row__price">₱{l.price}<small>/kg</small></div>
-                  <div style={{fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em'}}>Offered</div>
-                </div>
-                <div style={{display: 'flex', flexDirection: 'column', gap: 4}}>
-                  <button className="btn btn--accent btn--sm" style={{justifyContent: 'center'}}>Make offer</button>
-                  <button className="btn btn--ghost btn--sm" style={{justifyContent: 'center'}}><I.Message size={11} /> Message</button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
