@@ -59,7 +59,9 @@ export default function TripsPage() {
           <h1 className="page__title" style={{marginTop: 4}}>
             <em>My</em> Trips
           </h1>
-          <p className="page__sub">24 total logged · ₱214,600 lifetime revenue</p>
+          <p className="page__sub">
+            {(tripsQ.data ?? []).length} total logged
+          </p>
         </div>
         <div className="page__actions">
           <button className="btn"><I.Receipt size={14} /> Export log</button>
@@ -237,25 +239,6 @@ export default function TripsPage() {
                 </div>
               </div>
 
-              {/* Crew */}
-              <div className="card">
-                <div className="card__title">Crew aboard</div>
-                <div style={{marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8}}>
-                  {[
-                    { name: 'Ramiro Delgado', role: 'Captain · You', a: 'RD' },
-                    { name: 'Jomar Santos',   role: 'First mate',    a: 'JS' },
-                    { name: 'Elias Cruz',     role: 'Deckhand',      a: 'EC' },
-                  ].map(p => (
-                    <div key={p.name} className="row" style={{gap: 10}}>
-                      <div style={{width: 30, height: 30, borderRadius: 8, background: 'var(--paper-3)', color: 'var(--ink-2)', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 600}}>{p.a}</div>
-                      <div>
-                        <div style={{fontSize: 13, fontWeight: 500}}>{p.name}</div>
-                        <div style={{fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)'}}>{p.role}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         ) : (
@@ -322,10 +305,6 @@ export default function TripsPage() {
                 <div>
                   <div className="trip-card__name">{tp.targetArea ?? 'Unnamed trip'}</div>
                   <div className="trip-card__sub">{`T-${tp.id}`} · {tp.targetArea ?? '–'}</div>
-                </div>
-                <div className="trip-card__stat">
-                  <div className="v">–</div>
-                  <div className="l">Crew</div>
                 </div>
                 <span className="chip chip--accent chip--dot">PLANNED</span>
                 <button className="btn btn--sm">Edit</button>
