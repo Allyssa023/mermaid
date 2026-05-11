@@ -247,7 +247,8 @@ git commit -m "feat: add Skeleton and ApiError shared components"
 
 ```js
 // frontend/src/api/lookup.js
-import { apiGet } from '../api'
+// Use explicit .js extension to avoid ambiguity: src/api.js (utilities) vs src/api/ (directory)
+import { apiGet } from '../api.js'
 
 export const fetchSpecies        = () => apiGet('/species')
 export const fetchMarketLocations = () => apiGet('/market-locations')
@@ -437,7 +438,7 @@ git commit -m "feat(fisherman): wire Home.jsx to marine conditions + advisories 
 export const listCatchLogs    = (tripId)            => apiGet(`/trips/${tripId}/catch-logs`)
 export const createCatchLog   = (tripId, body)      => apiPost(`/trips/${tripId}/catch-logs`, null, body)
 export const updateCatchLog   = (tripId, logId, body) => apiPut(`/trips/${tripId}/catch-logs/${logId}`, null, body)
-export const deleteCatchLog   = (logId)             => apiDelete(`/trips/catch-logs/${logId}`)
+export const deleteCatchLog   = (tripId, logId)     => apiDelete(`/trips/${tripId}/catch-logs/${logId}`)
 export const settleCatchLog   = (tripId, logId, body) => apiPost(`/trips/${tripId}/catch-logs/${logId}/settle`, null, body)
 export const getTrip          = (id)               => apiGet(`/trips/${id}`)
 ```

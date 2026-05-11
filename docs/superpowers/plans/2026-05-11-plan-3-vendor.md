@@ -289,17 +289,55 @@ const checkoutMut = useMutation({
 
 - [ ] **Step 3: Wire ProcurementOrders.jsx**
 
+Vendor procurement orders are Type A catch-alert orders where the vendor is the buyer. Use `OrderCard` with `currentRole="VENDOR"` and `orderType="A"` so the correct action buttons appear (Initiate Handoff, Record Payment).
+
 ```jsx
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { listProcurementOrdersAsVendor } from './api/procurement'
+import {
+  initiateHandoff, confirmHandoff,
+  recordPayment, cancelOrder, raiseDispute,
+} from './api/orders'
+import OrderCard from '../components/OrderCard'
+import { OrderCardSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 ```
 
 ```jsx
+const qc = useQueryClient()
 const ordersQ = useQuery({ queryKey: ['vendor', 'procurementOrders'], queryFn: listProcurementOrdersAsVendor })
-if (ordersQ.isLoading) return <div className="page"><TableRowSkeleton rows={4} /></div>
+
+const invalidate = () => qc.invalidateQueries({ queryKey: ['vendor', 'procurementOrders'] })
+
+const mutations = {
+  initiateHandoff: (id, body) => initiateHandoff(id, body).then(invalidate),
+  confirmHandoff:  (id)       => confirmHandoff(id).then(invalidate),
+  recordPayment:   (id, body) => recordPayment(id, body).then(invalidate),
+  cancelOrder:     (id, r)    => cancelOrder(id, r).then(invalidate),
+  raiseDispute:    (id, body) => raiseDispute(id, body).then(invalidate),
+}
+
+if (ordersQ.isLoading) return <div className="page"><OrderCardSkeleton /><OrderCardSkeleton /></div>
 if (ordersQ.error) return <div className="page"><ApiError error={ordersQ.error} onRetry={ordersQ.refetch} /></div>
 const orders = ordersQ.data ?? []
 ```
+
+Render each order with the shared `OrderCard`:
+
+```jsx
+{orders.length === 0 && <p className="empty-state">No procurement orders yet.</p>}
+{orders.map(order => (
+  <OrderCard
+    key={order.id}
+    order={order}
+    currentRole="VENDOR"
+    orderType="A"
+    mutations={mutations}
+  />
+))}
+```
+
+Note: `vendor/api/orders.js` must export `initiateHandoff`, `confirmHandoff`, `recordPayment`, `cancelOrder`, `raiseDispute` — these are the same paths as `fisherman/api/orders.js`. If `vendor/api/orders.js` doesn't have them yet, add them (same function bodies).
 
 - [ ] **Step 4: Commit**
 

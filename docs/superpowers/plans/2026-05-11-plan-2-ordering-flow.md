@@ -175,7 +175,7 @@ export default function OrderTimeline({ events = [], orderType = 'A', currentSta
       {steps.map((label, i) => {
         const done    = !isCancelled && i < currentStep
         const active  = !isCancelled && i === currentStep
-        const event   = events.find(e => STATUS_TO_STEP_A[e.status] === i || STATUS_TO_STEP_B[e.status] === i)
+        const event   = events.find(e => stepMap[e.status] === i)
         return (
           <div key={label} className={`timeline-step ${done ? 'done' : ''} ${active ? 'active' : ''}`}>
             <div className="timeline-step__dot">{done ? '✓' : i + 1}</div>
@@ -635,7 +635,6 @@ npx vitest run src/components/__tests__/OrderCard.test.jsx
 ```jsx
 // frontend/src/components/OrderCard.jsx
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import OrderTimeline from './OrderTimeline'
 import ConfirmOrderModal   from './modals/ConfirmOrderModal'
 import InitiateHandoffModal from './modals/InitiateHandoffModal'
@@ -645,39 +644,67 @@ import ConfirmPaymentModal  from './modals/ConfirmPaymentModal'
 import CancelOrderModal     from './modals/CancelOrderModal'
 import DisputeModal         from './modals/DisputeModal'
 
-// Determine which primary action the current user can take
-function getPrimaryAction(order, role) {
+// Determine which primary action the current user can take.
+// orderType 'A' = catch-alert (fisherman↔vendor), 'B' = storefront (vendor↔buyer)
+function getPrimaryAction(order, role, orderType) {
   const { status, handoff, payment } = order
+  if (orderType === 'B') {
+    if (role === 'VENDOR') {
+      if (status === 'NEW')       return 'ACCEPT'
+      if (status === 'PREPARING') return 'MARK_READY'
+      if (status === 'READY')     return 'COMPLETE'
+      if (status === 'COMPLETED') return 'PAYOUT'
+    }
+    if (role === 'BUYER') {
+      if (status === 'READY')     return 'CONFIRM_RECEIPT'
+      if (status === 'COMPLETED') return 'LEAVE_REVIEW'
+    }
+    return null
+  }
+  // Type A
   if (role === 'FISHERMAN') {
-    if (status === 'PENDING')                                               return 'CONFIRM_ORDER'
-    if (status === 'CONFIRMED' && handoff?.status === 'PENDING')            return 'CONFIRM_HANDOFF'
-    if (status === 'CONFIRMED' && payment?.status === 'PENDING')            return 'CONFIRM_PAYMENT'
-    if (status === 'COMPLETED')                                             return 'VIEW_EARNINGS'
+    if (status === 'PENDING')                                                  return 'CONFIRM_ORDER'
+    if (status === 'CONFIRMED' && handoff?.status === 'PENDING')               return 'CONFIRM_HANDOFF'
+    if (status === 'CONFIRMED' && payment?.status === 'PENDING')               return 'CONFIRM_PAYMENT'
+    if (status === 'COMPLETED')                                                return 'VIEW_EARNINGS'
   }
   if (role === 'VENDOR') {
-    if (status === 'CONFIRMED' && !handoff)                                 return 'INITIATE_HANDOFF'
+    if (status === 'CONFIRMED' && !handoff)                                    return 'INITIATE_HANDOFF'
     if (status === 'CONFIRMED' && handoff?.status === 'CONFIRMED' && !payment) return 'RECORD_PAYMENT'
-    if (status === 'COMPLETED')                                             return 'PAYOUT'
+    if (status === 'COMPLETED')                                                return 'PAYOUT'
   }
   return null
 }
 
-function WhosTurnBanner({ order, role }) {
-  const action = getPrimaryAction(order, role)
+function WhosTurnBanner({ order, role, orderType }) {
+  const action = getPrimaryAction(order, role, orderType)
   if (action) return <div className="whos-turn whos-turn--yours">Your turn</div>
   if (order.status === 'PENDING' && role !== 'FISHERMAN') return <div className="whos-turn">Waiting for fisherman to confirm</div>
   if (order.status === 'CONFIRMED' && role !== 'VENDOR')  return <div className="whos-turn">Waiting for vendor</div>
   return null
 }
 
-export default function OrderCard({ order, currentRole, onAction, mutations = {} }) {
-  const [modal, setModal] = useState(null)
-  const [expanded, setExpanded] = useState(false)
-  const action = getPrimaryAction(order, currentRole)
+// mutations is an object of plain async functions; OrderCard tracks its own submitting state
+// so modal spinners work without requiring useMutation objects from the caller.
+export default function OrderCard({ order, currentRole, orderType = 'A', onAction, mutations = {} }) {
+  const [modal, setModal]         = useState(null)
+  const [expanded, setExpanded]   = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const action = getPrimaryAction(order, currentRole, orderType)
+
+  async function runMutation(fn) {
+    setSubmitting(true)
+    try { await fn() }
+    finally { setSubmitting(false); setModal(null) }
+  }
 
   const statusChip = (
     <span className={`chip chip--${order.status.toLowerCase()}`}>{order.status}</span>
   )
+
+  const canCancel = orderType === 'A'
+    ? (order.status === 'PENDING' || order.status === 'CONFIRMED')
+    : (order.status === 'NEW' || order.status === 'PREPARING')
 
   return (
     <div className="card order-card">
@@ -689,44 +716,51 @@ export default function OrderCard({ order, currentRole, onAction, mutations = {}
 
       {/* Summary */}
       <div className="order-card__summary">
-        <span>{order.species?.commonName}</span>
-        <span>{order.orderedQtyKg} kg · ₱{order.agreedPricePerKg}/kg</span>
+        <span>{order.species?.commonName ?? order.listing?.title}</span>
+        {orderType === 'A' && <span>{order.orderedQtyKg} kg · ₱{order.agreedPricePerKg}/kg</span>}
       </div>
 
       {/* Timeline (expanded) */}
       {expanded && (
         <OrderTimeline
           events={order.timeline ?? []}
-          orderType="A"
+          orderType={orderType}
           currentStatus={order.status}
         />
       )}
 
       {/* Whose turn banner + action button */}
-      <WhosTurnBanner order={order} role={currentRole} />
+      <WhosTurnBanner order={order} role={currentRole} orderType={orderType} />
 
       <div className="order-card__actions">
+        {/* Type A actions */}
         {action === 'CONFIRM_ORDER'    && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_ORDER')}>Confirm Order</button>}
         {action === 'CONFIRM_HANDOFF'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_HANDOFF')}>Confirm Handoff</button>}
         {action === 'CONFIRM_PAYMENT'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_PAYMENT')}>Confirm Payment</button>}
         {action === 'INITIATE_HANDOFF' && <button className="btn btn--primary btn--sm" onClick={() => setModal('INITIATE_HANDOFF')}>Initiate Handoff</button>}
         {action === 'RECORD_PAYMENT'   && <button className="btn btn--primary btn--sm" onClick={() => setModal('RECORD_PAYMENT')}>Record Payment</button>}
         {action === 'VIEW_EARNINGS'    && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('EARNINGS')}>View in Earnings</button>}
+        {/* Type B actions */}
+        {action === 'ACCEPT'           && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.accept?.(order.id))}>Accept Order</button>}
+        {action === 'MARK_READY'       && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.markReady?.(order.id))}>Mark Ready</button>}
+        {action === 'COMPLETE'         && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.complete?.(order.id))}>Complete Order</button>}
+        {action === 'CONFIRM_RECEIPT'  && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.confirmReceipt?.(order.id))}>Confirm Receipt</button>}
+        {action === 'LEAVE_REVIEW'     && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('REVIEW', order)}>Leave a Review</button>}
+        {/* Shared */}
         {action === 'PAYOUT'           && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('PAYOUT', order)}>Initiate Payout</button>}
-
-        {(order.status === 'PENDING' || order.status === 'CONFIRMED') && (
+        {canCancel && (
           <button className="btn btn--ghost btn--sm btn--danger" onClick={() => setModal('CANCEL')}>Cancel</button>
         )}
       </div>
 
-      {/* Modals */}
-      {modal === 'CONFIRM_ORDER'    && <ConfirmOrderModal order={order} onClose={() => setModal(null)} onConfirm={() => { mutations.confirmOrder?.(order.id); setModal(null) }} onDecline={() => { mutations.cancelOrder?.(order.id, 'Declined by seller'); setModal(null) }} />}
-      {modal === 'INITIATE_HANDOFF' && <InitiateHandoffModal order={order} onClose={() => setModal(null)} onSubmit={(body) => { mutations.initiateHandoff?.(order.id, body); setModal(null) }} />}
-      {modal === 'CONFIRM_HANDOFF'  && <ConfirmHandoffModal order={order} handoff={order.handoff} onClose={() => setModal(null)} onConfirm={() => { mutations.confirmHandoff?.(order.id); setModal(null) }} onDispute={() => setModal('DISPUTE')} />}
-      {modal === 'RECORD_PAYMENT'   && <RecordPaymentModal order={order} handoff={order.handoff} onClose={() => setModal(null)} onSubmit={(body) => { mutations.recordPayment?.(order.id, body); setModal(null) }} />}
-      {modal === 'CONFIRM_PAYMENT'  && <ConfirmPaymentModal order={order} payment={order.payment} onClose={() => setModal(null)} onConfirm={() => { mutations.confirmPayment?.(order.id); setModal(null) }} />}
-      {modal === 'CANCEL'           && <CancelOrderModal order={order} onClose={() => setModal(null)} onConfirm={(reason) => { mutations.cancelOrder?.(order.id, reason); setModal(null) }} />}
-      {modal === 'DISPUTE'          && <DisputeModal order={order} onClose={() => setModal(null)} onSubmit={(body) => { mutations.raiseDispute?.(order.id, body); setModal(null) }} />}
+      {/* Modals (Type A only — Type B uses inline action buttons above) */}
+      {modal === 'CONFIRM_ORDER'    && <ConfirmOrderModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmOrder?.(order.id))} onDecline={() => runMutation(() => mutations.cancelOrder?.(order.id, 'Declined by seller'))} />}
+      {modal === 'INITIATE_HANDOFF' && <InitiateHandoffModal order={order} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.initiateHandoff?.(order.id, body))} />}
+      {modal === 'CONFIRM_HANDOFF'  && <ConfirmHandoffModal order={order} handoff={order.handoff} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmHandoff?.(order.id))} onDispute={() => setModal('DISPUTE')} />}
+      {modal === 'RECORD_PAYMENT'   && <RecordPaymentModal order={order} handoff={order.handoff} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.recordPayment?.(order.id, body))} />}
+      {modal === 'CONFIRM_PAYMENT'  && <ConfirmPaymentModal order={order} payment={order.payment} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmPayment?.(order.id))} />}
+      {modal === 'CANCEL'           && <CancelOrderModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={(reason) => runMutation(() => mutations.cancelOrder?.(order.id, reason))} />}
+      {modal === 'DISPUTE'          && <DisputeModal order={order} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.raiseDispute?.(order.id, body))} />}
     </div>
   )
 }

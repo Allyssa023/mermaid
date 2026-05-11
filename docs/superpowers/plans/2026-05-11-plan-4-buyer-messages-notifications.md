@@ -67,15 +67,18 @@ If any are missing, check `BuyerOrderController` to see which service it injects
 Open `backend/src/main/resources/openapi/api.yaml`. In the `components/schemas` section, add:
 
 ```yaml
+    BuyerHomeOrderStats:
+      type: object
+      properties:
+        pending:   { type: integer }
+        confirmed: { type: integer }
+        recent:    { type: integer }
+
     BuyerHomeResponse:
       type: object
       properties:
         orderStats:
-          type: object
-          properties:
-            pending:   { type: integer }
-            confirmed: { type: integer }
-            recent:    { type: integer }
+          $ref: '#/components/schemas/BuyerHomeOrderStats'
         freshListings:
           type: array
           items:
@@ -87,6 +90,8 @@ Open `backend/src/main/resources/openapi/api.yaml`. In the `components/schemas` 
         unreadNotifications:
           type: integer
 ```
+
+`BuyerHomeOrderStats` must be a **top-level named schema** (not inline). The openapi-generator creates flat POJOs — inner classes don't exist in the generated output. Always use `$ref` to a named schema for nested objects.
 
 Add the endpoint under the buyer paths section:
 
@@ -116,22 +121,22 @@ Expected: `BuyerHomeResponse` model and `BuyerApi` interface updated.
 
 - [ ] **Step 4: Implement BuyerHomeController**
 
+Per CLAUDE.md: controllers must implement the generated interface — never write method signatures by hand. After `generate-sources`, there will be a `BuyerApi` interface (or similar, check under `com.mermaid.app.api`) with a `getBuyerHome` method. Implement that interface.
+
 ```java
 package com.mermaid.app.controller;
 
+import com.mermaid.app.api.BuyerApi;
+import com.mermaid.app.model.BuyerHomeOrderStats;
 import com.mermaid.app.model.BuyerHomeResponse;
 import com.mermaid.app.service.BuyerOrderService;
 import com.mermaid.app.service.NotificationService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/buyer/home")
-public class BuyerHomeController {
+public class BuyerHomeController implements BuyerApi {
 
     private final BuyerOrderService buyerOrderService;
     private final NotificationService notificationService;
@@ -142,7 +147,7 @@ public class BuyerHomeController {
         this.notificationService = notificationService;
     }
 
-    @GetMapping
+    @Override
     public ResponseEntity<BuyerHomeResponse> getBuyerHome() {
         Long buyerId = getCurrentUserId();
 
@@ -157,7 +162,8 @@ public class BuyerHomeController {
         // Unread notification count
         int unread = notificationService.getUnreadCount(buyerId);
 
-        BuyerHomeResponse.OrderStats stats = new BuyerHomeResponse.OrderStats();
+        // BuyerHomeOrderStats is a flat POJO generated from the named schema in api.yaml
+        BuyerHomeOrderStats stats = new BuyerHomeOrderStats();
         stats.setPending(pending);
         stats.setConfirmed(confirmed);
         stats.setRecent(recent);
@@ -171,13 +177,14 @@ public class BuyerHomeController {
     }
 
     private Long getCurrentUserId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return Long.parseLong(auth.getName());
+        return Long.parseLong(SecurityContextHolder.getContext().getAuthentication().getName());
     }
 }
 ```
 
-Note: If `BuyerOrderService` doesn't have `countByStatus` or `countRecent` methods, add them — they are simple `repository.countByBuyerIdAndStatus(...)` calls.
+Note: The interface name may be `BuyerApi` or split per tag — check `backend/target/generated-sources/openapi/src/main/java/com/mermaid/app/api/` after running `generate-sources`. Use whatever interface has the `getBuyerHome` method signature.
+
+If `BuyerOrderService` doesn't have `countByStatus` or `countRecent` methods, add them — they are simple `repository.countByBuyerIdAndStatus(...)` calls.
 
 - [ ] **Step 5: Build and verify**
 
@@ -540,9 +547,14 @@ export const getConversation  = (userId) => apiGet(`/messages/${userId}`)
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Client } from '@stomp/stompjs'
 
-export function useWebSocket({ recipientId, onMessage }) {
-  const clientRef   = useRef(null)
+export function useWebSocket({ onMessage }) {
+  const clientRef      = useRef(null)
+  const onMessageRef   = useRef(onMessage)
   const [connected, setConnected] = useState(false)
+
+  // Keep the ref current on every render so the STOMP subscription closure
+  // always calls the latest onMessage without needing to reconnect.
+  useEffect(() => { onMessageRef.current = onMessage })
 
   useEffect(() => {
     const client = new Client({
@@ -554,7 +566,7 @@ export function useWebSocket({ recipientId, onMessage }) {
         // Subscribe to own queue — backend sends to /user/{userId}/queue/messages
         client.subscribe('/user/queue/messages', (frame) => {
           const msg = JSON.parse(frame.body)
-          onMessage?.(msg)
+          onMessageRef.current?.(msg)
         })
       },
       onDisconnect: () => setConnected(false),
@@ -564,7 +576,7 @@ export function useWebSocket({ recipientId, onMessage }) {
     clientRef.current = client
 
     return () => { client.deactivate() }
-  }, []) // connect once on mount
+  }, []) // connect once on mount — onMessage changes are handled via ref above
 
   const sendMessage = useCallback((toUserId, content) => {
     if (!clientRef.current?.connected) return
