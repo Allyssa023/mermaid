@@ -62,8 +62,12 @@ export default function MarketplacePage() {
       <div className="orders-strip">
         <div className="stat">
           <div className="l">Best price today</div>
-          <div className="v">₱{topPrice}<span style={{fontSize: 14, color: 'var(--ink-4)'}}> /kg</span></div>
-          <div className="s">{topPricedListing?.fishSpecies?.commonName ?? '—'}</div>
+          <div className="v">
+            {topPrice > 0
+              ? <>₱{topPrice}<span style={{fontSize: 14, color: 'var(--ink-4)'}}> /kg</span></>
+              : '—'}
+          </div>
+          <div className="s">{topPrice > 0 ? (topPricedListing?.fishSpecies?.commonName ?? '—') : '—'}</div>
         </div>
         <div className="stat">
           <div className="l">Urgent listings</div>
