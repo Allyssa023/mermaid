@@ -1,31 +1,34 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ── Inline mock data ─────────────────────────────────────────────────────────
-
-const FISHERMAN_EARNINGS = {
-  range: 'Last 30 days',
-  totalGross: 184320,
-  cashCollected: 142500,
-  outstandingUtang: 41820,
-  ordersCount: 28,
-  ledger: [
-    { id: 9008, date: 'Apr 23', code: 'VO-9008', species: 'Grouper',          qty: 4,  gross: 2160,  payment: 'UTANG' },
-    { id: 9001, date: 'Apr 22', code: 'VO-9001', species: 'Skipjack',         qty: 32, gross: 5440,  payment: 'CASH' },
-    { id: 8987, date: 'Apr 20', code: 'VO-8987', species: 'Spanish Mackerel', qty: 14, gross: 4480,  payment: 'CASH' },
-    { id: 8980, date: 'Apr 19', code: 'VO-8980', species: 'Yellowfin Tuna',   qty: 21, gross: 7980,  payment: 'CASH' },
-    { id: 8975, date: 'Apr 19', code: 'VO-8975', species: 'Squid',            qty: 22, gross: 4620,  payment: 'UTANG' },
-    { id: 8961, date: 'Apr 17', code: 'VO-8961', species: 'Skipjack',         qty: 40, gross: 6800,  payment: 'CASH' },
-    { id: 8954, date: 'Apr 16', code: 'VO-8954', species: 'Mahi-mahi',        qty: 8,  gross: 2080,  payment: 'UTANG' },
-  ],
-}
-
-// ── Component ─────────────────────────────────────────────────────────────────
+import { getEarningsSummary, getEarningsLedger } from './api/earnings'
+import { StatTileSkeleton, TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 export default function EarningsPage() {
-  const e = FISHERMAN_EARNINGS
   const [range, setRange] = useState('30')
   const ranges = [{ id: '7', label: '7d' }, { id: '30', label: '30d' }, { id: '90', label: '90d' }, { id: '365', label: '1y' }]
+
+  const now  = new Date()
+  const to   = now.toISOString().split('T')[0]
+  const from = new Date(now - Number(range) * 86_400_000).toISOString().split('T')[0]
+
+  const summaryQ = useQuery({
+    queryKey: ['earnings', 'summary', range],
+    queryFn: () => getEarningsSummary(from, to),
+  })
+  const ledgerQ = useQuery({
+    queryKey: ['earnings', 'ledger', range],
+    queryFn: () => getEarningsLedger(from, to),
+  })
+
+  if (summaryQ.isLoading) return <div className="page"><StatTileSkeleton /><TableRowSkeleton /></div>
+  if (summaryQ.error) return <div className="page"><ApiError error={summaryQ.error} onRetry={summaryQ.refetch} /></div>
+
+  const e      = summaryQ.data ?? {}
+  const ledger = ledgerQ.data ?? []
+
+  const rangeLabel = range === '7' ? 'Last 7 days' : range === '30' ? 'Last 30 days' : range === '90' ? 'Last 90 days' : 'Last year'
 
   return (
     <div className="page">
@@ -43,10 +46,10 @@ export default function EarningsPage() {
       </div>
 
       <div className="grid grid--kpi" style={{marginTop: 18}}>
-        <div className="kpi"><div className="kpi__label">Total gross</div><div className="kpi__value">₱{(e.totalGross/1000).toFixed(1)}k</div><div className="kpi__foot">{e.range}</div></div>
-        <div className="kpi"><div className="kpi__label">Cash collected</div><div className="kpi__value" style={{color: 'var(--safe)'}}>₱{(e.cashCollected/1000).toFixed(1)}k</div><div className="kpi__foot">{Math.round(e.cashCollected/e.totalGross*100)}% of gross</div></div>
-        <div className="kpi"><div className="kpi__label">Outstanding utang</div><div className="kpi__value" style={{color: 'var(--caution)'}}>₱{(e.outstandingUtang/1000).toFixed(1)}k</div><div className="kpi__foot">across 6 vendors</div></div>
-        <div className="kpi"><div className="kpi__label">Orders</div><div className="kpi__value">{e.ordersCount}</div><div className="kpi__foot">{Math.round(e.totalGross/e.ordersCount).toLocaleString()} avg</div></div>
+        <div className="kpi"><div className="kpi__label">Total gross</div><div className="kpi__value">₱{(e.totalGross ?? 0).toLocaleString()}</div><div className="kpi__foot">{rangeLabel}</div></div>
+        <div className="kpi"><div className="kpi__label">Cash collected</div><div className="kpi__value" style={{color: 'var(--safe)'}}>₱{(e.cashCollected ?? 0).toLocaleString()}</div><div className="kpi__foot">{e.totalGross ? Math.round(e.cashCollected / e.totalGross * 100) : 0}% of gross</div></div>
+        <div className="kpi"><div className="kpi__label">Outstanding utang</div><div className="kpi__value" style={{color: 'var(--caution)'}}>₱{(e.creditOutstanding ?? 0).toLocaleString()}</div><div className="kpi__foot">outstanding</div></div>
+        <div className="kpi"><div className="kpi__label">Orders</div><div className="kpi__value">{e.orderCount ?? 0}</div><div className="kpi__foot">{e.orderCount ? Math.round(e.totalGross / e.orderCount).toLocaleString() : 0} avg</div></div>
       </div>
 
       <div className="card" style={{marginTop: 18}}>
@@ -58,16 +61,16 @@ export default function EarningsPage() {
           </div>
         </div>
         <table className="tbl">
-          <thead><tr><th>Code</th><th>Date</th><th>Species</th><th>Qty</th><th>Gross</th><th>Payment</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Vendor</th><th>Species</th><th>Qty</th><th>Gross</th><th>Payment</th><th></th></tr></thead>
           <tbody>
-            {e.ledger.map(r => (
-              <tr key={r.id}>
-                <td><span className="kbd">{r.code}</span></td>
-                <td className="muted-data">{r.date}</td>
-                <td>{r.species}</td>
-                <td>{r.qty} kg</td>
-                <td><span className="data" style={{fontFamily: 'var(--font-mono)'}}>₱{r.gross.toLocaleString()}</span></td>
-                <td><span className={`chip ${r.payment === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{r.payment}</span></td>
+            {ledger.map(r => (
+              <tr key={r.orderId}>
+                <td className="muted-data">{r.date ? String(r.date).split('T')[0] : '—'}</td>
+                <td>{r.vendorName}</td>
+                <td>{r.speciesName}</td>
+                <td>{r.qtyKg} kg</td>
+                <td><span className="data" style={{fontFamily: 'var(--font-mono)'}}>₱{(r.gross ?? 0).toLocaleString()}</span></td>
+                <td><span className={`chip ${r.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{r.paymentMethod}</span></td>
                 <td style={{textAlign: 'right'}}><button className="btn btn--ghost btn--sm">Details</button></td>
               </tr>
             ))}
