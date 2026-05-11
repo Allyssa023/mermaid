@@ -1,47 +1,19 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
+import { useAuth } from '../context/AuthContext'
+import { fetchAllConditions, fetchAdvisories } from './api/marine'
+import { listProcurementOrders } from './api/procurement'
+import { CardSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
-// ── Inline mock data ─────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const USER = {
-  id: 101,
-  fullName: 'Ramiro Delgado',
-  first: 'Ramiro',
-  email: 'ramiro@mermaid.ph',
-  role: 'FISHERMAN',
-  vessel: 'MV Sirena II',
-  license: 'PH-FL-2421',
-  port: 'Bauan · Batangas',
+function degToCompass(deg) {
+  if (deg == null) return '—'
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW']
+  return dirs[Math.round(deg / 22.5) % 16]
 }
-
-const SEA_STATUS = {
-  overall: 'manageable',
-  riskLabel: 'Manageable',
-  riskMsg: 'Conditions are workable inshore. Watch wind in the afternoon.',
-  asOf: '06:32 · Apr 23',
-  source: 'PAGASA · OpenWeather',
-  zones: [
-    { id: 'verde',   name: 'Verde Passage',   label: 'Home grounds · 8 km',  wave: 0.9, wind: 18, temp: 28, dir: 'NE',  gust: 26, rain: 0,  swell: 1.2, swellPeriod: 7, cloud: 35, risk: 'safe',   advisory: '' },
-    { id: 'tayabas', name: 'Tayabas Bay',     label: '22 km · SE',           wave: 1.4, wind: 22, temp: 29, dir: 'E',   gust: 31, rain: 0,  swell: 1.6, swellPeriod: 6, cloud: 55, risk: 'caution', advisory: 'Squall line possible 14:00–17:00' },
-    { id: 'anilao',  name: 'Anilao Landing',  label: '36 km · W',            wave: 0.7, wind: 14, temp: 28, dir: 'N',   gust: 19, rain: 0,  swell: 0.9, swellPeriod: 8, cloud: 20, risk: 'safe',   advisory: '' },
-    { id: 'lucena',  name: 'Lucena Port',     label: '14 km · E',            wave: 2.1, wind: 31, temp: 27, dir: 'ENE', gust: 44, rain: 3,  swell: 2.4, swellPeriod: 5, cloud: 75, risk: 'unsafe', advisory: 'TCWS#1 lifted — residual swell' },
-  ],
-  kpis: {
-    safeZones: 2,
-    cautionZones: 1,
-    avgWave: 1.3,
-    maxWind: 44,
-  },
-}
-
-const FISHERMAN_PROCUREMENT_ORDERS = [
-  { id: 9012, code: 'VO-9012', vendor: 'Marina Seafoods',    species: 'Yellowfin Tuna',        qtyKg: 18, pricePerKg: 380, total: 6840,  payment: 'CASH',  preorder: false, status: 'PENDING',   placedAt: 'Apr 23, 08:12', readyBy: 'Apr 23, 16:00', note: 'Export-grade, ice at sea.' },
-  { id: 9008, code: 'VO-9008', vendor: 'Bay City Market',    species: 'Grouper (Lapu-lapu)',   qtyKg: 4,  pricePerKg: 540, total: 2160,  payment: 'UTANG', preorder: false, status: 'ACCEPTED',  placedAt: 'Apr 23, 06:40', readyBy: 'Apr 24, 09:00', note: 'Live, 1.5kg+' },
-  { id: 9001, code: 'VO-9001', vendor: 'Marina Seafoods',    species: 'Skipjack',              qtyKg: 32, pricePerKg: 170, total: 5440,  payment: 'CASH',  preorder: true,  status: 'READY',     placedAt: 'Apr 22, 14:30', readyBy: 'Apr 24, 10:00', note: '' },
-  { id: 8987, code: 'VO-8987', vendor: 'J. Aquino & Sons',   species: 'Spanish Mackerel',     qtyKg: 14, pricePerKg: 320, total: 4480,  payment: 'CASH',  preorder: false, status: 'COMPLETED', placedAt: 'Apr 20, 11:00', readyBy: 'Apr 21, 09:00', note: '' },
-  { id: 8975, code: 'VO-8975', vendor: 'Del Mar Cold Chain', species: 'Squid',                qtyKg: 22, pricePerKg: 210, total: 4620,  payment: 'UTANG', preorder: false, status: 'DISPUTED',  placedAt: 'Apr 19, 07:15', readyBy: 'Apr 19, 16:00', note: 'Buyer claims short-weight; 1.4kg gap reported.' },
-  { id: 8950, code: 'VO-8950', vendor: 'Marina Seafoods',    species: 'Mahi-mahi',            qtyKg: 12, pricePerKg: 250, total: 3000,  payment: 'CASH',  preorder: false, status: 'CANCELLED', placedAt: 'Apr 18, 17:20', readyBy: 'Apr 19, 10:00', note: 'Vendor cancelled — supply found elsewhere.' },
-]
 
 // ── Risk dot ─────────────────────────────────────────────────────────────────
 
@@ -52,33 +24,85 @@ function RiskDot({ risk }) {
 // ── Home page ─────────────────────────────────────────────────────────────────
 
 export default function FishermanHomePage({ setPage }) {
-  const s = SEA_STATUS
-  const overallTone = s.overall === 'favorable' ? 'safe' : s.overall === 'dangerous' ? 'unsafe' : 'caution'
+  const { user } = useAuth()
   const [zoneIdx, setZoneIdx] = useState(0)
-  const zone = s.zones[zoneIdx]
 
+  const condQ = useQuery({ queryKey: ['marine', 'conditions'], queryFn: fetchAllConditions })
+  const advQ  = useQuery({ queryKey: ['advisories', 'active'], queryFn: () => fetchAdvisories(true) })
+  const procQ = useQuery({ queryKey: ['fisherman', 'procurement', 'active'], queryFn: () => listProcurementOrders() })
+
+  if (condQ.isLoading) return <div className="page"><CardSkeleton /><CardSkeleton /></div>
+  if (condQ.error)     return <div className="page"><ApiError error={condQ.error} onRetry={condQ.refetch} /></div>
+
+  const zones = condQ.data?.zones ?? []
+  const zone  = zones[zoneIdx] ?? {}
+
+  // Map API zone fields to what the JSX expects
+  const zoneName    = zone.zoneName ?? ''
+  const zoneRegion  = zone.region ?? ''
+  const waveH       = zone.marine?.waveHeightM ?? 0
+  const swellH      = zone.marine?.swellHeightM ?? null
+  const swellPeriod = zone.marine?.swellPeriodS ?? null
+  const windSpeed   = zone.weather?.windSpeedKmh ?? 0
+  const windDir     = degToCompass(zone.weather?.windDirectionDeg)
+  const windGust    = zone.weather?.windGustsKmh ?? 0
+  const rain        = zone.weather?.precipitationMm ?? 0
+  const temp        = zone.weather?.temperatureC ?? 0
+  const cloud       = zone.weather?.cloudCoverPct ?? 0
+  const riskLevel   = (zone.risk?.level ?? 'SAFE').toLowerCase()  // 'safe'|'caution'|'unsafe'
+  const zoneAdvisory = zone.risk?.advisory ?? ''
+
+  // Derive KPIs from all zones
+  const safeZones    = zones.filter(z => z.risk?.level === 'SAFE').length
+  const cautionZones = zones.filter(z => z.risk?.level === 'CAUTION').length
+  const avgWave      = zones.length ? +(zones.reduce((s, z) => s + (z.marine?.waveHeightM ?? 0), 0) / zones.length).toFixed(1) : 0
+  const maxWind      = zones.length ? Math.max(...zones.map(z => z.weather?.windGustsKmh ?? 0)) : 0
+
+  // Overall risk tone from worst zone
+  const overallTone  = zones.some(z => z.risk?.level === 'UNSAFE') ? 'unsafe'
+                     : zones.some(z => z.risk?.level === 'CAUTION') ? 'caution'
+                     : 'safe'
+  const riskLabels   = { safe: 'Favorable', caution: 'Manageable', unsafe: 'Dangerous' }
+  const riskLabel    = riskLabels[overallTone] ?? 'Unknown'
+  const riskMsg      = overallTone === 'safe'    ? 'Conditions are favorable. Safe to fish.'
+                     : overallTone === 'caution' ? 'Conditions are workable. Exercise caution.'
+                     : 'Dangerous conditions. Avoid fishing.'
+  const asOf         = condQ.data?.generatedAt
+                       ? new Date(condQ.data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                       : '—'
+
+  // Advisories from API — severity → CSS level mapping
+  const apiAdvisories = advQ.data ?? []
+  const advisories    = apiAdvisories.map(a => ({
+    id: a.id,
+    level: a.severity === 'CRITICAL' ? 'unsafe' : a.severity === 'HIGH' ? 'caution' : 'safe',
+    text: a.message,
+  }))
+
+  // Pending procurement orders
+  const pendingOrders = (procQ.data ?? []).filter(o => o.status === 'PENDING' || o.status === 'ACCEPTED').slice(0, 3)
+
+  // Active trip stays as mock for now (wired in Trips task)
   const activeTrip = {
-    code: 'TR-2218', vessel: 'MV Sirena II', departedAt: '04:12', expectedReturn: '~13:00',
+    code: 'TR-2218', vessel: user?.vesselName ?? 'My Vessel', departedAt: '04:12', expectedReturn: '~13:00',
     landingSite: 'Verde Passage', catchSoFar: '38 kg', alerts: 1,
   }
-  const advisories = [
-    { id: 1, level: 'caution', text: 'Tayabas Bay: squall line 14:00–17:00. Plan return by 13:30.' },
-    { id: 2, level: 'safe',    text: 'Verde Passage: tide turning at 11:40. Optimal for tuna.' },
-  ]
-  const pendingOrders = FISHERMAN_PROCUREMENT_ORDERS.filter(o => o.status === 'PENDING' || o.status === 'ACCEPTED').slice(0, 3)
+
+  const firstName  = user?.fullName?.split(' ')[0] ?? 'Fisherman'
+  const vesselName = user?.vesselName ?? ''
 
   return (
     <div className="page">
       <div className="page__head">
         <div>
-          <div className="eyebrow">Sea status · {s.asOf}</div>
+          <div className="eyebrow">Sea status · {asOf}</div>
           <h1 className="page__title" style={{marginTop: 4}}>
-            Good morning, <em>{USER.first}</em>
+            Good morning, <em>{firstName}</em>
           </h1>
-          <p className="page__sub">{USER.vessel} · {s.source}</p>
+          <p className="page__sub">{vesselName} · Open-Meteo via Marine Service</p>
         </div>
         <div className="page__actions">
-          <button className="btn"><I.Refresh size={13} /> Refresh</button>
+          <button className="btn" onClick={() => condQ.refetch()}><I.Refresh size={13} /> Refresh</button>
           <button className="btn btn--primary" onClick={() => setPage('planner')}><I.Anchor size={13} /> Start a trip</button>
         </div>
       </div>
@@ -89,16 +113,16 @@ export default function FishermanHomePage({ setPage }) {
           <div style={{flex: 1}}>
             <div className="eyebrow">Overall risk</div>
             <div style={{display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 6}}>
-              <h2 style={{margin: 0, fontFamily: 'var(--font-display)', fontSize: 44, fontStyle: 'italic', color: `var(--${overallTone})`}}>{s.riskLabel}</h2>
+              <h2 style={{margin: 0, fontFamily: 'var(--font-display)', fontSize: 44, fontStyle: 'italic', color: `var(--${overallTone})`}}>{riskLabel}</h2>
               <RiskDot risk={overallTone} />
             </div>
-            <p style={{margin: '8px 0 0', fontSize: 14, color: 'var(--ink-2)', maxWidth: 460, lineHeight: 1.55}}>{s.riskMsg}</p>
+            <p style={{margin: '8px 0 0', fontSize: 14, color: 'var(--ink-2)', maxWidth: 460, lineHeight: 1.55}}>{riskMsg}</p>
           </div>
           <div className="grid grid--kpi" style={{flex: 1.6, marginTop: 0}}>
-            <div className="kpi"><div className="kpi__label">Safe zones</div><div className="kpi__value" style={{color: 'var(--safe)'}}>{s.kpis.safeZones}</div><div className="kpi__foot">of {s.zones.length}</div></div>
-            <div className="kpi"><div className="kpi__label">Caution</div><div className="kpi__value" style={{color: 'var(--caution)'}}>{s.kpis.cautionZones}</div><div className="kpi__foot">advisory active</div></div>
-            <div className="kpi"><div className="kpi__label">Avg wave</div><div className="kpi__value">{s.kpis.avgWave}<small>m</small></div><div className="kpi__foot">across grounds</div></div>
-            <div className="kpi"><div className="kpi__label">Max wind</div><div className="kpi__value">{s.kpis.maxWind}<small>km/h</small></div><div className="kpi__foot">Lucena gusts</div></div>
+            <div className="kpi"><div className="kpi__label">Safe zones</div><div className="kpi__value" style={{color: 'var(--safe)'}}>{safeZones}</div><div className="kpi__foot">of {zones.length}</div></div>
+            <div className="kpi"><div className="kpi__label">Caution</div><div className="kpi__value" style={{color: 'var(--caution)'}}>{cautionZones}</div><div className="kpi__foot">advisory active</div></div>
+            <div className="kpi"><div className="kpi__label">Avg wave</div><div className="kpi__value">{avgWave}<small>m</small></div><div className="kpi__foot">across grounds</div></div>
+            <div className="kpi"><div className="kpi__label">Max wind</div><div className="kpi__value">{maxWind}<small>km/h</small></div><div className="kpi__foot">peak gusts</div></div>
           </div>
         </div>
 
@@ -108,30 +132,30 @@ export default function FishermanHomePage({ setPage }) {
             <div>
               <div className="eyebrow">Fishing grounds</div>
               <div style={{display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4}}>
-                <h3 style={{margin: 0, fontSize: 20, fontFamily: 'var(--font-display)'}}>{zone.name}</h3>
-                <span className="muted-data" style={{fontSize: 12}}>{zone.label}</span>
-                <RiskDot risk={zone.risk} />
+                <h3 style={{margin: 0, fontSize: 20, fontFamily: 'var(--font-display)'}}>{zoneName}</h3>
+                <span className="muted-data" style={{fontSize: 12}}>{zoneRegion}</span>
+                <RiskDot risk={riskLevel} />
               </div>
             </div>
             <div className="row" style={{gap: 4}}>
-              {s.zones.map((z, i) => (
-                <button key={z.id} className={`btn btn--ghost btn--sm${i === zoneIdx ? ' btn--accent' : ''}`}
+              {zones.map((z, i) => (
+                <button key={z.zoneId} className={`btn btn--ghost btn--sm${i === zoneIdx ? ' btn--accent' : ''}`}
                         style={{padding: '4px 10px', fontSize: 11}}
                         onClick={() => setZoneIdx(i)}>
-                  {z.name.split(' ')[0]}
+                  {z.zoneName.split(' ')[0]}
                 </button>
               ))}
             </div>
           </div>
           <div className="grid grid--kpi">
-            <div className="kpi"><div className="kpi__label"><I.Wave size={11} /> Wave height</div><div className="kpi__value">{zone.wave}<small>m</small></div><div className="kpi__foot">{zone.swell}m swell · {zone.swellPeriod}s</div></div>
-            <div className="kpi"><div className="kpi__label"><I.Wind size={11} /> Wind</div><div className="kpi__value">{zone.wind}<small>km/h</small></div><div className="kpi__foot">{zone.dir} · gust {zone.gust}</div></div>
-            <div className="kpi"><div className="kpi__label"><I.Thermo size={11} /> Sea temp</div><div className="kpi__value">{zone.temp}<small>°C</small></div><div className="kpi__foot">{zone.cloud}% cloud</div></div>
-            <div className="kpi"><div className="kpi__label"><I.Drop size={11} /> Rain</div><div className="kpi__value">{zone.rain}<small>mm</small></div><div className="kpi__foot">next 6h</div></div>
+            <div className="kpi"><div className="kpi__label"><I.Wave size={11} /> Wave height</div><div className="kpi__value">{waveH}<small>m</small></div><div className="kpi__foot">{swellH ?? 0}m swell · {swellPeriod ?? 0}s</div></div>
+            <div className="kpi"><div className="kpi__label"><I.Wind size={11} /> Wind</div><div className="kpi__value">{windSpeed}<small>km/h</small></div><div className="kpi__foot">{windDir} · gust {windGust}</div></div>
+            <div className="kpi"><div className="kpi__label"><I.Thermo size={11} /> Sea temp</div><div className="kpi__value">{temp}<small>°C</small></div><div className="kpi__foot">{cloud}% cloud</div></div>
+            <div className="kpi"><div className="kpi__label"><I.Drop size={11} /> Rain</div><div className="kpi__value">{rain}<small>mm</small></div><div className="kpi__foot">next 6h</div></div>
           </div>
-          {zone.advisory && (
+          {zoneAdvisory && (
             <div style={{marginTop: 14, padding: '10px 14px', background: 'var(--caution-soft)', border: '1px solid var(--caution)', borderRadius: 8, color: 'var(--caution)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8}}>
-              <I.Alert size={14} /> <strong>Advisory:</strong> {zone.advisory}
+              <I.Alert size={14} /> <strong>Advisory:</strong> {zoneAdvisory}
             </div>
           )}
         </div>
@@ -188,6 +212,9 @@ export default function FishermanHomePage({ setPage }) {
             <div className="card__title">Advisories</div>
           </div>
           <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+            {advisories.length === 0 && (
+              <p style={{fontSize: 13, color: 'var(--ink-3)', margin: 0}}>No active advisories.</p>
+            )}
             {advisories.map(a => (
               <div key={a.id} style={{display: 'flex', gap: 10, padding: '10px 12px', background: `var(--${a.level}-soft)`, border: `1px solid var(--${a.level})`, borderRadius: 8, fontSize: 13, color: `var(--${a.level})`}}>
                 <I.Alert size={14} style={{flexShrink: 0, marginTop: 1}} />
@@ -212,12 +239,12 @@ export default function FishermanHomePage({ setPage }) {
           <tbody>
             {pendingOrders.map(o => (
               <tr key={o.id}>
-                <td><span className="kbd">{o.code}</span></td>
-                <td>{o.vendor}</td>
-                <td>{o.species}</td>
-                <td>{o.qtyKg} kg</td>
-                <td>₱{o.total.toLocaleString()}</td>
-                <td><span className={`chip ${o.payment === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{o.payment}</span></td>
+                <td><span className="kbd">{o.orderCode ?? o.code ?? '—'}</span></td>
+                <td>{o.vendorName ?? o.vendor?.name ?? o.vendor ?? '—'}</td>
+                <td>{o.speciesName ?? o.species ?? '—'}</td>
+                <td>{o.quantityKg ?? o.qtyKg ?? '—'} kg</td>
+                <td>₱{(o.totalAmount ?? o.total ?? 0).toLocaleString()}</td>
+                <td><span className={`chip ${(o.paymentMethod ?? o.payment) === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{o.paymentMethod ?? o.payment ?? '—'}</span></td>
                 <td><span className={`status status--${o.status === 'PENDING' ? 'pending' : 'confirmed'}`}><span className="status__dot" /> {o.status}</span></td>
               </tr>
             ))}
