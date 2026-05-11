@@ -51,7 +51,7 @@ Replace all inline mock data constants across the redesigned `frontend/src` page
 **Wire:** `fisherman/Home.jsx`, `fisherman/Planner.jsx`  
 
 ### D2 — Trips + Catch Logs
-**Backend:** `TripController` + `CatchLogController` — fully implemented  
+**Backend:** `TripController` + `CatchLogController` — both fully implemented (controller, service, mapper, domain entity, and repository all confirmed present; CLAUDE.md note about this being pending is outdated)  
 **Existing:** `fisherman/api/trips.js` — extend with catch log functions:
 - `listCatchLogs(tripId)` → `GET /trips/{id}/catch-logs`
 - `createCatchLog(tripId, body)` → `POST /trips/{id}/catch-logs`
@@ -145,7 +145,7 @@ Replace all inline mock data constants across the redesigned `frontend/src` page
 **Backend:** `ChatController` (REST history + STOMP) + `WebSocketConfig` — fully implemented  
 **Install:** `@stomp/stompjs`  
 **Create:** `frontend/src/hooks/useWebSocket.js` — STOMP client singleton:
-  - Connects to `/ws-chat` on mount, authenticates via HttpOnly JWT cookie
+  - Connects to `/ws-chat` on mount; authentication is handled by the browser sending the `jwt` HttpOnly cookie automatically on the WebSocket upgrade request (extracted by `JwtCookieHandshakeInterceptor` in `WebSocketConfig`); no manual Authorization header needed
   - Subscribes to `/user/queue/messages`
   - Exposes `sendMessage(recipientId, content)` and `messages` state  
 **Create:** `frontend/src/api/messages.js`:
@@ -176,8 +176,8 @@ PENDING → CONFIRMED → Handoff(PENDING→CONFIRMED) → Payment(PENDING→CON
 
 **Type B — Storefront Orders (vendor ↔ buyer)**
 ```
-PENDING → CONFIRMED → ACCEPTED → READY → COMPLETED → (buyer leaves Review)
-                    ↘ CANCELLED at any point
+NEW → PREPARING → READY → COMPLETED → (buyer leaves Review)
+    ↘ CANCELLED at any point
 ```
 
 ### 5.2 Shared OrderCard Component
@@ -200,13 +200,13 @@ PENDING → CONFIRMED → ACCEPTED → READY → COMPLETED → (buyer leaves Rev
 | CANCELLED | — | — | — |
 | DISPUTED | Respond | Respond | — |
 
-For Type B (storefront):
+For Type B (storefront) — uses `VendorOrdersController` status enum `[NEW, PREPARING, READY, COMPLETED, CANCELLED]`:
 
 | Status | Vendor | Buyer |
 |---|---|---|
-| PENDING | Accept / Decline | Cancel |
-| CONFIRMED | Mark Ready | Track |
-| READY | Mark Complete | Confirm Receipt |
+| NEW | Accept → PREPARING / Cancel | Cancel |
+| PREPARING | Mark Ready → READY | Track |
+| READY | Mark Complete → COMPLETED | Confirm Receipt |
 | COMPLETED | → Payouts | → Review |
 
 ### 5.3 Visual Timeline
@@ -274,26 +274,26 @@ Order card flips to a summary state showing: final amounts, payment method confi
 
 ## 7. Execution Order
 
-1. D0 Infrastructure (React Query, Skeleton, ApiError)
-2. D1 Reference data (species, locations)
-3. D2 Marine + advisories
-4. D3 Trips + catch logs
-5. D4 Catch alerts
-6. D5 Demand listings / fisherman marketplace
-7. **D5.5 Ordering flow** (OrderCard, timeline, all modals — do before wiring orders pages)
-8. D6 Orders (fisherman)
-9. D7 Earnings
-10. D8 Fisherman procurement
-11. D9 Fisherman profile
-12. D10 Vendor home
-13. D11 Vendor inventory + storefront
-14. D12 Vendor orders inbox
-15. D13 Vendor procurement
-16. D14 Vendor analytics, reviews, payouts, watchlist, shop
-17. D15 Buyer domain (implement `BuyerHomeController` first)
-18. D16 Messages (WebSocket)
-19. D17 Notifications
-20. Final pass: remove any remaining mock constants, verify all pages load with real data
+1. **Infrastructure** — React Query setup, Skeleton, ApiError, queryClient.js
+2. **D1** — Reference data (species, locations)
+3. **D2** — Marine conditions + advisories → wire Home, Planner
+4. **D3** — Trips + catch logs → wire Trips, Planner
+5. **D4** — Catch alerts → wire CatchAlerts (fisherman), ProcurementFeed (vendor)
+6. **D5** — Demand listings / fisherman marketplace → wire Marketplace, Planner
+7. **Ordering flow** — OrderCard, OrderTimeline, all 8 modals (must be done before wiring any Orders page)
+8. **D6** — Orders (fisherman as seller) → wire fisherman/Orders.jsx
+9. **D7** — Earnings → wire fisherman/Earnings.jsx
+10. **D8** — Fisherman procurement orders → wire fisherman/Procurement.jsx
+11. **D9** — Fisherman profile → wire fisherman/Profile.jsx
+12. **D10** — Vendor home → wire vendor/Home.jsx
+13. **D11** — Vendor inventory + storefront → wire Inventory, StorefrontEditor
+14. **D12** — Vendor orders inbox (Type B storefront flow) → wire vendor/OrdersInbox.jsx
+15. **D13** — Vendor procurement as buyer → wire ProcurementFeed, ProcurementCart, ProcurementOrders
+16. **D14** — Vendor analytics, reviews, payouts, watchlist, shop profile
+17. **D15** — Buyer domain: implement `BuyerHomeController` first, create all `buyer/api/` modules, wire all buyer pages
+18. **D16** — Messages: install `@stomp/stompjs`, build `useWebSocket`, wire Messages pages
+19. **D17** — Notifications: wire all three NotificationsBell components
+20. **Final pass** — grep for remaining `// ── Inline mock data` or `const MOCK_` constants, confirm zero remaining
 
 ---
 
