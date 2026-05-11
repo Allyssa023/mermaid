@@ -1,17 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
-
-const V_LOTS = [
-  { lot: 'LOT-2218', species: 'Yellowfin Tuna',  received: 'Apr 23, 05:40', initial: 60, remaining: 4.2,  cost: 380, low: true  },
-  { lot: 'LOT-2214', species: 'Grouper',         received: 'Apr 22, 07:15', initial: 18, remaining: 1.8,  cost: 540, low: true  },
-  { lot: 'LOT-2210', species: 'Mahi-mahi',       received: 'Apr 22, 06:20', initial: 30, remaining: 8.1,  cost: 250, low: true  },
-  { lot: 'LOT-2207', species: 'Yellowfin Tuna',  received: 'Apr 21, 17:05', initial: 24, remaining: 16.0, cost: 395, low: false },
-  { lot: 'LOT-2202', species: 'Skipjack',        received: 'Apr 21, 06:00', initial: 80, remaining: 22.0, cost: 170, low: false },
-  { lot: 'LOT-2198', species: 'Squid',           received: 'Apr 20, 18:30', initial: 40, remaining: 28.5, cost: 210, low: false },
-]
+import { listLots, recordAdjustment } from './api/inventory'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 export default function Inventory() {
   const [thr, setThr] = useState(10)
+
+  const qc = useQueryClient()
+  const lotsQ = useQuery({ queryKey: ['vendor', 'inventory'], queryFn: listLots })
+  const _adjustMut = useMutation({
+    mutationFn: ({ lotId, deltaKg, reason }) => recordAdjustment(lotId, deltaKg, reason, ''),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'inventory'] }),
+  })
+
+  if (lotsQ.isLoading) return <div className="page"><TableRowSkeleton rows={6} /></div>
+  if (lotsQ.error) return <div className="page"><ApiError error={lotsQ.error} onRetry={lotsQ.refetch} /></div>
+  const lots = lotsQ.data ?? []
+
   return (
     <div className="page">
       <div className="page__head">
@@ -34,19 +41,19 @@ export default function Inventory() {
         <table className="tbl">
           <thead><tr><th>Lot</th><th>Species</th><th>Received</th><th>Initial</th><th>Remaining</th><th>Cost/kg</th><th></th></tr></thead>
           <tbody>
-            {V_LOTS.map(l => {
-              const low = l.remaining < thr
+            {lots.map(l => {
+              const low = l.remainingKg < thr
               return (
-                <tr key={l.lot}>
-                  <td><span className="kbd">{l.lot}</span></td>
-                  <td><strong>{l.species}</strong></td>
-                  <td className="muted-data">{l.received}</td>
-                  <td>{l.initial} kg</td>
+                <tr key={l.id}>
+                  <td><span className="kbd">{l.id}</span></td>
+                  <td><strong>{l.speciesName}</strong></td>
+                  <td className="muted-data">{new Date(l.receivedAt).toLocaleString()}</td>
+                  <td>{l.initialKg} kg</td>
                   <td>
-                    <span style={{fontFamily: 'var(--font-mono)'}}>{l.remaining} kg</span>
+                    <span style={{fontFamily: 'var(--font-mono)'}}>{l.remainingKg} kg</span>
                     {low && <span className="chip chip--caution" style={{marginLeft: 6, fontSize: 10}}>Low</span>}
                   </td>
-                  <td style={{fontFamily: 'var(--font-mono)'}}>₱{l.cost}</td>
+                  <td style={{fontFamily: 'var(--font-mono)'}}>₱{l.costPerKg}</td>
                   <td style={{textAlign: 'right'}}><button className="btn btn--ghost btn--sm">Adjust</button></td>
                 </tr>
               )
