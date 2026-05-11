@@ -1,19 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
-import { listCatchAlerts, cancelCatchAlert } from './api/catchAlerts'
-import { fetchSpecies } from '../api/lookup.js'
+import { listCatchAlerts } from './api/catchAlerts'
 import { TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
 
 export default function AlertsPage() {
-  const qc = useQueryClient()
   const alertsQ  = useQuery({ queryKey: ['catchAlerts', 'own'], queryFn: listCatchAlerts })
-  const speciesQ = useQuery({ queryKey: ['species'], queryFn: fetchSpecies })
-
-  const cancelMutation = useMutation({
-    mutationFn: (id) => cancelCatchAlert(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catchAlerts'] }),
-  })
 
   if (alertsQ.isLoading) return <div className="page"><TableRowSkeleton rows={5} /></div>
   if (alertsQ.error) return <div className="page"><ApiError error={alertsQ.error} onRetry={alertsQ.refetch} /></div>
@@ -70,7 +62,7 @@ export default function AlertsPage() {
         <div className="stat">
           <div className="l">Match rate</div>
           <div className="v">{matchRate}<span style={{fontSize:16, color:'var(--ink-4)', marginLeft:2}}>%</span></div>
-          <div className="s">Last 30 days</div>
+          <div className="s">All time</div>
         </div>
       </div>
 
@@ -87,7 +79,7 @@ export default function AlertsPage() {
         </div>
         <div className="alerts-grid">
           {active.map(a => {
-            const urgent = new Date(a.expiresAt).getTime() - Date.now() < 60 * 60 * 1000
+            const urgent = a.expiresAt ? new Date(a.expiresAt).getTime() - Date.now() < 60 * 60 * 1000 : false
             const offerCount = a.matchedListingIds?.length ?? 0
             return (
               <div key={a.id} className={`alert-card${urgent ? ' alert-card--urgent' : ''}`}>
@@ -122,17 +114,11 @@ export default function AlertsPage() {
                   <div className="row" style={{gap: 6}}>
                     <I.Clock size={12} style={{color: urgent ? 'var(--unsafe)' : 'var(--ink-4)'}} />
                     <span style={{color: urgent ? 'var(--unsafe)' : 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 12}}>
-                      {new Date(a.expiresAt).toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'})}
+                      {a.expiresAt ? new Date(a.expiresAt).toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'}) : '—'}
                     </span>
                   </div>
                   <div className="row" style={{gap: 8}}>
-                    <div className="alert-card__offers">
-                      {['MS', 'BC', 'JA'].slice(0, Math.min(3, offerCount)).map((n, i) => (
-                        <div key={i} className="alert-card__offer-avatar" style={{marginLeft: i === 0 ? 0 : -6}}>{n}</div>
-                      ))}
-                      {offerCount > 3 && <div className="alert-card__offer-avatar">+{offerCount - 3}</div>}
-                    </div>
-                    <button className="btn btn--accent btn--sm">{offerCount} offers</button>
+                    <button className="btn btn--accent btn--sm">{offerCount} offer{offerCount !== 1 ? 's' : ''}</button>
                   </div>
                 </div>
               </div>
