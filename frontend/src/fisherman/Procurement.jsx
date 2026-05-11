@@ -1,33 +1,35 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ── Inline mock data ─────────────────────────────────────────────────────────
-
-const FISHERMAN_PROCUREMENT_ORDERS = [
-  { id: 9012, code: 'VO-9012', vendor: 'Marina Seafoods',    species: 'Yellowfin Tuna',        qtyKg: 18, pricePerKg: 380, total: 6840,  payment: 'CASH',  preorder: false, status: 'PENDING',   placedAt: 'Apr 23, 08:12', readyBy: 'Apr 23, 16:00', note: 'Export-grade, ice at sea.' },
-  { id: 9008, code: 'VO-9008', vendor: 'Bay City Market',    species: 'Grouper (Lapu-lapu)',   qtyKg: 4,  pricePerKg: 540, total: 2160,  payment: 'UTANG', preorder: false, status: 'ACCEPTED',  placedAt: 'Apr 23, 06:40', readyBy: 'Apr 24, 09:00', note: 'Live, 1.5kg+' },
-  { id: 9001, code: 'VO-9001', vendor: 'Marina Seafoods',    species: 'Skipjack',              qtyKg: 32, pricePerKg: 170, total: 5440,  payment: 'CASH',  preorder: true,  status: 'READY',     placedAt: 'Apr 22, 14:30', readyBy: 'Apr 24, 10:00', note: '' },
-  { id: 8987, code: 'VO-8987', vendor: 'J. Aquino & Sons',   species: 'Spanish Mackerel',     qtyKg: 14, pricePerKg: 320, total: 4480,  payment: 'CASH',  preorder: false, status: 'COMPLETED', placedAt: 'Apr 20, 11:00', readyBy: 'Apr 21, 09:00', note: '' },
-  { id: 8975, code: 'VO-8975', vendor: 'Del Mar Cold Chain', species: 'Squid',                qtyKg: 22, pricePerKg: 210, total: 4620,  payment: 'UTANG', preorder: false, status: 'DISPUTED',  placedAt: 'Apr 19, 07:15', readyBy: 'Apr 19, 16:00', note: 'Buyer claims short-weight; 1.4kg gap reported.' },
-  { id: 8950, code: 'VO-8950', vendor: 'Marina Seafoods',    species: 'Mahi-mahi',            qtyKg: 12, pricePerKg: 250, total: 3000,  payment: 'CASH',  preorder: false, status: 'CANCELLED', placedAt: 'Apr 18, 17:20', readyBy: 'Apr 19, 10:00', note: 'Vendor cancelled — supply found elsewhere.' },
-]
+import {
+  listProcurementOrders, acceptOrder, markReady,
+  completeOrder, cancelOrder, raiseDispute,
+} from './api/procurement'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ProcurementPage({ setPage }) {
+  const qc = useQueryClient()
   const [tab, setTab] = useState('PENDING')
   const buckets = ['PENDING', 'ACCEPTED', 'READY', 'COMPLETED', 'CANCELLED', 'DISPUTED']
-  const counts = buckets.reduce((a, b) => ({ ...a, [b]: FISHERMAN_PROCUREMENT_ORDERS.filter(o => o.status === b).length }), {})
-  const orders = FISHERMAN_PROCUREMENT_ORDERS.filter(o => o.status === tab)
 
-  const statusActions = {
-    PENDING:   [{ label: 'Accept', kind: 'accent' }, { label: 'Decline', kind: 'ghost' }],
-    ACCEPTED:  [{ label: 'Mark ready', kind: 'accent' }, { label: 'Message vendor', kind: 'ghost' }],
-    READY:     [{ label: 'Mark completed', kind: 'accent' }, { label: 'Report dispute', kind: 'ghost' }],
-    COMPLETED: [{ label: 'View receipt', kind: 'ghost' }],
-    CANCELLED: [{ label: 'View reason', kind: 'ghost' }],
-    DISPUTED:  [{ label: 'Open case', kind: 'accent' }],
-  }
+  const ordersQ = useQuery({
+    queryKey: ['fisherman', 'procurement', tab],
+    queryFn: () => listProcurementOrders(tab),
+  })
+
+  if (ordersQ.isLoading) return <div className="page"><TableRowSkeleton rows={5} /></div>
+  if (ordersQ.error) return <div className="page"><ApiError error={ordersQ.error} onRetry={ordersQ.refetch} /></div>
+
+  const orders = ordersQ.data ?? []
+
+  const acceptMut   = useMutation({ mutationFn: (id) => acceptOrder(id),   onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
+  const readyMut    = useMutation({ mutationFn: (id) => markReady(id),     onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
+  const completeMut = useMutation({ mutationFn: (id) => completeOrder(id), onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
+  const cancelMut   = useMutation({ mutationFn: (id) => cancelOrder(id, 'Fisherman declined'), onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
+  const disputeMut  = useMutation({ mutationFn: (id) => raiseDispute(id, { reason: 'Dispute raised' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] }) })
 
   return (
     <div className="page">
@@ -42,7 +44,7 @@ export default function ProcurementPage({ setPage }) {
       <div className="seg" style={{marginTop: 14, alignSelf: 'flex-start'}}>
         {buckets.map(b => (
           <button key={b} className={tab === b ? 'on' : ''} onClick={() => setTab(b)}>
-            {b[0] + b.slice(1).toLowerCase()} ({counts[b]})
+            {b[0] + b.slice(1).toLowerCase()}
           </button>
         ))}
       </div>
@@ -54,38 +56,60 @@ export default function ProcurementPage({ setPage }) {
         </div>
       ) : (
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 12, marginTop: 18}}>
-          {orders.map(o => (
-            <div key={o.id} className="card" style={{display: 'flex', flexDirection: 'column'}}>
-              <div className="card__head">
-                <div>
-                  <div className="row" style={{gap: 6, alignItems: 'center'}}>
-                    <span className="kbd">{o.code}</span>
-                    <span className={`chip ${o.payment === 'CASH' ? 'chip--safe' : 'chip--caution'}`} style={{fontSize: 10}}>{o.payment}</span>
-                    {o.preorder && <span className="chip chip--accent" style={{fontSize: 10}}>Pre-order</span>}
+          {orders.map(o => {
+            const total = (o.qtyKg ?? 0) * (o.pricePerKg ?? 0)
+            const placedAt = o.createdAt ? new Date(o.createdAt).toLocaleString() : '—'
+            return (
+              <div key={o.id} className="card" style={{display: 'flex', flexDirection: 'column'}}>
+                <div className="card__head">
+                  <div>
+                    <div className="row" style={{gap: 6, alignItems: 'center'}}>
+                      <span className="kbd">VO-{o.id}</span>
+                      <span className={`chip ${o.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`} style={{fontSize: 10}}>{o.paymentMethod ?? 'N/A'}</span>
+                      {o.isPreorder && <span className="chip chip--accent" style={{fontSize: 10}}>Pre-order</span>}
+                    </div>
+                    <div className="card__title" style={{fontSize: 18, marginTop: 6}}>{o.speciesName}</div>
+                    {o.fishermanName && <div className="card__sub">{o.fishermanName}</div>}
                   </div>
-                  <div className="card__title" style={{fontSize: 18, marginTop: 6}}>{o.species}</div>
-                  <div className="card__sub">{o.vendor}</div>
+                  <span className={`status status--${o.status === 'PENDING' ? 'pending' : o.status === 'ACCEPTED' ? 'confirmed' : o.status === 'READY' ? 'active' : o.status === 'COMPLETED' ? 'completed' : o.status === 'DISPUTED' ? 'disputed' : 'cancelled'}`}>
+                    <span className="status__dot" /> {o.status}
+                  </span>
                 </div>
-                <span className={`status status--${o.status === 'PENDING' ? 'pending' : o.status === 'ACCEPTED' ? 'confirmed' : o.status === 'READY' ? 'active' : o.status === 'COMPLETED' ? 'completed' : o.status === 'DISPUTED' ? 'disputed' : 'cancelled'}`}>
-                  <span className="status__dot" /> {o.status}
-                </span>
+                <div className="grid grid--kpi" style={{gridTemplateColumns: '1fr 1fr 1fr'}}>
+                  <div className="kpi"><div className="kpi__label">Quantity</div><div className="kpi__value">{o.qtyKg}<small>kg</small></div></div>
+                  <div className="kpi"><div className="kpi__label">Price/kg</div><div className="kpi__value">₱{o.pricePerKg}</div></div>
+                  <div className="kpi"><div className="kpi__label">Total</div><div className="kpi__value" style={{color: 'var(--accent)'}}>₱{total.toLocaleString()}</div></div>
+                </div>
+                <div className="muted-data" style={{fontSize: 12, marginTop: 8}}>
+                  Placed <strong style={{color: 'var(--ink)'}}>{placedAt}</strong>
+                  {o.settledAt && <> · settled {new Date(o.settledAt).toLocaleString()}</>}
+                </div>
+                {o.notes && <div style={{marginTop: 8, fontSize: 13, color: 'var(--ink-2)', borderLeft: '2px solid var(--line)', paddingLeft: 10}}>{o.notes}</div>}
+                <div className="row" style={{gap: 8, marginTop: 14}}>
+                  {o.status === 'PENDING' && (<>
+                    <button className="btn btn--sm btn--accent" style={{flex: 1}} onClick={() => acceptMut.mutate(o.id)} disabled={acceptMut.isPending}>Accept</button>
+                    <button className="btn btn--sm btn--ghost"  style={{flex: 1}} onClick={() => cancelMut.mutate(o.id)}  disabled={cancelMut.isPending}>Decline</button>
+                  </>)}
+                  {o.status === 'ACCEPTED' && (
+                    <button className="btn btn--sm btn--accent" style={{flex: 1}} onClick={() => readyMut.mutate(o.id)} disabled={readyMut.isPending}>Mark ready</button>
+                  )}
+                  {o.status === 'READY' && (<>
+                    <button className="btn btn--sm btn--accent" style={{flex: 1}} onClick={() => completeMut.mutate(o.id)} disabled={completeMut.isPending}>Mark completed</button>
+                    <button className="btn btn--sm btn--ghost"  style={{flex: 1}} onClick={() => disputeMut.mutate(o.id)}  disabled={disputeMut.isPending}>Report dispute</button>
+                  </>)}
+                  {o.status === 'COMPLETED' && (
+                    <span className="chip chip--safe" style={{flex: 1, textAlign: 'center', padding: '6px 0'}}>Completed</span>
+                  )}
+                  {o.status === 'CANCELLED' && (
+                    <span className="chip chip--neutral" style={{flex: 1, textAlign: 'center', padding: '6px 0'}}>Cancelled</span>
+                  )}
+                  {o.status === 'DISPUTED' && (
+                    <span className="chip chip--caution" style={{flex: 1, textAlign: 'center', padding: '6px 0'}}>In dispute</span>
+                  )}
+                </div>
               </div>
-              <div className="grid grid--kpi" style={{gridTemplateColumns: '1fr 1fr 1fr'}}>
-                <div className="kpi"><div className="kpi__label">Quantity</div><div className="kpi__value">{o.qtyKg}<small>kg</small></div></div>
-                <div className="kpi"><div className="kpi__label">Price/kg</div><div className="kpi__value">₱{o.pricePerKg}</div></div>
-                <div className="kpi"><div className="kpi__label">Total</div><div className="kpi__value" style={{color: 'var(--accent)'}}>₱{o.total.toLocaleString()}</div></div>
-              </div>
-              <div className="muted-data" style={{fontSize: 12, marginTop: 8}}>
-                Ready by <strong style={{color: 'var(--ink)'}}>{o.readyBy}</strong> · placed {o.placedAt}
-              </div>
-              {o.note && <div style={{marginTop: 8, fontSize: 13, color: 'var(--ink-2)', borderLeft: '2px solid var(--line)', paddingLeft: 10}}>{o.note}</div>}
-              <div className="row" style={{gap: 8, marginTop: 14}}>
-                {statusActions[o.status].map((a, i) => (
-                  <button key={i} className={`btn btn--sm btn--${a.kind}`} style={{flex: 1}}>{a.label}</button>
-                ))}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
