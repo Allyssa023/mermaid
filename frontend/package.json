@@ -17,6 +17,8 @@
 	"dependencies": {
 		"@stomp/stompjs": "^7.3.0",
 		"@tailwindcss/vite": "^4.2.2",
+		"@tanstack/react-query": "^5.100.9",
+		"@tanstack/react-query-devtools": "^5.100.9",
 		"gsap": "^3.14.2",
 		"leaflet": "^1.9.4",
 		"motion": "^12.38.0",
