@@ -1,83 +1,125 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ── Inline mock data ─────────────────────────────────────────────────────────
-
-const SPECIES = [
-  { id: 1, commonName: 'Yellowfin Tuna' },
-  { id: 2, commonName: 'Skipjack' },
-  { id: 3, commonName: 'Mahi-mahi' },
-  { id: 4, commonName: 'Red Snapper' },
-  { id: 5, commonName: 'Grouper (Lapu-lapu)' },
-  { id: 6, commonName: 'Spanish Mackerel' },
-  { id: 7, commonName: 'Squid (Pusit)' },
-  { id: 8, commonName: 'Blue Marlin' },
-]
-const sp = (name) => SPECIES.find(s => s.commonName === name || s.commonName.startsWith(name))
-
-const ORDERS = [
-  { id: 7412, orderCode: 'ORD-7412', party: 'Marina Seafoods',    partySub: 'Brgy. Pinagbayanan, Quezon', species: sp('Mahi'),      qty: 9,  price: 260, total: 2340,  status: 'CONFIRMED', step: 1, date: 'Apr 23' },
-  { id: 7411, orderCode: 'ORD-7411', party: 'Bay City Market',    partySub: 'Lucena City',                species: sp('Spanish'),   qty: 18, price: 340, total: 6120,  status: 'CONFIRMED', step: 2, date: 'Apr 22' },
-  { id: 7409, orderCode: 'ORD-7409', party: 'J. Aquino & Sons',   partySub: 'Lipa Port',                 species: sp('Yellowfin'), qty: 28, price: 400, total: 11200, status: 'PENDING',   step: 0, date: 'Apr 22' },
-  { id: 7402, orderCode: 'ORD-7402', party: 'Puerto Azul Resto',  partySub: 'Anilao, Batangas',          species: sp('Grouper'),   qty: 6,  price: 520, total: 3120,  status: 'COMPLETED', step: 3, date: 'Apr 19' },
-  { id: 7398, orderCode: 'ORD-7398', party: 'Marina Seafoods',    partySub: 'Brgy. Pinagbayanan, Quezon', species: sp('Skipjack'),  qty: 42, price: 175, total: 7350,  status: 'COMPLETED', step: 3, date: 'Apr 17' },
-  { id: 7391, orderCode: 'ORD-7391', party: 'Del Mar Cold Chain', partySub: 'Batangas Port',             species: sp('Mahi'),      qty: 14, price: 255, total: 3570,  status: 'COMPLETED', step: 3, date: 'Apr 14' },
-  { id: 7387, orderCode: 'ORD-7387', party: 'Bay City Market',    partySub: 'Lucena City',               species: sp('Squid'),     qty: 22, price: 215, total: 4085,  status: 'DISPUTED',  step: -1, date: 'Apr 12' },
-  { id: 7381, orderCode: 'ORD-7381', party: 'Puerto Azul Resto',  partySub: 'Anilao, Batangas',          species: sp('Red Snapper'), qty: 11, price: 380, total: 4180, status: 'CANCELLED', step: -1, date: 'Apr 10' },
-]
+import {
+  listOrders, confirmOrder, cancelOrder,
+  initiateHandoff, confirmHandoff, recordPayment,
+  confirmPayment, raiseDispute,
+} from './api/orders'
+import OrderCard from '../components/OrderCard'
+import { OrderCardSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function OrdersPage() {
-  const [statusFilter, setStatusFilter] = useState('all')
-  const pending   = ORDERS.filter(o => o.status === 'PENDING').length
-  const confirmed = ORDERS.filter(o => o.status === 'CONFIRMED').length
-  const inTransit = ORDERS.filter(o => o.step === 2).length
-  const completed = ORDERS.filter(o => o.status === 'COMPLETED').length
-  const totalValue = ORDERS.filter(o => !['CANCELLED','DISPUTED'].includes(o.status)).reduce((a,o)=>a+o.total, 0)
+  const [statusFilter, setStatusFilter] = useState(null)
 
-  const filtered = statusFilter === 'all' ? ORDERS : ORDERS.filter(o => o.status === statusFilter)
+  const qc = useQueryClient()
 
-  const stepLabel = (s) => ['Awaiting', 'Confirmed', 'In transit', 'Delivered'][s] || 'Issue'
+  const ordersQ = useQuery({
+    queryKey: ['fisherman', 'orders', statusFilter],
+    queryFn: () => listOrders(statusFilter),
+  })
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['fisherman', 'orders'] })
+
+  const mutations = {
+    confirmOrder:    (id)       => confirmOrder(id).then(invalidate),
+    cancelOrder:     (id, r)    => cancelOrder(id, r).then(invalidate),
+    initiateHandoff: (id, body) => initiateHandoff(id, body).then(invalidate),
+    confirmHandoff:  (id)       => confirmHandoff(id).then(invalidate),
+    recordPayment:   (id, body) => recordPayment(id, body).then(invalidate),
+    confirmPayment:  (id)       => confirmPayment(id).then(invalidate),
+    raiseDispute:    (id, body) => raiseDispute(id, body).then(invalidate),
+  }
+
+  if (ordersQ.isLoading) return (
+    <div className="page">
+      <OrderCardSkeleton />
+      <OrderCardSkeleton />
+    </div>
+  )
+  if (ordersQ.error) return (
+    <div className="page">
+      <ApiError error={ordersQ.error} onRetry={ordersQ.refetch} />
+    </div>
+  )
+
+  const orders = ordersQ.data ?? []
+
+  const pending   = orders.filter(o => o.status === 'PENDING').length
+  const confirmed = orders.filter(o => o.status === 'CONFIRMED').length
+  const completed = orders.filter(o => o.status === 'COMPLETED').length
+  const inTransit = orders.filter(o => o.handoff?.status === 'CONFIRMED' && o.status === 'CONFIRMED').length
+  const totalValue = orders
+    .filter(o => !['CANCELLED', 'DISPUTED'].includes(o.status))
+    .reduce((a, o) => a + (o.totalAmount ?? (o.orderedQtyKg ?? 0) * (o.agreedPricePerKg ?? 0)), 0)
+
+  const STATUS_FILTERS = ['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'DISPUTED', 'CANCELLED']
+
+  const filtered = statusFilter === null
+    ? orders
+    : orders.filter(o => o.status === statusFilter)
 
   return (
     <div className="page">
       <div className="page__head">
         <div>
           <div className="eyebrow">Operations</div>
-          <h1 className="page__title" style={{marginTop: 4}}>
+          <h1 className="page__title" style={{ marginTop: 4 }}>
             <em>Orders</em>
           </h1>
           <p className="page__sub">Track every confirmed sale from matched alert to delivery.</p>
         </div>
         <div className="page__actions">
           <button className="btn"><I.Receipt size={14} /> Export</button>
-          <button className="btn btn--primary"><I.Plus size={14} /> New order</button>
         </div>
       </div>
 
+      {/* Stats strip */}
       <div className="orders-strip">
-        <div className="stat"><div className="l">Pending</div><div className="v">{pending}</div><div className="s">Awaiting buyer confirm</div></div>
-        <div className="stat"><div className="l">Confirmed</div><div className="v">{confirmed}</div><div className="s">Ready for pickup</div></div>
-        <div className="stat"><div className="l">In transit</div><div className="v">{inTransit}</div><div className="s">En route to buyer</div></div>
-        <div className="stat"><div className="l">Completed this week</div><div className="v">{completed}</div><div className="s">Last 7 days</div></div>
-        <div className="stat"><div className="l">Open value</div><div className="v">₱{(totalValue/1000).toFixed(1)}k</div><div className="s">Across {ORDERS.length} orders</div></div>
+        <div className="stat">
+          <div className="l">Pending</div>
+          <div className="v">{pending}</div>
+          <div className="s">Awaiting buyer confirm</div>
+        </div>
+        <div className="stat">
+          <div className="l">Confirmed</div>
+          <div className="v">{confirmed}</div>
+          <div className="s">Ready for pickup</div>
+        </div>
+        <div className="stat">
+          <div className="l">In transit</div>
+          <div className="v">{inTransit}</div>
+          <div className="s">En route to buyer</div>
+        </div>
+        <div className="stat">
+          <div className="l">Completed this week</div>
+          <div className="v">{completed}</div>
+          <div className="s">Last 7 days</div>
+        </div>
+        <div className="stat">
+          <div className="l">Open value</div>
+          <div className="v">₱{(totalValue / 1000).toFixed(1)}k</div>
+          <div className="s">Across {orders.length} orders</div>
+        </div>
       </div>
 
       {/* Pipeline visualization */}
       <div className="pipeline">
-        <div className="card__head" style={{marginBottom: 0}}>
+        <div className="card__head" style={{ marginBottom: 0 }}>
           <div>
             <div className="card__title">Pipeline this week</div>
             <div className="card__sub">Distribution of open orders across stages</div>
           </div>
-          <span className="chip chip--ink">₱{(totalValue/1000).toFixed(1)}k open</span>
+          <span className="chip chip--ink">₱{(totalValue / 1000).toFixed(1)}k open</span>
         </div>
         <div className="pipeline__bars">
-          <div className="pipeline__bar" style={{ flex: pending }} />
-          <div className="pipeline__bar" style={{ flex: confirmed }} />
-          <div className="pipeline__bar" style={{ flex: inTransit }} />
-          <div className="pipeline__bar" style={{ flex: completed }} />
+          <div className="pipeline__bar" style={{ flex: pending || 1 }} />
+          <div className="pipeline__bar" style={{ flex: confirmed || 1 }} />
+          <div className="pipeline__bar" style={{ flex: inTransit || 1 }} />
+          <div className="pipeline__bar" style={{ flex: completed || 1 }} />
         </div>
         <div className="pipeline__labels">
           <span><strong>{pending}</strong> Awaiting</span>
@@ -88,67 +130,41 @@ export default function OrdersPage() {
       </div>
 
       {/* Filter chips */}
-      <div className="row" style={{gap: 6, marginBottom: 12}}>
-        {['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'DISPUTED', 'CANCELLED'].map(s => (
-          <button key={s}
-            className={`chip ${statusFilter === s ? 'chip--ink' : ''}`}
-            style={{cursor: 'pointer', textTransform: s === 'all' ? 'capitalize' : 'none'}}
-            onClick={() => setStatusFilter(s)}>
-            {s === 'all' ? 'All orders' : s.charAt(0) + s.slice(1).toLowerCase()}
-            <span style={{marginLeft: 6, opacity: 0.7, fontFamily: 'var(--font-mono)', fontSize: 10}}>
-              {s === 'all' ? ORDERS.length : ORDERS.filter(o => o.status === s).length}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Orders list */}
-      <div className="card" style={{padding: 0, overflow: 'hidden'}}>
-        <div style={{padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-          <div>
-            <div className="card__title">All orders</div>
-            <div className="card__sub">{filtered.length} matching · sorted newest first</div>
-          </div>
-          <button className="btn btn--sm btn--ghost">Sort: Date <I.ChevD size={12} /></button>
-        </div>
-        {filtered.map(o => {
-          const failed = o.step === -1
+      <div className="row" style={{ gap: 6, marginBottom: 12 }}>
+        {STATUS_FILTERS.map(s => {
+          const active = s === 'all' ? statusFilter === null : statusFilter === s
+          const count  = s === 'all' ? orders.length : orders.filter(o => o.status === s).length
           return (
-            <div key={o.id} className="order-row">
-              <div className="order-row__id">{o.orderCode}</div>
-              <div className="order-row__party">
-                {o.party}
-                <small>{o.partySub}</small>
-              </div>
-              <div>
-                <div style={{fontSize: 13, fontWeight: 500}}>{o.species?.commonName || o.species}</div>
-                <div style={{fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2}}>
-                  {o.qty}kg · ₱{o.price}/kg
-                </div>
-              </div>
-              <div className="order-row__total">₱{o.total.toLocaleString()}</div>
-              <div>
-                <div className="order-row__steps">
-                  {[0,1,2,3].map(i => (
-                    <span key={i} className={`order-row__step ${
-                      failed ? 'order-row__step--fail' :
-                      i < o.step ? 'order-row__step--done' :
-                      i === o.step ? 'order-row__step--cur' : ''
-                    }`} />
-                  ))}
-                </div>
-                <div style={{fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.04em'}}>
-                  {failed ? o.status : stepLabel(o.step)}
-                </div>
-              </div>
-              <div style={{fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)'}}>
-                {o.date}
-              </div>
-              <button className="btn btn--sm">Open <I.Arrow size={11} /></button>
-            </div>
+            <button
+              key={s}
+              className={`chip ${active ? 'chip--ink' : ''}`}
+              style={{ cursor: 'pointer', textTransform: s === 'all' ? 'capitalize' : 'none' }}
+              onClick={() => setStatusFilter(s === 'all' ? null : s)}
+            >
+              {s === 'all' ? 'All orders' : s.charAt(0) + s.slice(1).toLowerCase()}
+              <span style={{ marginLeft: 6, opacity: 0.7, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                {count}
+              </span>
+            </button>
           )
         })}
       </div>
+
+      {/* Orders list */}
+      {filtered.length === 0 && (
+        <div className="empty" style={{ marginTop: 32 }}>
+          <div className="empty__title">No orders yet</div>
+          <p>Orders from vendors will appear here.</p>
+        </div>
+      )}
+      {filtered.map(order => (
+        <OrderCard
+          key={order.id}
+          order={order}
+          currentRole="FISHERMAN"
+          mutations={mutations}
+        />
+      ))}
     </div>
   )
 }
