@@ -12,8 +12,8 @@ export default function StorefrontEditor() {
   const qc = useQueryClient()
   const listingsQ = useQuery({ queryKey: ['vendor', 'storefront'], queryFn: listListings })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['vendor', 'storefront'] })
-  const createMut  = useMutation({ mutationFn: createListing,                          onSuccess: invalidate })
-  const updateMut  = useMutation({ mutationFn: ({ id, ...body }) => updateListing(id, body), onSuccess: invalidate })
+  const createMut  = useMutation({ mutationFn: createListing,                          onSuccess: () => { invalidate(); setModal(null) } })
+  const updateMut  = useMutation({ mutationFn: ({ id, ...body }) => updateListing(id, body), onSuccess: () => { invalidate(); setModal(null) } })
   const _deleteMut = useMutation({ mutationFn: deleteListing,                          onSuccess: invalidate })
   const publishMut = useMutation({ mutationFn: publishListing,                         onSuccess: invalidate })
   const unpubMut   = useMutation({ mutationFn: unpublishListing,                       onSuccess: invalidate })
@@ -35,7 +35,6 @@ export default function StorefrontEditor() {
     } else {
       createMut.mutate({ title: form.title, speciesName: form.speciesName, pricePerKg: form.pricePerKg, minQtyKg: form.minQtyKg })
     }
-    setModal(null)
   }
 
   return (
@@ -99,10 +98,6 @@ export default function StorefrontEditor() {
               <div className="form-row">
                 <label>Minimum quantity</label>
                 <input className="input" value={form.minQtyKg ?? ''} onChange={e => setForm(f => ({ ...f, minQtyKg: e.target.value }))} />
-              </div>
-              <div className="form-row">
-                <label>Status</label>
-                <input className="input" value={form.status ?? 'DRAFT'} onChange={e => setForm(f => ({ ...f, status: e.target.value }))} />
               </div>
             </div>
             <div className="modal__foot">

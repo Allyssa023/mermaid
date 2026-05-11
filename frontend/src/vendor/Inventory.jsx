@@ -9,7 +9,7 @@ export default function Inventory() {
   const [thr, setThr] = useState(10)
 
   const qc = useQueryClient()
-  const lotsQ = useQuery({ queryKey: ['vendor', 'inventory'], queryFn: listLots })
+  const lotsQ = useQuery({ queryKey: ['vendor', 'inventory'], queryFn: () => listLots() })
   const _adjustMut = useMutation({
     mutationFn: ({ lotId, deltaKg, reason }) => recordAdjustment(lotId, deltaKg, reason, ''),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'inventory'] }),
