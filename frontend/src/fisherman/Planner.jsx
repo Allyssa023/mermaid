@@ -15,9 +15,8 @@ export default function PlannerPage() {
 
   const advQ      = useQuery({ queryKey: ['advisories', 'active'], queryFn: () => fetchAdvisories(true) })
   const tripsQ    = useQuery({ queryKey: ['trips'], queryFn: () => listTrips() })
-  const listingsQ = useQuery({ queryKey: ['fisherman', 'marketplace', null], queryFn: () => browseDemandListings({ status: 'OPEN' }) })
+  const listingsQ = useQuery({ queryKey: ['fisherman', 'marketplace', null], queryFn: () => browseDemandListings() })
 
-  const advisories   = advQ.data ?? []
   const pastTrips    = (tripsQ.data ?? []).filter(t => t.status === 'COMPLETED' || t.status === 'CANCELLED')
   const plannedTrips = (tripsQ.data ?? []).filter(t => t.status === 'PLANNED')
   const listings     = (listingsQ.data ?? []).slice(0, 3)
@@ -63,8 +62,14 @@ export default function PlannerPage() {
     tripsByDay[key].push(t)
   })
 
-  // Advisories from API have no day-level date field — skip calendar dot mapping
   const advisoriesByDay = {}
+  ;(advQ.data ?? []).forEach(adv => {
+    if (adv.activeFrom) {
+      const key = adv.activeFrom.split('T')[0]
+      advisoriesByDay[key] = advisoriesByDay[key] || []
+      advisoriesByDay[key].push(adv)
+    }
+  })
 
   const selF = forecastFor(selected)
   const monthLabel = month.toLocaleDateString('en', { month: 'long', year: 'numeric' })
@@ -189,20 +194,23 @@ export default function PlannerPage() {
                 <div className="card__sub">Vendors seeking on this day</div>
               </div>
             </div>
-            {listings.length === 0 && (
-              <p style={{fontSize: 13, color: 'var(--ink-3)', margin: 0}}>No open listings.</p>
+            {listingsQ.isLoading ? (
+              <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
+            ) : listings.length === 0 ? (
+              <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>No open listings.</div>
+            ) : (
+              listings.map(l => (
+                <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, padding: '10px 0', borderBottom: '1px dashed var(--line-soft)' }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{l.fishSpecies?.commonName ?? '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{l.vendorName ?? '—'} · {l.quantityKg ?? '—'}kg</div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)' }}>
+                    ₱{l.offerPricePerKg}<small style={{fontSize:10, color:'var(--ink-4)', fontFamily:'var(--font-mono)', marginLeft:2}}>/kg</small>
+                  </div>
+                </div>
+              ))
             )}
-            {listings.map(l => (
-              <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, padding: '10px 0', borderBottom: '1px dashed var(--line-soft)' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{l.fishSpecies?.commonName ?? '—'}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{l.vendorName ?? '—'} · {l.quantityKg ?? '—'}kg</div>
-                </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--ink)' }}>
-                  ₱{l.offerPricePerKg}<small style={{fontSize:10, color:'var(--ink-4)', fontFamily:'var(--font-mono)', marginLeft:2}}>/kg</small>
-                </div>
-              </div>
-            ))}
             <button className="btn btn--ghost btn--sm" style={{marginTop: 10}}>See all in Marketplace <I.Arrow size={12} /></button>
           </div>
 
@@ -227,7 +235,7 @@ export default function PlannerPage() {
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{t.targetArea ?? 'Unnamed trip'}</div>
                       <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-                        {`T-${t.id}`}{t.crewCount ? ` · ${t.crewCount} crew` : ''}
+                        {`${t.vesselName ?? '—'} · Planned`}
                       </div>
                     </div>
                     <span className="chip chip--accent chip--dot">Planned</span>
