@@ -22,7 +22,7 @@ export default function Home({ setPage }) {
         <div>
           <div className="eyebrow">Vendor · today</div>
           <h1 className="page__title" style={{marginTop: 4}}>Good morning, <em>{firstName}</em></h1>
-          <p className="page__sub">{user?.business ?? ''} · Pinagbayanan Depot</p>
+          <p className="page__sub">{user?.business ?? ''}</p>
         </div>
         <div className="page__actions">
           <button className="btn"><I.Plus size={12} /> New listing</button>
@@ -31,10 +31,9 @@ export default function Home({ setPage }) {
       </div>
 
       <div className="grid grid--kpi" style={{marginTop: 18}}>
-        <div className="kpi"><div className="kpi__label">Today's revenue</div><div className="kpi__value">₱{(h.todayRevenue ?? 0).toLocaleString()}</div><div className="kpi__foot">vs ₱18.4k yesterday</div></div>
+        <div className="kpi"><div className="kpi__label">Today's revenue</div><div className="kpi__value">₱{(h.todayRevenue ?? 0).toLocaleString()}</div></div>
         <div className="kpi"><div className="kpi__label">Open orders</div><div className="kpi__value">{openOrdersTotal}</div><div className="kpi__foot">{h.openOrders?.new ?? 0} new · {h.openOrders?.preparing ?? 0} prep · {h.openOrders?.ready ?? 0} ready</div></div>
         <div className="kpi"><div className="kpi__label">Unread</div><div className="kpi__value">{h.unreadNotifications ?? 0}</div><div className="kpi__foot">messages + notices</div></div>
-        <div className="kpi"><div className="kpi__label">Avg rating</div><div className="kpi__value">4.7<small style={{color: 'oklch(0.65 0.15 80)'}}>★</small></div><div className="kpi__foot">94 reviews</div></div>
       </div>
 
       <div className="grid grid--2-1" style={{marginTop: 18}}>

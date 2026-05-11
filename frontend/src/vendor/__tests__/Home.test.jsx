@@ -1,7 +1,6 @@
 // frontend/src/vendor/__tests__/Home.test.jsx
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Home from '../Home'
 
@@ -11,7 +10,7 @@ import { getVendorHome } from '../api/home'
 
 function wrap(ui) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={client}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider>)
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 const MOCK = {
