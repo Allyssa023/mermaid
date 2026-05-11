@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { listProcurementOrders, cancelProcurementOrder, settleOrder, raiseDisputeVendor, getDisputeVendor, resolveDisputeVendor, initiateOrderPayout } from './api/procurement'
-import { useVendorPolling } from './hooks/useVendorPolling'
 
 const BUCKETS = ['PENDING', 'ACCEPTED', 'READY', 'COMPLETED', 'CANCELLED', 'DISPUTED']
 
@@ -43,16 +43,17 @@ export default function ProcurementOrders() {
   const [payoutError, setPayoutError]     = useState('')
   const [payoutSuccess, setPayoutSuccess] = useState(null)     // orderId of successful payout
 
-  const fetcher = useCallback(() => listProcurementOrders(bucket), [bucket])
-  const { data: orders = [], loading, refetch } = useVendorPolling(fetcher, 20000)
+  const qc = useQueryClient()
+  const ordersQ = useQuery({ queryKey: ['vendor', 'procOrders', bucket], queryFn: () => listProcurementOrders(bucket), refetchInterval: 20_000 })
+  const orders = ordersQ.data ?? []
 
   const handleSettle = async () => {
     setSettling(true)
     try {
       await settleOrder(settleModal.id, { paymentMethod: settlePayment })
       setSettleModal(null)
-      refetch()
-    } catch {}
+      qc.invalidateQueries({ queryKey: ['vendor', 'procOrders'] })
+    } catch { /* intentionally silent */ }
     finally { setSettling(false) }
   }
 
@@ -62,7 +63,7 @@ export default function ProcurementOrders() {
       await cancelProcurementOrder(orderId, cancelReason || undefined)
       setCancellingId(null)
       setCancelReason('')
-      refetch()
+      qc.invalidateQueries({ queryKey: ['vendor', 'procOrders'] })
     } catch (e) {
       const msg = e?.response?.data?.message || 'Failed to cancel order.'
       setCancelError(msg)
@@ -87,7 +88,7 @@ export default function ProcurementOrders() {
       await raiseDisputeVendor(disputeTarget.id, body)
       setDisputeTarget(null)
       setBucket('DISPUTED')
-      refetch()
+      qc.invalidateQueries({ queryKey: ['vendor', 'procOrders'] })
     } catch (e) {
       setDisputeError(e.message || 'Failed to raise dispute.')
     }
@@ -102,7 +103,7 @@ export default function ProcurementOrders() {
     try {
       const d = await getDisputeVendor(order.id)
       setViewDisputeData(d)
-    } catch {}
+    } catch { /* intentionally silent */ }
     finally { setViewDisputeLoading(false) }
   }
 
@@ -113,7 +114,7 @@ export default function ProcurementOrders() {
     try {
       await resolveDisputeVendor(viewDispute.id, { resolution: resolveText })
       setViewDispute(null)
-      refetch()
+      qc.invalidateQueries({ queryKey: ['vendor', 'procOrders'] })
     } catch (e) {
       setResolveError(e.message || 'Failed to resolve dispute.')
     } finally { setResolving(false) }
@@ -126,7 +127,7 @@ export default function ProcurementOrders() {
       await initiateOrderPayout(payoutModal.id, payoutChannel)
       setPayoutSuccess(payoutModal.id)
       setPayoutModal(null)
-      refetch()
+      qc.invalidateQueries({ queryKey: ['vendor', 'procOrders'] })
     } catch (e) {
       setPayoutError(e?.message || 'Payout failed. Check that the fisherman has an e-wallet number on file.')
     } finally {
@@ -161,10 +162,10 @@ export default function ProcurementOrders() {
           </div>
         </div>
 
-        {loading && orders.length === 0 && (
+        {ordersQ.isLoading && orders.length === 0 && (
           <div className="empty"><div className="empty__title">Loading…</div></div>
         )}
-        {!loading && orders.length === 0 && (
+        {!ordersQ.isLoading && orders.length === 0 && (
           <div className="empty">
             <div className="empty__title">No {bucket.toLowerCase()} orders</div>
           </div>
