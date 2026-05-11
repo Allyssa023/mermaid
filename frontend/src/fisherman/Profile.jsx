@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
 import { getProfile, updateProfile } from './api/profile'
@@ -9,6 +9,7 @@ import ApiError from '../components/ApiError'
 
 export default function FishermanProfilePage() {
   const [saved, setSaved] = useState(false)
+  const [form, setForm] = useState(null)
 
   const qc = useQueryClient()
   const profileQ = useQuery({ queryKey: ['fisherman', 'profile'], queryFn: getProfile })
@@ -21,12 +22,28 @@ export default function FishermanProfilePage() {
     },
   })
 
+  useEffect(() => {
+    if (profileQ.data && !form) {
+      setForm({
+        vesselName: profileQ.data.vesselName ?? '',
+        landingSite: profileQ.data.landingSite ?? '',
+        emergencyContactName: profileQ.data.emergencyContactName ?? '',
+        emergencyContactPhone: profileQ.data.emergencyContactPhone ?? '',
+        gcashNumber: profileQ.data.gcashNumber ?? '',
+        mayaNumber: profileQ.data.mayaNumber ?? '',
+      })
+    }
+  }, [profileQ.data])
+
   // Hooks must come before early returns
   if (profileQ.isLoading) return <div className="page"><CardSkeleton /></div>
   if (profileQ.error) return <div className="page"><ApiError error={profileQ.error} onRetry={profileQ.refetch} /></div>
+  if (!form) return <div className="page"><CardSkeleton /></div>
 
   const profile = profileQ.data ?? {}
   const noWallet = !profile.gcashNumber && !profile.mayaNumber
+
+  const setField = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
 
   return (
     <div className="page">
@@ -56,11 +73,11 @@ export default function FishermanProfilePage() {
             </div>
             <div className="form-row">
               <label>Vessel name</label>
-              <input className="input" defaultValue={profile.vesselName ?? ''} />
+              <input className="input" value={form.vesselName} onChange={setField('vesselName')} />
             </div>
             <div className="form-row">
               <label>Primary landing site</label>
-              <input className="input" defaultValue={profile.landingSite ?? ''} />
+              <input className="input" value={form.landingSite} onChange={setField('landingSite')} />
             </div>
             <div className="form-row" style={{gridColumn: '1 / -1'}}>
               <label>Email</label>
@@ -75,11 +92,11 @@ export default function FishermanProfilePage() {
           <div className="form-grid">
             <div className="form-row" style={{gridColumn: '1 / -1'}}>
               <label>Contact name</label>
-              <input className="input" defaultValue={profile.emergencyContactName ?? ''} />
+              <input className="input" value={form.emergencyContactName} onChange={setField('emergencyContactName')} />
             </div>
             <div className="form-row" style={{gridColumn: '1 / -1'}}>
               <label>Phone</label>
-              <input className="input" defaultValue={profile.emergencyContactPhone ?? ''} />
+              <input className="input" value={form.emergencyContactPhone} onChange={setField('emergencyContactPhone')} />
             </div>
           </div>
           {profile.emergencyContactName && (
@@ -126,7 +143,7 @@ export default function FishermanProfilePage() {
         <button className="btn">Cancel</button>
         <button
           className="btn btn--primary"
-          onClick={() => updateMut.mutate(profile)}
+          onClick={() => updateMut.mutate(form)}
           disabled={updateMut.isPending}
         >
           {updateMut.isPending ? 'Saving…' : 'Save profile'}
