@@ -1,67 +1,33 @@
-import { useState, useEffect, useRef } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ── Inline mock data ─────────────────────────────────────────────────────────
-
-const SPECIES = [
-  { id: 1, commonName: 'Yellowfin Tuna',      tag: 'YT' },
-  { id: 2, commonName: 'Skipjack',            tag: 'SK' },
-  { id: 3, commonName: 'Mahi-mahi',           tag: 'MM' },
-  { id: 4, commonName: 'Red Snapper',         tag: 'RS' },
-  { id: 5, commonName: 'Grouper (Lapu-lapu)', tag: 'LL' },
-  { id: 6, commonName: 'Spanish Mackerel',    tag: 'SM' },
-  { id: 7, commonName: 'Squid (Pusit)',        tag: 'PS' },
-  { id: 8, commonName: 'Blue Marlin',         tag: 'BM' },
-]
-const sp = (name) => SPECIES.find(s => s.commonName === name || s.commonName.startsWith(name))
-
-const CATCH_ALERTS = [
-  { id: 841, alertCode: 'CA-841', species: sp('Yellowfin'),
-    quantityKg: 42, landingSite: 'Verde Passage', askingPricePerKg: 380,
-    status: 'ACTIVE', matchedListingIds: [512, 497, 504, 509, 501], urgent: false,
-    postedLabel: '09:14', expires: '13:14 today',
-    kg: 42, pieces: 4, askPrice: 380, site: 'Verde Passage', postedAt: '09:14', offers: 5 },
-  { id: 840, alertCode: 'CA-840', species: sp('Mahi'),
-    quantityKg: 9, landingSite: 'Verde Passage', askingPricePerKg: 260,
-    status: 'MATCHED', matchedListingIds: [510, 501, 504], urgent: false, buyer: 'Marina Seafoods',
-    postedLabel: '08:42', expires: '12:42 today',
-    kg: 9, pieces: 2, askPrice: 260, site: 'Verde Passage', postedAt: '08:42', offers: 3 },
-  { id: 839, alertCode: 'CA-839', species: sp('Grouper'),
-    quantityKg: 3.2, landingSite: 'Verde Passage', askingPricePerKg: 420,
-    status: 'ACTIVE', matchedListingIds: [505, 501, 497, 512, 510, 504, 509], urgent: true,
-    postedLabel: '09:58', expires: '10:39 today',
-    kg: 3.2, pieces: 1, askPrice: 420, site: 'Verde Passage', postedAt: '09:58', offers: 7 },
-  { id: 838, alertCode: 'CA-838', species: sp('Squid'),
-    quantityKg: 8, landingSite: 'Verde Passage', askingPricePerKg: 220,
-    status: 'ACTIVE', matchedListingIds: [501, 497], urgent: false,
-    postedLabel: '08:22', expires: '10:22 today',
-    kg: 8, pieces: null, askPrice: 220, site: 'Verde Passage', postedAt: '08:22', offers: 2 },
-  { id: 832, alertCode: 'CA-832', species: sp('Skipjack'),
-    quantityKg: 34, landingSite: 'Balayan Bay', askingPricePerKg: 180,
-    status: 'EXPIRED', matchedListingIds: [497], urgent: false,
-    postedLabel: 'Yest.', expires: 'Expired',
-    kg: 34, pieces: 12, askPrice: 180, site: 'Balayan Bay', postedAt: 'Yest.', offers: 1 },
-  { id: 828, alertCode: 'CA-828', species: sp('Spanish'),
-    quantityKg: 18, landingSite: 'Tayabas Bay', askingPricePerKg: 340,
-    status: 'MATCHED', matchedListingIds: [509, 504, 497, 510], urgent: false, buyer: 'Bay City Market',
-    postedLabel: 'Yest.', expires: 'Expired',
-    kg: 18, pieces: 3, askPrice: 340, site: 'Tayabas Bay', postedAt: 'Yest.', offers: 4 },
-  { id: 825, alertCode: 'CA-825', species: sp('Red Snapper'),
-    quantityKg: 11, landingSite: 'Verde Passage', askingPricePerKg: 380,
-    status: 'CANCELLED', matchedListingIds: [], urgent: false,
-    postedLabel: 'Apr 21', expires: 'Expired',
-    kg: 11, pieces: 5, askPrice: 380, site: 'Verde Passage', postedAt: 'Apr 21', offers: 0 },
-]
-
-// ── Component ─────────────────────────────────────────────────────────────────
+import { listCatchAlerts, cancelCatchAlert } from './api/catchAlerts'
+import { fetchSpecies } from '../api/lookup.js'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 export default function AlertsPage() {
-  const active  = CATCH_ALERTS.filter(a => a.status === 'ACTIVE')
-  const matched = CATCH_ALERTS.filter(a => a.status === 'MATCHED')
-  const expired = CATCH_ALERTS.filter(a => a.status === 'EXPIRED')
+  const qc = useQueryClient()
+  const alertsQ  = useQuery({ queryKey: ['catchAlerts', 'own'], queryFn: listCatchAlerts })
+  const speciesQ = useQuery({ queryKey: ['species'], queryFn: fetchSpecies })
 
-  const totalKg = active.reduce((a, c) => a + c.kg, 0)
-  const potentialRevenue = active.reduce((a, c) => a + c.kg * c.askPrice, 0)
+  const cancelMutation = useMutation({
+    mutationFn: (id) => cancelCatchAlert(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['catchAlerts'] }),
+  })
+
+  if (alertsQ.isLoading) return <div className="page"><TableRowSkeleton rows={5} /></div>
+  if (alertsQ.error) return <div className="page"><ApiError error={alertsQ.error} onRetry={alertsQ.refetch} /></div>
+
+  const alerts  = alertsQ.data ?? []
+
+  const active  = alerts.filter(a => a.status === 'ACTIVE')
+  const matched = alerts.filter(a => a.status === 'MATCHED')
+  const expired = alerts.filter(a => a.status === 'EXPIRED' || a.status === 'CANCELLED')
+
+  const totalKg          = active.reduce((s, a) => s + (a.quantityKg ?? 0), 0)
+  const potentialRevenue = active.reduce((s, a) => s + (a.quantityKg ?? 0) * (a.askingPricePerKg ?? 0), 0)
+
+  const matchRate = alerts.length > 0 ? Math.round((matched.length / alerts.length) * 100) : 0
 
   return (
     <div className="page">
@@ -84,7 +50,7 @@ export default function AlertsPage() {
         <div className="stat">
           <div className="l">Active alerts</div>
           <div className="v">{active.length}</div>
-          <div className="s">Posted to 14 nearby vendors</div>
+          <div className="s">Across {alerts.length} total alerts</div>
         </div>
         <div className="stat">
           <div className="l">Total offered</div>
@@ -98,12 +64,12 @@ export default function AlertsPage() {
         </div>
         <div className="stat">
           <div className="l">Open offers</div>
-          <div className="v">{active.reduce((a,c)=>a+c.offers,0)}</div>
-          <div className="s">From 9 vendors</div>
+          <div className="v">{active.reduce((s,a)=>s+(a.matchedListingIds?.length??0), 0)}</div>
+          <div className="s">{active.reduce((s,a) => s + (a.matchedListingIds?.length ?? 0), 0)} total offers</div>
         </div>
         <div className="stat">
           <div className="l">Match rate</div>
-          <div className="v">82<span style={{fontSize:16, color:'var(--ink-4)', marginLeft:2}}>%</span></div>
+          <div className="v">{matchRate}<span style={{fontSize:16, color:'var(--ink-4)', marginLeft:2}}>%</span></div>
           <div className="s">Last 30 days</div>
         </div>
       </div>
@@ -120,52 +86,58 @@ export default function AlertsPage() {
           </div>
         </div>
         <div className="alerts-grid">
-          {active.map(a => (
-            <div key={a.id} className={`alert-card${a.urgent ? ' alert-card--urgent' : ''}`}>
-              <div className="alert-card__head">
-                <div>
+          {active.map(a => {
+            const urgent = new Date(a.expiresAt).getTime() - Date.now() < 60 * 60 * 1000
+            const offerCount = a.matchedListingIds?.length ?? 0
+            return (
+              <div key={a.id} className={`alert-card${urgent ? ' alert-card--urgent' : ''}`}>
+                <div className="alert-card__head">
+                  <div>
+                    <div className="row" style={{gap: 6}}>
+                      <span className="kbd">{`CA-${a.id}`}</span>
+                      {urgent && <span className="chip chip--unsafe chip--dot">Expires soon</span>}
+                    </div>
+                    <h3 className="alert-card__species">{a.species?.commonName}</h3>
+                    <div className="alert-card__sub">
+                      Posted {new Date(a.createdAt).toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'})} · {a.landingSite ?? '—'}
+                    </div>
+                  </div>
+                  <button className="btn btn--sm btn--ghost"><I.Dots size={14} /></button>
+                </div>
+                <div className="alert-card__stats">
+                  <div>
+                    <div className="l">Qty</div>
+                    <div className="v">{a.quantityKg ?? 0}<small>kg</small></div>
+                  </div>
+                  <div>
+                    <div className="l">Pieces</div>
+                    <div className="v">{a.quantityEstimate ?? '—'}</div>
+                  </div>
+                  <div>
+                    <div className="l">Asking</div>
+                    <div className="v">₱{a.askingPricePerKg ?? 0}<small>/kg</small></div>
+                  </div>
+                </div>
+                <div className="alert-card__foot">
                   <div className="row" style={{gap: 6}}>
-                    <span className="kbd">{a.alertCode}</span>
-                    {a.urgent && <span className="chip chip--unsafe chip--dot">Expires soon</span>}
+                    <I.Clock size={12} style={{color: urgent ? 'var(--unsafe)' : 'var(--ink-4)'}} />
+                    <span style={{color: urgent ? 'var(--unsafe)' : 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 12}}>
+                      {new Date(a.expiresAt).toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'})}
+                    </span>
                   </div>
-                  <h3 className="alert-card__species">{a.species?.commonName || a.species}</h3>
-                  <div className="alert-card__sub">Posted {a.postedAt} · {a.site}</div>
-                </div>
-                <button className="btn btn--sm btn--ghost"><I.Dots size={14} /></button>
-              </div>
-              <div className="alert-card__stats">
-                <div>
-                  <div className="l">Qty</div>
-                  <div className="v">{a.kg}<small>kg</small></div>
-                </div>
-                <div>
-                  <div className="l">Pieces</div>
-                  <div className="v">{a.pieces ?? '—'}</div>
-                </div>
-                <div>
-                  <div className="l">Asking</div>
-                  <div className="v">₱{a.askPrice}<small>/kg</small></div>
-                </div>
-              </div>
-              <div className="alert-card__foot">
-                <div className="row" style={{gap: 6}}>
-                  <I.Clock size={12} style={{color: a.urgent ? 'var(--unsafe)' : 'var(--ink-4)'}} />
-                  <span style={{color: a.urgent ? 'var(--unsafe)' : 'var(--ink-3)', fontFamily: 'var(--font-mono)', fontSize: 12}}>
-                    {a.expires}
-                  </span>
-                </div>
-                <div className="row" style={{gap: 8}}>
-                  <div className="alert-card__offers">
-                    {['MS', 'BC', 'JA'].slice(0, Math.min(3, a.offers)).map((n, i) => (
-                      <div key={i} className="alert-card__offer-avatar" style={{marginLeft: i === 0 ? 0 : -6}}>{n}</div>
-                    ))}
-                    {a.offers > 3 && <div className="alert-card__offer-avatar">+{a.offers - 3}</div>}
+                  <div className="row" style={{gap: 8}}>
+                    <div className="alert-card__offers">
+                      {['MS', 'BC', 'JA'].slice(0, Math.min(3, offerCount)).map((n, i) => (
+                        <div key={i} className="alert-card__offer-avatar" style={{marginLeft: i === 0 ? 0 : -6}}>{n}</div>
+                      ))}
+                      {offerCount > 3 && <div className="alert-card__offer-avatar">+{offerCount - 3}</div>}
+                    </div>
+                    <button className="btn btn--accent btn--sm">{offerCount} offers</button>
                   </div>
-                  <button className="btn btn--accent btn--sm">{a.offers} offers</button>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -184,7 +156,7 @@ export default function AlertsPage() {
               <th>Species</th>
               <th>Qty</th>
               <th>Price</th>
-              <th>Buyer</th>
+              <th>Matched</th>
               <th>Site</th>
               <th></th>
             </tr>
@@ -192,12 +164,12 @@ export default function AlertsPage() {
           <tbody>
             {matched.map(a => (
               <tr key={a.id} className="row--link">
-                <td><span className="kbd">{a.alertCode}</span></td>
-                <td style={{fontWeight: 500, color: 'var(--ink)'}}>{a.species?.commonName || a.species}</td>
-                <td className="data">{a.kg}kg · {a.pieces ?? '—'} pcs</td>
-                <td className="data">₱{a.askPrice}/kg</td>
-                <td>{a.buyer}</td>
-                <td>{a.site}</td>
+                <td><span className="kbd">{`CA-${a.id}`}</span></td>
+                <td style={{fontWeight: 500, color: 'var(--ink)'}}>{a.species?.commonName}</td>
+                <td className="data">{a.quantityKg ?? 0}kg · {a.quantityEstimate ?? '—'} pcs</td>
+                <td className="data">₱{a.askingPricePerKg ?? 0}/kg</td>
+                <td>{(a.matchedListingIds?.length ?? 0)} vendor{(a.matchedListingIds?.length ?? 0) !== 1 ? 's' : ''}</td>
+                <td>{a.landingSite ?? '—'}</td>
                 <td><button className="btn btn--sm btn--accent">Create order</button></td>
               </tr>
             ))}
@@ -223,12 +195,12 @@ export default function AlertsPage() {
             <tbody>
               {expired.map(a => (
                 <tr key={a.id}>
-                  <td><span className="kbd">{a.alertCode}</span></td>
-                  <td style={{fontWeight: 500}}>{a.species?.commonName || a.species}</td>
-                  <td className="data">{a.kg}kg</td>
-                  <td className="data">₱{a.askPrice}/kg</td>
-                  <td>{a.site}</td>
-                  <td style={{color: 'var(--ink-4)'}}>{a.postedAt}</td>
+                  <td><span className="kbd">{`CA-${a.id}`}</span></td>
+                  <td style={{fontWeight: 500}}>{a.species?.commonName}</td>
+                  <td className="data">{a.quantityKg ?? 0}kg</td>
+                  <td className="data">₱{a.askingPricePerKg ?? 0}/kg</td>
+                  <td>{a.landingSite ?? '—'}</td>
+                  <td style={{color: 'var(--ink-4)'}}>{new Date(a.createdAt).toLocaleTimeString('en-PH', {hour:'2-digit', minute:'2-digit'})}</td>
                   <td><button className="btn btn--sm">Relist</button></td>
                 </tr>
               ))}
