@@ -1,5 +1,11 @@
-import { apiGet, apiPost, apiPut } from '../../api'
+import { apiGet, apiPost, apiPut, apiDelete } from '../../api'
 export const listTrips     = (status) => apiGet('/trips' + (status ? `?status=${status}` : ''))
 export const startTrip     = (body)   => apiPost('/trips', null, body)
 export const endTrip       = (id, body) => apiPost(`/trips/${id}/end`, null, body)
 export const saveChecklist = (id, body) => apiPut(`/trips/${id}/checklist`, null, body)
+export const listCatchLogs    = (tripId)              => apiGet(`/trips/${tripId}/catch-logs`)
+export const createCatchLog   = (tripId, body)        => apiPost(`/trips/${tripId}/catch-logs`, null, body)
+export const updateCatchLog   = (tripId, logId, body) => apiPut(`/trips/${tripId}/catch-logs/${logId}`, null, body)
+export const deleteCatchLog   = (tripId, logId)       => apiDelete(`/trips/${tripId}/catch-logs/${logId}`)
+export const settleCatchLog   = (tripId, logId, body) => apiPost(`/trips/${tripId}/catch-logs/${logId}/settle`, null, body)
+export const getTrip          = (id)                  => apiGet(`/trips/${id}`)
