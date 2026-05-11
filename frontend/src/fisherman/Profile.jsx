@@ -1,25 +1,32 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ── Inline mock data ─────────────────────────────────────────────────────────
-
-const USER = {
-  id: 101,
-  fullName: 'Ramiro Delgado',
-  first: 'Ramiro',
-  email: 'ramiro@mermaid.ph',
-  role: 'FISHERMAN',
-  vessel: 'MV Sirena II',
-  license: 'PH-FL-2421',
-  port: 'Bauan · Batangas',
-}
+import { getProfile, updateProfile } from './api/profile'
+import { CardSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function FishermanProfilePage() {
-  const [wallet, setWallet] = useState('GCash · +63 917 ●●● 4421')
   const [saved, setSaved] = useState(false)
-  const noWallet = false
+
+  const qc = useQueryClient()
+  const profileQ = useQuery({ queryKey: ['fisherman', 'profile'], queryFn: getProfile })
+  const updateMut = useMutation({
+    mutationFn: updateProfile,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fisherman', 'profile'] })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2200)
+    },
+  })
+
+  // Hooks must come before early returns
+  if (profileQ.isLoading) return <div className="page"><CardSkeleton /></div>
+  if (profileQ.error) return <div className="page"><ApiError error={profileQ.error} onRetry={profileQ.refetch} /></div>
+
+  const profile = profileQ.data ?? {}
+  const noWallet = !profile.gcashNumber && !profile.mayaNumber
 
   return (
     <div className="page">
@@ -45,23 +52,19 @@ export default function FishermanProfilePage() {
           <div className="form-grid">
             <div className="form-row">
               <label>Full name</label>
-              <input className="input" defaultValue={USER.fullName} />
+              <input className="input" defaultValue={profile.fullName ?? ''} />
             </div>
             <div className="form-row">
               <label>Vessel name</label>
-              <input className="input" defaultValue={USER.vessel || 'MV Sirena II'} />
-            </div>
-            <div className="form-row">
-              <label>Vessel type</label>
-              <input className="input" defaultValue="Banca · 30 ft" />
+              <input className="input" defaultValue={profile.vesselName ?? ''} />
             </div>
             <div className="form-row">
               <label>Primary landing site</label>
-              <input className="input" defaultValue="Verde Passage" />
+              <input className="input" defaultValue={profile.landingSite ?? ''} />
             </div>
             <div className="form-row" style={{gridColumn: '1 / -1'}}>
-              <label>Phone (verified)</label>
-              <input className="input" defaultValue="+63 917 442 1188" disabled />
+              <label>Email</label>
+              <input className="input" defaultValue={profile.email ?? ''} disabled />
             </div>
           </div>
         </div>
@@ -72,17 +75,19 @@ export default function FishermanProfilePage() {
           <div className="form-grid">
             <div className="form-row" style={{gridColumn: '1 / -1'}}>
               <label>Contact name</label>
-              <input className="input" defaultValue="Maria Delgado" />
+              <input className="input" defaultValue={profile.emergencyContactName ?? ''} />
             </div>
             <div className="form-row" style={{gridColumn: '1 / -1'}}>
               <label>Phone</label>
-              <input className="input" defaultValue="+63 918 221 4421" />
+              <input className="input" defaultValue={profile.emergencyContactPhone ?? ''} />
             </div>
           </div>
-          <div style={{marginTop: 14, padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12, color: 'var(--ink-2)', fontFamily: 'var(--font-mono)'}}>
-            <span className="muted-data">SMS preview</span><br />
-            "Hello Maria — Ramiro hasn't returned from Verde Passage as planned (ETA 13:00). Please check on him. — Mermaid"
-          </div>
+          {profile.emergencyContactName && (
+            <div style={{marginTop: 14, padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 12, color: 'var(--ink-2)', fontFamily: 'var(--font-mono)'}}>
+              <span className="muted-data">SMS preview</span><br />
+              "Hello {profile.emergencyContactName} — {profile.fullName} hasn't returned from {profile.landingSite || 'the landing site'} as planned (ETA 13:00). Please check on them. — Mermaid"
+            </div>
+          )}
         </div>
       </div>
 
@@ -94,19 +99,38 @@ export default function FishermanProfilePage() {
           </div>
           <button className="btn btn--sm"><I.Wallet size={12} /> Change</button>
         </div>
-        <div className="row" style={{gap: 16, alignItems: 'center'}}>
-          <div style={{width: 56, height: 56, borderRadius: 12, background: 'oklch(0.7 0.14 220)', color: 'white', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 13, letterSpacing: '0.5px'}}>GCash</div>
-          <div style={{flex: 1}}>
-            <div style={{fontFamily: 'var(--font-mono)', fontSize: 16}}>{wallet}</div>
-            <div className="muted-data" style={{fontSize: 12, marginTop: 4}}>Verified · default payout</div>
+        {profile.gcashNumber ? (
+          <div className="row" style={{gap: 16, alignItems: 'center'}}>
+            <div style={{width: 56, height: 56, borderRadius: 12, background: 'oklch(0.7 0.14 220)', color: 'white', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 13, letterSpacing: '0.5px'}}>GCash</div>
+            <div style={{flex: 1}}>
+              <div style={{fontFamily: 'var(--font-mono)', fontSize: 16}}>GCash · {profile.gcashNumber}</div>
+              <div className="muted-data" style={{fontSize: 12, marginTop: 4}}>Verified · default payout</div>
+            </div>
+            <span className="status status--completed"><span className="status__dot" /> ACTIVE</span>
           </div>
-          <span className="status status--completed"><span className="status__dot" /> ACTIVE</span>
-        </div>
+        ) : profile.mayaNumber ? (
+          <div className="row" style={{gap: 16, alignItems: 'center'}}>
+            <div style={{width: 56, height: 56, borderRadius: 12, background: 'oklch(0.7 0.14 160)', color: 'white', display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 13, letterSpacing: '0.5px'}}>Maya</div>
+            <div style={{flex: 1}}>
+              <div style={{fontFamily: 'var(--font-mono)', fontSize: 16}}>Maya · {profile.mayaNumber}</div>
+              <div className="muted-data" style={{fontSize: 12, marginTop: 4}}>Verified · default payout</div>
+            </div>
+            <span className="status status--completed"><span className="status__dot" /> ACTIVE</span>
+          </div>
+        ) : (
+          <div className="muted-data">No e-wallet connected yet.</div>
+        )}
       </div>
 
       <div className="row" style={{marginTop: 18, gap: 8, justifyContent: 'flex-end'}}>
         <button className="btn">Cancel</button>
-        <button className="btn btn--primary" onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2200) }}>Save profile</button>
+        <button
+          className="btn btn--primary"
+          onClick={() => updateMut.mutate(profile)}
+          disabled={updateMut.isPending}
+        >
+          {updateMut.isPending ? 'Saving…' : 'Save profile'}
+        </button>
       </div>
     </div>
   )
