@@ -1,14 +1,24 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
-
-const V_WATCHLIST = [
-  { id: 1, species: 'Yellowfin Tuna', location: 'Verde Passage', radius: 25 },
-  { id: 2, species: 'Grouper',        location: 'Anilao Landing', radius: 15 },
-  { id: 3, species: 'Skipjack',       location: 'Lucena Port',    radius: 30 },
-]
+import { listWatchlist, removeWatchlist } from './api/watchlist'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 export default function Watchlist() {
   const [open, setOpen] = useState(false)
+
+  const qc = useQueryClient()
+  const watchQ = useQuery({ queryKey: ['vendor', 'watchlist'], queryFn: listWatchlist })
+  const removeMut = useMutation({
+    mutationFn: removeWatchlist,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'watchlist'] }),
+  })
+
+  if (watchQ.isLoading) return <div className="page"><TableRowSkeleton rows={3} /></div>
+  if (watchQ.error) return <div className="page"><ApiError error={watchQ.error} onRetry={watchQ.refetch} /></div>
+  const items = watchQ.data ?? []
+
   return (
     <div className="page">
       <div className="page__head">
@@ -21,16 +31,16 @@ export default function Watchlist() {
       </div>
 
       <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, marginTop: 18}}>
-        {V_WATCHLIST.map(s => (
-          <div key={s.id} className="card">
+        {items.map(item => (
+          <div key={item.id} className="card">
             <div className="card__head">
               <div>
-                <div className="card__title" style={{fontSize: 17}}>{s.species}</div>
-                <div className="card__sub"><I.MapPin size={11} /> {s.location}</div>
+                <div className="card__title" style={{fontSize: 17}}>{item.speciesName}</div>
+                <div className="card__sub"><I.MapPin size={11} /> {item.locationName}</div>
               </div>
-              <button className="btn btn--ghost btn--sm"><I.Trash size={11} /></button>
+              <button className="btn btn--ghost btn--sm" onClick={() => removeMut.mutate(item.id)}><I.Trash size={11} /></button>
             </div>
-            <div className="muted-data" style={{fontSize: 12, marginTop: -6}}>Radius: <strong style={{color: 'var(--ink)'}}>{s.radius} km</strong></div>
+            <div className="muted-data" style={{fontSize: 12, marginTop: -6}}>Radius: <strong style={{color: 'var(--ink)'}}>{item.radiusKm} km</strong></div>
             <div className="row" style={{gap: 8, marginTop: 14}}>
               <button className="btn btn--ghost btn--sm" style={{flex: 1}}>Edit</button>
               <button className="btn btn--accent btn--sm" style={{flex: 1}}>View matches</button>
