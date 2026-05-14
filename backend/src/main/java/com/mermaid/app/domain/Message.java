@@ -37,6 +37,10 @@ public class Message {
     @Column(name = "is_read", nullable = false)
     private boolean read = false;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id")
+    private Deal deal;
+
     @PrePersist
     protected void onCreate() {
         if (sentAt == null) sentAt = OffsetDateTime.now();
@@ -59,6 +63,9 @@ public class Message {
 
     public boolean isRead() { return read; }
     public void setRead(boolean read) { this.read = read; }
+
+    public Deal getDeal() { return deal; }
+    public void setDeal(Deal deal) { this.deal = deal; }
 
     @Override
     public boolean equals(Object o) {

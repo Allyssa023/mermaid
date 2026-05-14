@@ -25,6 +25,10 @@ public class ProcurementCartItem {
     @Column(name = "offered_price_per_kg", precision = 10, scale = 2)
     private BigDecimal offeredPricePerKg;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id")
+    private Deal deal;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -43,6 +47,8 @@ public class ProcurementCartItem {
     public void setQtyKg(BigDecimal qtyKg) { this.qtyKg = qtyKg; }
     public BigDecimal getOfferedPricePerKg() { return offeredPricePerKg; }
     public void setOfferedPricePerKg(BigDecimal offeredPricePerKg) { this.offeredPricePerKg = offeredPricePerKg; }
+    public Deal getDeal() { return deal; }
+    public void setDeal(Deal deal) { this.deal = deal; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

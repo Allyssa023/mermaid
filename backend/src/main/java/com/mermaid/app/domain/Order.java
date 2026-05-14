@@ -72,6 +72,10 @@ public class Order {
     @Column(name = "settle_notes", columnDefinition = "TEXT")
     private String settleNotes;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "deal_id")
+    private Deal deal;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -135,4 +139,6 @@ public class Order {
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Deal getDeal() { return deal; }
+    public void setDeal(Deal deal) { this.deal = deal; }
 }
