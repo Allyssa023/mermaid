@@ -120,10 +120,9 @@ public class VendorProcurementController implements VendorProcurementApi {
     }
 
     @Override
-    public ResponseEntity<List<ProcurementOrderSummary>> checkoutProcurementCart() {
-        Long vendorId = SecurityUtils.currentUserId();
-        List<com.mermaid.app.domain.Order> orders = orderService.checkout(vendorId);
-        return ResponseEntity.ok(orders.stream().map(this::toOrderSummary).collect(Collectors.toList()));
+    public ResponseEntity<com.mermaid.app.model.DealDto> startDealFromCartItem(Long itemId) {
+        // Implemented in subsequent task (deals negotiation feature).
+        throw new UnsupportedOperationException("Not yet implemented");
     }
 
     @Override

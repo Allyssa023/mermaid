@@ -33,7 +33,7 @@ public class CatchAlertMapper {
         m.setQuantityEstimate(JsonNullable.of(entity.getQuantityEstimate()));
         m.setQuantityKg(JsonNullable.of(toDouble(entity.getQuantityKg())));
         m.setLandingSite(JsonNullable.of(entity.getLandingSite()));
-        m.setAskingPricePerKg(JsonNullable.of(toDouble(entity.getAskingPricePerKg())));
+        m.setAskingPricePerKg(toDouble(entity.getAskingPricePerKg()));
         m.setNotes(JsonNullable.of(entity.getNotes()));
         m.setMatchedListingIds(matchedListingIds != null ? matchedListingIds : List.of());
         return m;

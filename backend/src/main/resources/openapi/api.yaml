@@ -50,6 +50,8 @@ tags:
     description: Dispute management for procurement orders
   - name: Payouts
     description: Payment disbursement to fishermen
+  - name: Deals
+    description: Vendor/fisherman price-and-quantity negotiation on catch alerts
 
 security:
   - bearerAuth: []
@@ -1138,10 +1140,22 @@ paths:
             type: string
             enum: [NEW, PREPARING, READY, COMPLETED, CANCELLED]
         - in: query
+          name: status
+          description: Retail-flow status filter (PENDING, CONFIRMED, COMPLETED, DISPUTED, CANCELLED). Preferred over bucket.
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, COMPLETED, DISPUTED, CANCELLED]
+        - in: query
           name: kind
           schema:
             type: string
             enum: [RETAIL, PROCUREMENT]
+        - in: query
+          name: buyerId
+          description: Restrict to a single buyer.
+          schema:
+            type: integer
+            format: int64
       responses:
         '200':
           description: Orders list
@@ -1151,6 +1165,39 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/VendorOrderSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/orders/export:
+    get:
+      tags: [Vendor Orders]
+      summary: Export vendor orders as CSV
+      operationId: vendorExportOrders
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, COMPLETED, DISPUTED, CANCELLED]
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: CSV of vendor orders
+          content:
+            text/csv:
+              schema:
+                type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -1390,23 +1437,31 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /vendor/procurement/checkout:
+  /vendor/procurement/cart/items/{itemId}/deal:
     post:
       tags: [Vendor Procurement]
-      summary: Checkout procurement cart (row-locked overcommit prevention)
-      operationId: checkoutProcurementCart
+      summary: Start (or fetch existing) negotiation deal for a cart item
+      description: Vendor-only. Creates or returns the active deal for the given cart item.
+      operationId: startDealFromCartItem
       security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: itemId
+          required: true
+          schema: {type: integer, format: int64}
       responses:
         '200':
-          description: Orders created
+          description: Deal
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ProcurementOrderSummary'
+                $ref: '#/components/schemas/DealDto'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '401':
@@ -1552,6 +1607,37 @@ paths:
           $ref: '#/components/responses/Unauthorized'
 
   /vendor/watchlist/{id}:
+    patch:
+      tags: [Vendor Watchlist]
+      summary: Update a watchlist subscription
+      operationId: updateVendorWatchlist
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendorWatchlistRequest'
+      responses:
+        '200':
+          description: Updated entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorWatchlistEntry'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags: [Vendor Watchlist]
       summary: Remove a watchlist subscription
@@ -2057,6 +2143,39 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/EarningsLedgerRow' }
+      security: [{ bearerAuth: [] }]
+
+  /fisherman/trips/{tripId}/summary:
+    get:
+      tags: [Fisherman Earnings]
+      operationId: getFishermanTripSummary
+      summary: Get per-trip catch analytics with BFAR price gap
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Trip summary with BFAR reference comparison
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TripAnalyticsSummary' }
+        '404':
+          description: Trip not found
+      security: [{ bearerAuth: [] }]
+
+  /fisherman/analytics:
+    get:
+      tags: [Fisherman Earnings]
+      operationId: getFishermanAnalytics
+      summary: Get all-time fisherman analytics with BFAR price gap and top species
+      responses:
+        '200':
+          description: All-time analytics summary
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FishermanAnalytics' }
       security: [{ bearerAuth: [] }]
 
   # ── Order Disputes ───────────────────────────────────────────────────────────
@@ -2975,6 +3094,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /buyer/home:
+    get:
+      tags: [Buyer Dashboard]
+      summary: Aggregated home dashboard — stats, recent orders, fresh listings, activity
+      operationId: getBuyerHome
+      responses:
+        '200':
+          description: Buyer home summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyerHomeSummary'
+      security: [{ bearerAuth: [] }]
 
   /buyer/activity:
     get:
@@ -3937,6 +4070,325 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /deals/mine:
+    get:
+      tags: [Deals]
+      summary: List my deals (vendor or fisherman)
+      operationId: listMyDeals
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            $ref: '#/components/schemas/DealStatus'
+      responses:
+        '200':
+          description: Deals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DealSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}:
+    get:
+      tags: [Deals]
+      summary: Get deal by id (participant)
+      operationId: getDeal
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Deal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealDto'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/messages:
+    get:
+      tags: [Deals]
+      summary: List chat messages on a deal
+      operationId: listDealMessages
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+        - in: query
+          name: page
+          required: false
+          schema: {type: integer, minimum: 0, default: 0}
+        - in: query
+          name: size
+          required: false
+          schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealMessagesPage'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/proposals:
+    post:
+      tags: [Deals]
+      summary: Submit a new proposal on a deal
+      operationId: createDealProposal
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProposalRequest'
+      responses:
+        '200':
+          description: Proposal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealProposalDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/proposals/{proposalId}/accept:
+    post:
+      tags: [Deals]
+      summary: Accept a proposal (counterparty only)
+      description: Accepting transitions the deal to AGREED and creates the corresponding order.
+      operationId: acceptDealProposal
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+        - in: path
+          name: proposalId
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Deal agreed, order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptProposalResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/proposals/{proposalId}/reject:
+    post:
+      tags: [Deals]
+      summary: Reject a proposal (counterparty only)
+      operationId: rejectDealProposal
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+        - in: path
+          name: proposalId
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectProposalRequest'
+      responses:
+        '200':
+          description: Proposal rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealProposalDto'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/engage:
+    post:
+      tags: [Deals]
+      summary: Fisherman engages a deal (idempotent)
+      operationId: engageDeal
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Engaged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EngageDealResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/reject:
+    post:
+      tags: [Deals]
+      summary: Fisherman rejects a deal outright
+      operationId: rejectDeal
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RejectProposalRequest'
+      responses:
+        '200':
+          description: Deal rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealDto'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/cancel:
+    post:
+      tags: [Deals]
+      summary: Cancel a deal (either participant)
+      operationId: cancelDeal
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelDealRequest'
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealDto'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /deals/{id}/competitor-count:
+    get:
+      tags: [Deals]
+      summary: Get count of competing vendor deals on the same alert
+      operationId: getDealCompetitorCount
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Competitor count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitorCountDto'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /fisherman/alerts/{alertId}/deals:
+    get:
+      tags: [Deals]
+      summary: List all vendor deals on a fisherman's alert
+      operationId: listFishermanAlertDeals
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: alertId
+          required: true
+          schema: {type: integer, format: int64}
+      responses:
+        '200':
+          description: Deals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DealSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 components:
   securitySchemes:
@@ -5166,7 +5618,7 @@ components:
 
     CatchLogCreateRequest:
       type: object
-      required: [speciesId, quantityEstimate]
+      required: [speciesId, quantityEstimate, quantityKg, estimatedPricePerKg]
       properties:
         speciesId:
           type: integer
@@ -5178,11 +5630,10 @@ components:
           type: number
           format: double
           minimum: 0.1
-          nullable: true
         estimatedPricePerKg:
           type: number
           format: double
-          nullable: true
+          minimum: 0
         matchedListingId:
           type: integer
           format: int64
@@ -5385,7 +5836,6 @@ components:
         askingPricePerKg:
           type: number
           format: double
-          nullable: true
         notes:
           type: string
           nullable: true
@@ -5475,9 +5925,13 @@ components:
         dispatchMode:
           type: string
           nullable: true
+        kind:
+          type: string
+          enum: [RETAIL, PROCUREMENT]
+          nullable: true
         status:
           type: string
-          enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, DISPUTED]
+          enum: [PENDING, CONFIRMED, ACCEPTED, READY, COMPLETED, CANCELLED, DISPUTED]
         notes:
           type: string
           nullable: true
@@ -5868,6 +6322,31 @@ components:
         status:
           type: string
 
+    BuyerOrderStats:
+      type: object
+      properties:
+        pending:   { type: integer }
+        confirmed: { type: integer }
+        recent30d: { type: integer }
+
+    BuyerHomeSummary:
+      type: object
+      properties:
+        stats:
+          $ref: '#/components/schemas/BuyerOrderStats'
+        recentOrders:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        freshListings:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorefrontListingSummary'
+        activity:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityFeedItem'
+
     ActivityFeedItem:
       type: object
       required: [id, kind, title, body, occurredAt]
@@ -6253,6 +6732,18 @@ components:
         availableKg:
           type: number
           format: double
+          nullable: true
+        dealId:
+          type: integer
+          format: int64
+          nullable: true
+        dealStatus:
+          allOf:
+            - $ref: '#/components/schemas/DealStatus'
+          nullable: true
+        latestProposal:
+          allOf:
+            - $ref: '#/components/schemas/DealProposalDto'
           nullable: true
 
     AddProcurementCartItemRequest:
@@ -6751,6 +7242,53 @@ components:
         settledAt:     { type: string, format: date-time, nullable: true }
         date:          { type: string, format: date-time }
 
+    TripSpeciesSummary:
+      type: object
+      properties:
+        speciesId:     { type: integer, format: int64 }
+        speciesName:   { type: string }
+        catchCount:    { type: integer }
+        settledCount:  { type: integer, format: int64 }
+        kgSettled:     { type: number, format: double }
+        earned:        { type: number, format: double }
+        bfarMidPrice:  { type: number, format: double, nullable: true }
+        bfarReference: { type: number, format: double }
+        priceGap:      { type: number, format: double }
+
+    TripAnalyticsSummary:
+      type: object
+      properties:
+        tripId:             { type: integer, format: int64 }
+        totalCatches:       { type: integer }
+        settledCount:       { type: integer, format: int64 }
+        totalKgLogged:      { type: number, format: double }
+        totalKgSettled:     { type: number, format: double }
+        totalEarned:        { type: number, format: double }
+        bfarTotalReference: { type: number, format: double }
+        priceGap:           { type: number, format: double }
+        perSpecies:
+          type: array
+          items: { $ref: '#/components/schemas/TripSpeciesSummary' }
+
+    TopSpeciesEntry:
+      type: object
+      properties:
+        speciesName:    { type: string }
+        totalEarned:    { type: number, format: double }
+        totalKgSettled: { type: number, format: double }
+
+    FishermanAnalytics:
+      type: object
+      properties:
+        fishermanId:        { type: integer, format: int64 }
+        tripCount:          { type: integer }
+        totalEarned:        { type: number, format: double }
+        bfarTotalReference: { type: number, format: double }
+        priceGap:           { type: number, format: double }
+        topSpecies:
+          type: array
+          items: { $ref: '#/components/schemas/TopSpeciesEntry' }
+
     OrderSettleRequest:
       type: object
       required: [paymentMethod]
@@ -6811,3 +7349,229 @@ components:
         emergencyContactPhone:  { type: string, nullable: true }
         gcashNumber:            { type: string, nullable: true }
         mayaNumber:             { type: string, nullable: true }
+
+    DealStatus:
+      type: string
+      enum: [NEGOTIATING, AGREED, REJECTED, EXPIRED, CANCELLED]
+
+    ProposalStatus:
+      type: string
+      enum: [PENDING, ACCEPTED, REJECTED, SUPERSEDED]
+
+    DealProposalDto:
+      type: object
+      required: [id, dealId, proposedById, qtyKg, pricePerKg, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        dealId:
+          type: integer
+          format: int64
+        proposedById:
+          type: integer
+          format: int64
+        qtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+        pricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/ProposalStatus'
+        supersededReason:
+          type: string
+          nullable: true
+          description: Reason the proposal was superseded (e.g. NEW_PROPOSAL, OVERCOMMIT)
+        respondedById:
+          type: integer
+          format: int64
+          nullable: true
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    DealDto:
+      type: object
+      required: [id, catchAlertId, vendorId, fishermanId, status, expiresAt, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        catchAlertId:
+          type: integer
+          format: int64
+        vendorId:
+          type: integer
+          format: int64
+        vendorName:
+          type: string
+          nullable: true
+        fishermanId:
+          type: integer
+          format: int64
+        fishermanName:
+          type: string
+          nullable: true
+        species:
+          allOf:
+            - $ref: '#/components/schemas/FishSpecies'
+          nullable: true
+        status:
+          $ref: '#/components/schemas/DealStatus'
+        agreedQtyKg:
+          type: number
+          format: double
+          nullable: true
+        agreedPricePerKg:
+          type: number
+          format: double
+          nullable: true
+        agreedAt:
+          type: string
+          format: date-time
+          nullable: true
+        orderId:
+          type: integer
+          format: int64
+          nullable: true
+        fishermanEngagedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        latestProposal:
+          allOf:
+            - $ref: '#/components/schemas/DealProposalDto'
+          nullable: true
+
+    DealSummary:
+      type: object
+      required: [id, catchAlertId, status, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        catchAlertId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
+          nullable: true
+        counterpartyId:
+          type: integer
+          format: int64
+          nullable: true
+        counterpartyName:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/DealStatus'
+        latestProposal:
+          allOf:
+            - $ref: '#/components/schemas/DealProposalDto'
+          nullable: true
+        competitorCount:
+          type: integer
+          format: int32
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateProposalRequest:
+      type: object
+      required: [qtyKg, pricePerKg]
+      properties:
+        qtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+        pricePerKg:
+          type: number
+          format: double
+          minimum: 0
+
+    RejectProposalRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    CancelDealRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    EngageDealResponse:
+      type: object
+      required: [dealId, engagedAt]
+      properties:
+        dealId:
+          type: integer
+          format: int64
+        engagedAt:
+          type: string
+          format: date-time
+
+    CompetitorCountDto:
+      type: object
+      required: [alertId, count]
+      properties:
+        alertId:
+          type: integer
+          format: int64
+        count:
+          type: integer
+          format: int32
+
+    AcceptProposalResponse:
+      type: object
+      required: [deal, order]
+      properties:
+        deal:
+          $ref: '#/components/schemas/DealDto'
+        order:
+          $ref: '#/components/schemas/Order'
+
+    DealMessagesPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMessage'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
