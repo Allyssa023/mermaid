@@ -84,18 +84,23 @@ public class ProcurementOrderService {
             if (alert.getQuantityKg() != null && newClaimed.compareTo(alert.getQuantityKg()) > 0) {
                 throw new ListingClosedException("Alert " + alert.getId() + " would be overcommitted");
             }
+            BigDecimal price = item.getOfferedPricePerKg() != null
+                    ? item.getOfferedPricePerKg() : alert.getAskingPricePerKg();
+            if (price == null) {
+                throw new IllegalArgumentException(
+                        "Alert " + alert.getId() + " has no asking price; cannot place order without an agreed price");
+            }
             alert.setClaimedKg(newClaimed);
             alertRepo.save(alert);
 
             Order order = new Order();
-            order.setKind(OrderKind.PROCUREMENT);
+            order.setKind(OrderKind.RETAIL);
             order.setBuyerId(vendorId);
             order.setSellerId(alert.getFishermanId());
             order.setSpecies(alert.getSpecies());
             order.setCatchAlertId(alert.getId());
             order.setOrderedQtyKg(item.getQtyKg());
-            order.setAgreedPricePerKg(item.getOfferedPricePerKg() != null
-                    ? item.getOfferedPricePerKg() : alert.getAskingPricePerKg());
+            order.setAgreedPricePerKg(price);
             order.setStatus("PENDING");
             Order saved = orderRepo.save(order);
             recordEvent(saved.getId(), "PENDING", vendorId, "Procurement order placed",
@@ -112,7 +117,7 @@ public class ProcurementOrderService {
         FishSpecies species = speciesRepo.findById(speciesId)
                 .orElseThrow(() -> new ResourceNotFoundException("Species not found: " + speciesId));
         Order order = new Order();
-        order.setKind(OrderKind.PROCUREMENT);
+        order.setKind(OrderKind.RETAIL);
         order.setBuyerId(vendorId);
         order.setSellerId(fishermanId);
         order.setSpecies(species);

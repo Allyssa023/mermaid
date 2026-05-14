@@ -1,37 +1,84 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getFeed, getCart, addToCart, removeCartItem, checkout, listProcurementOrders } from './api/procurement'
+import {
+  getFeed, getCart, addToCart, removeCartItem, checkout,
+  listMySupplierOrders,
+  initiateHandoff, confirmHandoff,
+  recordPayment, confirmPayment,
+  cancelOrder,
+} from './api/procurement'
 import { TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
 import { I } from '../icons'
+import OrderCard from '../components/OrderCard'
+import { useAuth } from '../context/AuthContext'
 
-export default function ProcurementFeed() {
+const STATUS_FILTERS = ['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'DISPUTED', 'CANCELLED']
+
+export default function ProcurementFeed({ pageState }) {
   const [tab, setTab] = useState('feed')
-  const [bucket, setBucket] = useState('PENDING')
+  const [statusFilter, setStatusFilter] = useState(null)
+  const watchlistFilter = pageState?.watchlistFilter ?? null
 
   const qc = useQueryClient()
-  const feedQ   = useQuery({ queryKey: ['vendor', 'feed'],            queryFn: () => getFeed() })
-  const cartQ   = useQuery({ queryKey: ['vendor', 'cart'],            queryFn: getCart })
+  const { user } = useAuth()
+
+  const feedQ   = useQuery({
+    queryKey: ['vendor', 'feed', watchlistFilter],
+    queryFn: () => getFeed(watchlistFilter?.speciesId),
+  })
+  const cartQ   = useQuery({ queryKey: ['vendor', 'cart'], queryFn: getCart })
   const ordersQ = useQuery({
-    queryKey: ['vendor', 'procOrders', bucket],
-    queryFn: () => listProcurementOrders(tab === 'orders' ? bucket : undefined),
+    queryKey: ['vendor', 'supplierOrders', statusFilter],
+    queryFn: () => listMySupplierOrders(statusFilter),
     enabled: tab === 'orders',
   })
 
-  const addMut      = useMutation({ mutationFn: ({ catchAlertId, qtyKg }) => addToCart(catchAlertId, qtyKg, undefined), onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }) })
-  const removeMut   = useMutation({ mutationFn: (itemId) => removeCartItem(itemId),  onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }) })
-  const checkoutMut = useMutation({ mutationFn: checkout, onSuccess: () => { qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }); qc.invalidateQueries({ queryKey: ['vendor', 'procOrders'] }) } })
+  const invalidateOrders = () => qc.invalidateQueries({ queryKey: ['vendor', 'supplierOrders'] })
 
-  const cartItems = cartQ.data?.items ?? []
+  const addMut      = useMutation({
+    mutationFn: ({ catchAlertId, qtyKg }) => addToCart(catchAlertId, qtyKg, undefined),
+    onSuccess:   () => qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }),
+    onError:     (e) => alert(e?.message ?? 'Failed to add to cart'),
+  })
+  const removeMut   = useMutation({ mutationFn: (itemId) => removeCartItem(itemId),  onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }) })
+  const checkoutMut = useMutation({ mutationFn: checkout, onSuccess: () => { qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }); invalidateOrders() } })
+
+  // "Order now" = add this single item then immediately checkout, skipping the cart UI (Shopee-style buy now).
+  const orderNowMut = useMutation({
+    mutationFn: async (item) => {
+      const qty = Number(item.availableKg)
+      if (!qty || qty < 0.1) throw new Error('This alert has no remaining quantity')
+      await addToCart(item.id, qty, undefined)
+      return checkout()
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vendor', 'cart'] })
+      invalidateOrders()
+      setTab('orders')
+    },
+    onError: (e) => window.alert(e?.message ?? 'Failed to order'),
+  })
+
+  // Vendor is BUYER of these procurement orders — handoff confirm + payment confirm are buyer actions.
+  const orderMutations = {
+    confirmHandoff:  (id)       => confirmHandoff(id).then(invalidateOrders),
+    confirmPayment:  (id)       => confirmPayment(id).then(invalidateOrders),
+    initiateHandoff: (id, body) => initiateHandoff(id, body).then(invalidateOrders),
+    recordPayment:   (id, body) => recordPayment(id, body).then(invalidateOrders),
+    cancelOrder:     (id, r)    => cancelOrder(id, r).then(invalidateOrders),
+  }
+
+  const cartItems = Array.isArray(cartQ.data) ? cartQ.data : (cartQ.data?.items ?? [])
+
+  const allOrders = ordersQ.data ?? []
+  const supplierOrders = allOrders.filter(o => (o.buyer?.id ?? o.buyerId) === user?.id)
 
   const tabs = [
     { id: 'feed',   label: 'Live feed' },
     { id: 'cart',   label: `Cart (${cartItems.length})` },
-    { id: 'orders', label: 'My procurement orders' },
+    { id: 'orders', label: 'My orders' },
   ]
-
-  const ORDER_BUCKETS = ['PENDING', 'ACCEPTED', 'READY', 'COMPLETED', 'CANCELLED', 'DISPUTED']
-  const statusMap = { CONFIRMED: 'confirmed', AT_SEA: 'active', COMPLETED: 'completed', PENDING: 'pending', ACCEPTED: 'active', READY: 'active', CANCELLED: 'cancelled', DISPUTED: 'disputed' }
 
   return (
     <div className="page">
@@ -39,7 +86,11 @@ export default function ProcurementFeed() {
         <div>
           <div className="eyebrow">Procurement</div>
           <h1 className="page__title" style={{marginTop: 4}}>Source <em>fresh catch</em></h1>
-          <p className="page__sub">Live alerts from fishermen, your watchlist matched first.</p>
+          <p className="page__sub">
+            {watchlistFilter
+              ? <>Filtered by watchlist · {watchlistFilter.label ?? `species #${watchlistFilter.speciesId}`}</>
+              : 'Live alerts from fishermen, your watchlist matched first.'}
+          </p>
         </div>
       </div>
       <div className="seg" style={{marginTop: 14, alignSelf: 'flex-start'}}>
@@ -52,7 +103,10 @@ export default function ProcurementFeed() {
           {feedQ.error && <ApiError error={feedQ.error} onRetry={feedQ.refetch} />}
           <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12}}>
             {(feedQ.data ?? []).map(a => {
-              const inCart = cartQ.data?.items?.some(i => i.catchAlertId === a.id)
+              const inCart = cartItems.some(i => i.catchAlertId === a.id)
+              const qty = Number(a.availableKg)
+              const canBuy = !!qty && qty >= 0.1
+              const price = a.askingPricePerKg ?? a.pricePerKg
               return (
                 <div key={a.id} className="alert-card">
                   <div className="row" style={{gap: 6, alignItems: 'center', marginBottom: 6}}>
@@ -60,23 +114,33 @@ export default function ProcurementFeed() {
                     {a.matchScore != null && (
                       <span className="chip chip--accent" style={{fontSize: 10}}>{a.matchScore}% match</span>
                     )}
+                    {!canBuy && (
+                      <span className="chip" style={{fontSize: 10}}>Sold out</span>
+                    )}
                   </div>
                   <div className="alert-card__species" style={{fontSize: 18}}>{a.speciesName}</div>
                   <div className="alert-card__sub">{a.fishermanName}</div>
                   <div className="grid grid--kpi" style={{gridTemplateColumns: '1fr 1fr 1fr', marginTop: 8}}>
-                    <div className="kpi"><div className="kpi__label">Qty</div><div className="kpi__value">{a.availableKg}<small>kg</small></div></div>
-                    <div className="kpi"><div className="kpi__label">Price</div><div className="kpi__value">₱{a.pricePerKg}</div></div>
+                    <div className="kpi"><div className="kpi__label">Qty</div><div className="kpi__value">{a.availableKg ?? 0}<small>kg</small></div></div>
+                    <div className="kpi"><div className="kpi__label">Price</div><div className="kpi__value">{price != null ? `₱${price}` : '—'}</div></div>
                     <div className="kpi"><div className="kpi__label">Expires</div><div className="kpi__value" style={{fontSize: 13}}>{a.expiresAt ? new Date(a.expiresAt).toLocaleString() : '—'}</div></div>
                   </div>
                   <div className="row" style={{gap: 6, marginTop: 12}}>
-                    <button className="btn btn--ghost btn--sm" style={{flex: 1}}>View detail</button>
                     <button
-                      className={`btn btn--sm ${inCart ? '' : 'btn--accent'}`}
+                      className="btn btn--sm"
                       style={{flex: 1}}
-                      onClick={() => addMut.mutate({ catchAlertId: a.id, qtyKg: a.availableKg })}
-                      disabled={!!inCart || addMut.isPending || a.availableKg == null}
+                      onClick={() => addMut.mutate({ catchAlertId: a.id, qtyKg: qty })}
+                      disabled={!!inCart || addMut.isPending || !canBuy}
                     >
                       {inCart ? <><I.Check size={11} /> In cart</> : <><I.Plus size={11} /> Add to cart</>}
+                    </button>
+                    <button
+                      className="btn btn--accent btn--sm"
+                      style={{flex: 1}}
+                      onClick={() => orderNowMut.mutate(a)}
+                      disabled={orderNowMut.isPending || addMut.isPending || !canBuy}
+                    >
+                      <I.Arrow size={11} /> {orderNowMut.isPending ? 'Ordering…' : 'Order now'}
                     </button>
                   </div>
                 </div>
@@ -132,42 +196,35 @@ export default function ProcurementFeed() {
       )}
 
       {tab === 'orders' && (
-        <div className="card" style={{marginTop: 18}}>
-          <div className="card__head">
-            <div className="card__title">Procurement orders</div>
-            <div className="seg">
-              {ORDER_BUCKETS.map(b => (
-                <button key={b} className={bucket === b ? 'on' : ''} onClick={() => setBucket(b)}>
-                  {b.charAt(0) + b.slice(1).toLowerCase()}
+        <div style={{marginTop: 18}}>
+          <div className="row" style={{gap: 6, marginBottom: 16}}>
+            {STATUS_FILTERS.map(s => {
+              const active = s === 'all' ? statusFilter === null : statusFilter === s
+              const count  = s === 'all' ? supplierOrders.length : supplierOrders.filter(o => o.status === s).length
+              return (
+                <button
+                  key={s}
+                  className={`chip ${active ? 'chip--ink' : ''}`}
+                  style={{cursor: 'pointer'}}
+                  onClick={() => setStatusFilter(s === 'all' ? null : s)}
+                >
+                  {s === 'all' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
+                  <span style={{marginLeft: 6, opacity: 0.7, fontFamily: 'var(--font-mono)', fontSize: 10}}>{count}</span>
                 </button>
-              ))}
-            </div>
+              )
+            })}
           </div>
           {ordersQ.isLoading && <TableRowSkeleton rows={4} />}
           {ordersQ.error && <ApiError error={ordersQ.error} onRetry={ordersQ.refetch} />}
-          {!ordersQ.isLoading && (ordersQ.data ?? []).length === 0 && (
-            <div className="empty"><div className="empty__title">No {bucket.toLowerCase()} orders</div></div>
+          {!ordersQ.isLoading && supplierOrders.length === 0 && (
+            <div className="empty"><div className="empty__title">No orders yet</div><p>Orders you place from the live feed will appear here.</p></div>
           )}
-          {(ordersQ.data ?? []).length > 0 && (
-            <table className="tbl">
-              <thead><tr><th>ID</th><th>Date</th><th>Species</th><th>Fisher</th><th>Qty</th><th>Total</th><th>Status</th></tr></thead>
-              <tbody>
-                {(ordersQ.data ?? []).map(o => (
-                  <tr key={o.id}>
-                    <td><span className="kbd">#{o.id}</span></td>
-                    <td className="muted-data">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—'}</td>
-                    <td>{o.speciesName ?? '—'}</td>
-                    <td>{o.fishermanName ?? '—'}</td>
-                    <td>{o.qtyKg} kg</td>
-                    <td style={{fontFamily: 'var(--font-mono)'}}>₱{((o.qtyKg ?? 0) * (o.pricePerKg ?? 0)).toLocaleString()}</td>
-                    <td><span className={`status status--${statusMap[o.status] ?? ''}`}><span className="status__dot" /> {o.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          {supplierOrders.map(order => (
+            <OrderCard key={order.id} order={order} viewerRole="BUYER" mutations={orderMutations} />
+          ))}
         </div>
       )}
+
     </div>
   )
 }
