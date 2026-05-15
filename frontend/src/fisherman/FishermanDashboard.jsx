@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { I } from '../icons'
 import '../design-system.css'
 import { StompProvider } from '../context/StompContext'
@@ -119,6 +119,19 @@ export default function FishermanDashboard({ user, onLogout }) {
   const handleStartTrip = useCallback(() => {
     setPage('trips')
     setTripModalTrigger(v => v + 1)
+  }, [])
+
+  useEffect(() => {
+    const handleNavigate = (e) => {
+      const detail = e.detail || {}
+      if (!detail.page) return
+      if (detail.dealId !== undefined && detail.dealId !== null) {
+        sessionStorage.setItem('mermaid:openDeal', String(detail.dealId))
+      }
+      setPage(detail.page)
+    }
+    window.addEventListener('mermaid:navigate', handleNavigate)
+    return () => window.removeEventListener('mermaid:navigate', handleNavigate)
   }, [])
 
   const PageComponent = {

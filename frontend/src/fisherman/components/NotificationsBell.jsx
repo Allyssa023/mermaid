@@ -1,39 +1,49 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { apiGet, apiPost } from '../../api'
+import { useState, useEffect, useRef } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { getNotifications, markAllRead, getUnreadCount } from '../../api/notifications'
+import { useStomp } from '../../context/StompContext'
+
+const DEAL_KINDS = new Set(['DEAL_NEW_PROPOSAL', 'DEAL_AGREED'])
+
+function dealNotifTitle(kind) {
+  if (kind === 'DEAL_NEW_PROPOSAL') return 'New deal proposal'
+  if (kind === 'DEAL_AGREED') return 'Deal agreed'
+  return 'Deal update'
+}
 
 export default function FishermanNotificationsBell() {
-  const [count, setCount]   = useState(0)
-  const [open, setOpen]     = useState(false)
-  const [items, setItems]   = useState([])
-  const [loading, setLoading] = useState(false)
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const stomp = useStomp()
+  const [dealEvents, setDealEvents] = useState([])
 
-  const fetchCount = useCallback(() => {
-    apiGet('/notifications/unread-count').then(d => setCount(d?.count ?? 0)).catch(() => {})
-  }, [])
+  const countQ = useQuery({
+    queryKey: ['notifCount'],
+    queryFn: getUnreadCount,
+    refetchInterval: 30000,
+    staleTime: 0,
+  })
+  const baseCount = countQ.data?.count ?? 0
+  const unreadDealEvents = dealEvents.filter(e => !e.readAt).length
+  const count = baseCount + unreadDealEvents
 
-  useEffect(() => {
-    fetchCount()
-    const id = setInterval(fetchCount, 30_000)
-    return () => clearInterval(id)
-  }, [fetchCount])
+  const listQ = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => getNotifications({ size: 10 }),
+    enabled: open,
+    staleTime: 0,
+  })
+  const restItems = Array.isArray(listQ.data) ? listQ.data : []
+  const items = [...dealEvents, ...restItems]
 
-  const open_ = () => {
-    setOpen(o => !o)
-    if (!open) {
-      setLoading(true)
-      apiGet('/notifications?limit=10')
-        .then(d => setItems(Array.isArray(d) ? d : d?.content || []))
-        .catch(() => {})
-        .finally(() => setLoading(false))
-    }
-  }
-
-  const markAll = async () => {
-    await apiPost('/notifications/mark-all-read', null, {}).catch(() => {})
-    setCount(0)
-    setItems(prev => prev.map(n => ({ ...n, read: true })))
-  }
+  const markAllMut = useMutation({
+    mutationFn: markAllRead,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifCount'] })
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
@@ -41,11 +51,43 @@ export default function FishermanNotificationsBell() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  // Subscribe to STOMP deal notifications so they show in the bell
+  useEffect(() => {
+    if (!stomp.connected) return
+    const sub = stomp.subscribe('/user/queue/notifications', (msg) => {
+      if (!msg || !DEAL_KINDS.has(msg.kind)) return
+      const entry = {
+        id: `deal-${msg.kind}-${msg.dealId}-${Date.now()}`,
+        type: msg.kind,
+        title: dealNotifTitle(msg.kind),
+        body: msg.text,
+        dealId: msg.dealId,
+        readAt: null,
+        createdAt: new Date().toISOString(),
+        _ephemeral: true,
+      }
+      setDealEvents(prev => [entry, ...prev].slice(0, 20))
+    })
+    return () => { try { sub?.unsubscribe() } catch { /* ignore */ } }
+  }, [stomp, stomp.connected])
+
+  function handleClickItem(n) {
+    if (n._ephemeral) {
+      setDealEvents(prev => prev.map(e => e.id === n.id ? { ...e, readAt: new Date().toISOString() } : e))
+    }
+    if (n.type === 'DEAL_NEW_PROPOSAL' && n.dealId != null) {
+      window.dispatchEvent(new CustomEvent('mermaid:navigate', { detail: { page: 'messages', dealId: n.dealId } }))
+    } else if (n.type === 'DEAL_AGREED') {
+      window.dispatchEvent(new CustomEvent('mermaid:navigate', { detail: { page: 'orders' } }))
+    }
+    setOpen(false)
+  }
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         className="topbar__icon-btn"
-        onClick={open_}
+        onClick={() => setOpen(o => !o)}
         title="Notifications"
         style={{ position: 'relative' }}
       >
@@ -73,25 +115,33 @@ export default function FishermanNotificationsBell() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid var(--line)' }}>
             <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>Notifications</span>
             {count > 0 && (
-              <button onClick={markAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--accent)' }}>
+              <button onClick={() => markAllMut.mutate()} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--accent)' }}>
                 Mark all read
               </button>
             )}
           </div>
           <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-            {loading ? (
+            {listQ.isLoading && items.length === 0 ? (
               <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
             ) : items.length === 0 ? (
               <div style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>No notifications</div>
-            ) : items.map(n => (
-              <div key={n.id} style={{
-                padding: '10px 16px', borderBottom: '1px solid var(--line)',
-                background: n.read ? undefined : 'var(--accent-soft)',
-              }}>
-                <div style={{ fontSize: 12, color: 'var(--ink-2)', fontWeight: n.read ? 400 : 600 }}>{n.title || n.message}</div>
-                {n.body && <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{n.body}</div>}
-              </div>
-            ))}
+            ) : items.map(n => {
+              const clickable = n._ephemeral || DEAL_KINDS.has(n.type)
+              return (
+                <div
+                  key={n.id}
+                  onClick={clickable ? () => handleClickItem(n) : undefined}
+                  style={{
+                    padding: '10px 16px', borderBottom: '1px solid var(--line)',
+                    background: n.readAt ? undefined : 'var(--accent-soft)',
+                    cursor: clickable ? 'pointer' : 'default',
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: 'var(--ink-2)', fontWeight: n.readAt ? 400 : 600 }}>{n.title || n.message}</div>
+                  {n.body && <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{n.body}</div>}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
