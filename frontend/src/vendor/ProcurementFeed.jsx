@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  getFeed, getCart, addToCart, removeCartItem, checkout,
+  getFeed, getCart, addToCart, removeCartItem, startDealFromCartItem,
   listMySupplierOrders,
   initiateHandoff, confirmHandoff,
   recordPayment, confirmPayment,
@@ -21,6 +22,7 @@ export default function ProcurementFeed({ pageState }) {
   const watchlistFilter = pageState?.watchlistFilter ?? null
 
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const { user } = useAuth()
 
   const feedQ   = useQuery({
@@ -42,22 +44,31 @@ export default function ProcurementFeed({ pageState }) {
     onError:     (e) => alert(e?.message ?? 'Failed to add to cart'),
   })
   const removeMut   = useMutation({ mutationFn: (itemId) => removeCartItem(itemId),  onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }) })
-  const checkoutMut = useMutation({ mutationFn: checkout, onSuccess: () => { qc.invalidateQueries({ queryKey: ['vendor', 'cart'] }); invalidateOrders() } })
 
-  // "Order now" = add this single item then immediately checkout, skipping the cart UI (Shopee-style buy now).
-  const orderNowMut = useMutation({
+  // "Start deal" = add this single item then immediately open a negotiation. Vendor lands in the deal chat.
+  const startDealMut = useMutation({
     mutationFn: async (item) => {
       const qty = Number(item.availableKg)
-      if (!qty || qty < 0.1) throw new Error('This alert has no remaining quantity')
-      await addToCart(item.id, qty, undefined)
-      return checkout()
+      if (!qty || qty < 0.1) throw new Error('No quantity remaining')
+      const cartItem = await addToCart(item.id, qty, undefined)
+      const deal = await startDealFromCartItem(cartItem.id)
+      return deal
     },
-    onSuccess: () => {
+    onSuccess: (deal) => {
       qc.invalidateQueries({ queryKey: ['vendor', 'cart'] })
-      invalidateOrders()
-      setTab('orders')
+      navigate(`/vendor/messages?deal=${deal.id}`)
     },
-    onError: (e) => window.alert(e?.message ?? 'Failed to order'),
+    onError: (e) => window.alert(e?.message ?? 'Failed to start deal'),
+  })
+
+  // For an existing cart item with no deal yet (or restarting a stale one).
+  const startDealFromItemMut = useMutation({
+    mutationFn: (itemId) => startDealFromCartItem(itemId),
+    onSuccess: (deal) => {
+      qc.invalidateQueries({ queryKey: ['vendor', 'cart'] })
+      navigate(`/vendor/messages?deal=${deal.id}`)
+    },
+    onError: (e) => window.alert(e?.message ?? 'Failed to start deal'),
   })
 
   // Vendor is BUYER of these procurement orders — handoff confirm + payment confirm are buyer actions.
@@ -137,10 +148,10 @@ export default function ProcurementFeed({ pageState }) {
                     <button
                       className="btn btn--accent btn--sm"
                       style={{flex: 1}}
-                      onClick={() => orderNowMut.mutate(a)}
-                      disabled={orderNowMut.isPending || addMut.isPending || !canBuy}
+                      onClick={() => startDealMut.mutate(a)}
+                      disabled={startDealMut.isPending || addMut.isPending || !canBuy}
                     >
-                      <I.Arrow size={11} /> {orderNowMut.isPending ? 'Ordering…' : 'Order now'}
+                      <I.Arrow size={11} /> {startDealMut.isPending ? 'Starting…' : 'Start deal'}
                     </button>
                   </div>
                 </div>
@@ -158,39 +169,65 @@ export default function ProcurementFeed({ pageState }) {
           {!cartQ.isLoading && cartItems.length === 0 ? (
             <div className="empty"><div className="empty__title">Cart is empty</div><p>Add alerts from the live feed.</p></div>
           ) : (
-            <>
-              <table className="tbl">
-                <thead><tr><th>Code</th><th>Species</th><th>Fisher</th><th>Qty (kg)</th><th>Price/kg</th><th>Subtotal</th><th></th></tr></thead>
-                <tbody>
-                  {cartItems.map(item => (
+            <table className="tbl">
+              <thead><tr><th>Code</th><th>Species</th><th>Fisher</th><th>Qty (kg)</th><th>Price/kg</th><th>Deal</th><th></th></tr></thead>
+              <tbody>
+                {cartItems.map(item => {
+                  const status = item.dealStatus ?? null
+                  const isStale = status === 'REJECTED' || status === 'EXPIRED' || status === 'CANCELLED'
+                  return (
                     <tr key={item.id}>
                       <td><span className="kbd">CA-{item.catchAlertId}</span></td>
                       <td>{item.speciesName ?? item.catchAlert?.speciesName ?? '—'}</td>
                       <td className="muted-data">{item.fishermanName ?? '—'}</td>
                       <td>{item.qtyKg} kg</td>
                       <td style={{fontFamily: 'var(--font-mono)'}}>₱{item.pricePerKg}</td>
-                      <td style={{fontFamily: 'var(--font-mono)'}}>₱{((item.qtyKg ?? 0) * (item.pricePerKg ?? 0)).toLocaleString()}</td>
+                      <td>
+                        {status == null && <span className="chip">No deal</span>}
+                        {status === 'NEGOTIATING' && <span className="chip chip--accent">Negotiating</span>}
+                        {isStale && <span className="chip">{status.charAt(0) + status.slice(1).toLowerCase()}</span>}
+                        {status === 'AGREED' && <span className="chip chip--accent">Order placed</span>}
+                      </td>
                       <td style={{textAlign: 'right'}}>
-                        <button className="btn btn--ghost btn--sm" onClick={() => removeMut.mutate(item.id)} disabled={removeMut.isPending}>
-                          <I.Trash size={11} />
-                        </button>
+                        <div className="row" style={{gap: 6, justifyContent: 'flex-end'}}>
+                          {status == null && (
+                            <button
+                              className="btn btn--accent btn--sm"
+                              onClick={() => startDealFromItemMut.mutate(item.id)}
+                              disabled={startDealFromItemMut.isPending}
+                            >
+                              <I.Arrow size={11} /> Start deal
+                            </button>
+                          )}
+                          {status === 'NEGOTIATING' && (
+                            <button
+                              className="btn btn--sm"
+                              onClick={() => navigate(`/vendor/messages?deal=${item.dealId}`)}
+                            >
+                              Open chat
+                            </button>
+                          )}
+                          {isStale && (
+                            <button
+                              className="btn btn--accent btn--sm"
+                              onClick={() => startDealFromItemMut.mutate(item.id)}
+                              disabled={startDealFromItemMut.isPending}
+                            >
+                              Restart
+                            </button>
+                          )}
+                          {status !== 'AGREED' && (
+                            <button className="btn btn--ghost btn--sm" onClick={() => removeMut.mutate(item.id)} disabled={removeMut.isPending}>
+                              <I.Trash size={11} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="row" style={{justifyContent: 'flex-end', alignItems: 'center', gap: 14, marginTop: 14, padding: '14px 0 0', borderTop: '1px solid var(--line)'}}>
-                <div>
-                  <div className="eyebrow">Grand total</div>
-                  <div style={{fontSize: 28, fontFamily: 'var(--font-display)', fontStyle: 'italic', color: 'var(--accent)'}}>
-                    ₱{cartItems.reduce((sum, item) => sum + (item.qtyKg ?? 0) * (item.pricePerKg ?? 0), 0).toLocaleString()}
-                  </div>
-                </div>
-                <button className="btn btn--primary" onClick={() => checkoutMut.mutate()} disabled={checkoutMut.isPending}>
-                  {checkoutMut.isPending ? 'Placing…' : <>Place procurement orders <I.Arrow size={12} /></>}
-                </button>
-              </div>
-            </>
+                  )
+                })}
+              </tbody>
+            </table>
           )}
         </div>
       )}
