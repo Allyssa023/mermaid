@@ -6,6 +6,7 @@ import { StompProvider } from '../context/StompContext'
 import FishermanHomePage    from './Home'
 import TripsPage            from './Trips'
 import AlertsPage           from './CatchAlerts'
+import ActiveDeals          from './ActiveDeals'
 import OrdersPage           from './Orders'
 import EarningsPage         from './Earnings'
 import MessagesPage         from './Messages'
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { id: 'dashboard', icon: 'Dashboard', label: 'Dashboard' },
   { id: 'trips',     icon: 'Anchor',    label: 'My Trips' },
   { id: 'alerts',    icon: 'Bell',      label: 'Catch Alerts' },
+  { id: 'deals',     icon: 'Users',     label: 'Deals' },
   { id: 'orders',    icon: 'Clipboard', label: 'Orders' },
   { id: 'earnings',  icon: 'Wallet',    label: 'Earnings' },
   { id: 'messages',  icon: 'Message',   label: 'Messages' },
@@ -28,6 +30,7 @@ const PAGE_LABELS = {
   dashboard: 'Dashboard',
   trips:     'My Trips',
   alerts:    'Catch Alerts',
+  deals:     'Active Deals',
   orders:    'Orders',
   earnings:  'Earnings',
   messages:  'Messages',
@@ -122,6 +125,7 @@ export default function FishermanDashboard({ user, onLogout }) {
     dashboard: FishermanHomePage,
     trips:     TripsPage,
     alerts:    AlertsPage,
+    deals:     ActiveDeals,
     orders:    OrdersPage,
     earnings:  EarningsPage,
     messages:  MessagesPage,
