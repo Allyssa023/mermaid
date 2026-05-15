@@ -14,16 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class ProcurementOrderService {
 
     private static final Logger log = LoggerFactory.getLogger(ProcurementOrderService.class);
 
-    private final ProcurementCartItemRepository cartRepo;
     private final CatchAlertRepository alertRepo;
     private final OrderRepository orderRepo;
     private final OrderStatusEventRepository eventRepo;
@@ -31,14 +28,12 @@ public class ProcurementOrderService {
     private final InventoryService inventoryService;
     private final ApplicationEventPublisher eventPublisher;
 
-    public ProcurementOrderService(ProcurementCartItemRepository cartRepo,
-                                   CatchAlertRepository alertRepo,
+    public ProcurementOrderService(CatchAlertRepository alertRepo,
                                    OrderRepository orderRepo,
                                    OrderStatusEventRepository eventRepo,
                                    FishSpeciesRepository speciesRepo,
                                    InventoryService inventoryService,
                                    ApplicationEventPublisher eventPublisher) {
-        this.cartRepo = cartRepo;
         this.alertRepo = alertRepo;
         this.orderRepo = orderRepo;
         this.eventRepo = eventRepo;
@@ -61,54 +56,51 @@ public class ProcurementOrderService {
         return orderRepo.findByBuyerIdAndKindAndStatusIn(vendorId, OrderKind.PROCUREMENT, statuses);
     }
 
+    /**
+     * Create a RETAIL order from an agreed Deal/Proposal. Locks the catch alert row,
+     * increments claimed_kg, marks the alert SOLD if fully claimed, persists the order
+     * linked back to the deal, and records the initial PENDING status event.
+     *
+     * @throws ListingClosedException if the alert is no longer ACTIVE/within expiry, or
+     *         if accepting this proposal would overcommit the alert.
+     */
     @Transactional
-    public List<Order> checkout(Long vendorId) {
-        List<ProcurementCartItem> items = cartRepo.findAllByVendorIdOrderByCreatedAtAsc(vendorId);
-        if (items.isEmpty()) throw new IllegalArgumentException("Procurement cart is empty");
-
-        List<Long> alertIds = items.stream()
-                .map(i -> i.getCatchAlert().getId())
-                .distinct().sorted().collect(Collectors.toList());
-
-        List<CatchAlert> locked = alertRepo.findByIdInForUpdate(alertIds);
-        var lockedMap = locked.stream().collect(Collectors.toMap(CatchAlert::getId, a -> a));
-
-        List<Order> created = new ArrayList<>();
-        for (ProcurementCartItem item : items) {
-            CatchAlert alert = lockedMap.get(item.getCatchAlert().getId());
-            if (alert == null || !"ACTIVE".equals(alert.getStatus())
-                    || alert.getExpiresAt().isBefore(OffsetDateTime.now())) {
-                throw new ListingClosedException("Alert " + item.getCatchAlert().getId() + " is no longer available");
-            }
-            BigDecimal newClaimed = alert.getClaimedKg().add(item.getQtyKg());
-            if (alert.getQuantityKg() != null && newClaimed.compareTo(alert.getQuantityKg()) > 0) {
-                throw new ListingClosedException("Alert " + alert.getId() + " would be overcommitted");
-            }
-            BigDecimal price = item.getOfferedPricePerKg() != null
-                    ? item.getOfferedPricePerKg() : alert.getAskingPricePerKg();
-            if (price == null) {
-                throw new IllegalArgumentException(
-                        "Alert " + alert.getId() + " has no asking price; cannot place order without an agreed price");
-            }
-            alert.setClaimedKg(newClaimed);
-            alertRepo.save(alert);
-
-            Order order = new Order();
-            order.setKind(OrderKind.RETAIL);
-            order.setBuyerId(vendorId);
-            order.setSellerId(alert.getFishermanId());
-            order.setSpecies(alert.getSpecies());
-            order.setCatchAlertId(alert.getId());
-            order.setOrderedQtyKg(item.getQtyKg());
-            order.setAgreedPricePerKg(price);
-            order.setStatus("PENDING");
-            Order saved = orderRepo.save(order);
-            recordEvent(saved.getId(), "PENDING", vendorId, "Procurement order placed",
-                    vendorId, alert.getFishermanId());
-            created.add(saved);
+    public Order createFromAgreement(Deal deal, DealProposal proposal) {
+        Long alertId = deal.getCatchAlert().getId();
+        List<CatchAlert> locked = alertRepo.findByIdInForUpdate(List.of(alertId));
+        if (locked.isEmpty()) {
+            throw new ResourceNotFoundException("Alert gone");
         }
-        cartRepo.deleteAllByVendorId(vendorId);
-        return created;
+        CatchAlert alert = locked.get(0);
+        if (!"ACTIVE".equals(alert.getStatus()) || alert.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new ListingClosedException("Alert " + alert.getId() + " no longer available");
+        }
+        BigDecimal newClaimed = alert.getClaimedKg().add(proposal.getQtyKg());
+        if (alert.getQuantityKg() != null && newClaimed.compareTo(alert.getQuantityKg()) > 0) {
+            BigDecimal remaining = alert.getQuantityKg().subtract(alert.getClaimedKg());
+            throw new ListingClosedException("Only " + remaining + "kg remaining");
+        }
+        alert.setClaimedKg(newClaimed);
+        if (alert.getQuantityKg() != null && newClaimed.compareTo(alert.getQuantityKg()) == 0) {
+            alert.setStatus("SOLD");
+        }
+        alertRepo.save(alert);
+
+        Order order = new Order();
+        order.setKind(OrderKind.RETAIL);
+        order.setBuyerId(deal.getVendorId());
+        order.setSellerId(deal.getFishermanId());
+        order.setSpecies(alert.getSpecies());
+        order.setCatchAlertId(alert.getId());
+        order.setDeal(deal);
+        order.setOrderedQtyKg(proposal.getQtyKg());
+        order.setAgreedPricePerKg(proposal.getPricePerKg());
+        order.setStatus("PENDING");
+        Order saved = orderRepo.save(order);
+        recordEvent(saved.getId(), "PENDING", deal.getVendorId(),
+                "Order placed via deal " + deal.getId(),
+                deal.getVendorId(), deal.getFishermanId());
+        return saved;
     }
 
     @Transactional

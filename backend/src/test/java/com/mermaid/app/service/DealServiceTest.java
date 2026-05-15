@@ -5,6 +5,7 @@ import com.mermaid.app.domain.Deal;
 import com.mermaid.app.domain.DealProposal;
 import com.mermaid.app.domain.DealStatus;
 import com.mermaid.app.domain.Message;
+import com.mermaid.app.domain.Order;
 import com.mermaid.app.domain.ProcurementCartItem;
 import com.mermaid.app.domain.ProposalStatus;
 import com.mermaid.app.domain.User;
@@ -26,6 +27,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,12 +57,14 @@ class DealServiceTest {
     @Mock MessageRepository messageRepo;
     @Mock UserRepository userRepo;
     @Mock DealEventPublisher eventPublisher;
+    @Mock ProcurementOrderService procurementOrderService;
 
     DealService service;
 
     @BeforeEach
     void setUp() {
-        service = new DealService(dealRepo, proposalRepo, cartRepo, messageRepo, userRepo, eventPublisher);
+        service = new DealService(dealRepo, proposalRepo, cartRepo, messageRepo, userRepo,
+                eventPublisher, procurementOrderService);
         // Inline runAfterCommit so tests can verify publishes immediately.
         lenient().doAnswer(inv -> {
             Runnable r = inv.getArgument(0);
@@ -404,5 +408,223 @@ class DealServiceTest {
 
         assertThatThrownBy(() -> service.engageDeal(VENDOR_ID, deal.getId()))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    // =========================================================
+    // acceptProposal
+    // =========================================================
+
+    private Order stubOrder(Long id, Deal deal, DealProposal proposal) {
+        Order o = new Order();
+        o.setId(id);
+        o.setBuyerId(deal.getVendorId());
+        o.setSellerId(deal.getFishermanId());
+        o.setOrderedQtyKg(proposal.getQtyKg());
+        o.setAgreedPricePerKg(proposal.getPricePerKg());
+        o.setStatus("PENDING");
+        o.setDeal(deal);
+        return o;
+    }
+
+    @Test
+    void acceptProposal_happyPath_createsOrderAndAgreesDeal() {
+        Deal deal = negotiatingDeal();
+        DealProposal p = pending(deal, VENDOR_ID, new BigDecimal("15"), new BigDecimal("240"));
+        when(dealRepo.findByIdForUpdate(deal.getId())).thenReturn(Optional.of(deal));
+        when(proposalRepo.findById(p.getId())).thenReturn(Optional.of(p));
+        when(procurementOrderService.createFromAgreement(deal, p))
+                .thenReturn(stubOrder(77L, deal, p));
+        when(dealRepo.save(any(Deal.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(proposalRepo.save(any(DealProposal.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dealRepo.findByCatchAlertIdAndStatus(ALERT_ID, DealStatus.NEGOTIATING))
+                .thenReturn(List.of(deal));
+        ProcurementCartItem cart = new ProcurementCartItem();
+        cart.setId(500L);
+        when(cartRepo.findByDealId(deal.getId())).thenReturn(Optional.of(cart));
+        stubUsers();
+
+        DealService.AcceptResult result = service.acceptProposal(FISHERMAN_ID, deal.getId(), p.getId());
+
+        assertThat(result.order().getId()).isEqualTo(77L);
+        assertThat(deal.getStatus()).isEqualTo(DealStatus.AGREED);
+        assertThat(deal.getAgreedQtyKg()).isEqualByComparingTo("15");
+        assertThat(deal.getAgreedPricePerKg()).isEqualByComparingTo("240");
+        assertThat(deal.getAgreedAt()).isNotNull();
+        assertThat(deal.getClosedAt()).isNotNull();
+        assertThat(deal.getOrderId()).isEqualTo(77L);
+
+        assertThat(p.getStatus()).isEqualTo(ProposalStatus.ACCEPTED);
+        assertThat(p.getRespondedById()).isEqualTo(FISHERMAN_ID);
+        assertThat(p.getRespondedAt()).isNotNull();
+
+        verify(cartRepo).delete(cart);
+        verify(eventPublisher).publishDealEvent(eq(deal), eq("DEAL_AGREED"), any());
+        verify(eventPublisher).publishCompetitorCountChange(ALERT_ID);
+        verify(eventPublisher).publishProposalNotification(eq(VENDOR_ID), eq(deal.getId()),
+                eq("DEAL_AGREED"), any());
+    }
+
+    @Test
+    void acceptProposal_rejectsSelfAccept() {
+        Deal deal = negotiatingDeal();
+        DealProposal p = pending(deal, VENDOR_ID, new BigDecimal("15"), new BigDecimal("240"));
+        when(dealRepo.findByIdForUpdate(deal.getId())).thenReturn(Optional.of(deal));
+        when(proposalRepo.findById(p.getId())).thenReturn(Optional.of(p));
+
+        // Vendor proposed it, so vendor accepting their own = conflict.
+        assertThatThrownBy(() -> service.acceptProposal(VENDOR_ID, deal.getId(), p.getId()))
+                .isInstanceOf(DealConflictException.class)
+                .hasMessageContaining("own proposal");
+    }
+
+    @Test
+    void acceptProposal_rejectsTerminalDeal() {
+        Deal deal = negotiatingDeal();
+        deal.setStatus(DealStatus.AGREED);
+        when(dealRepo.findByIdForUpdate(deal.getId())).thenReturn(Optional.of(deal));
+
+        assertThatThrownBy(() -> service.acceptProposal(FISHERMAN_ID, deal.getId(), 1001L))
+                .isInstanceOf(DealConflictException.class);
+    }
+
+    @Test
+    void acceptProposal_rejectsTerminalProposal() {
+        Deal deal = negotiatingDeal();
+        DealProposal p = pending(deal, VENDOR_ID, new BigDecimal("15"), new BigDecimal("240"));
+        p.setStatus(ProposalStatus.SUPERSEDED);
+        when(dealRepo.findByIdForUpdate(deal.getId())).thenReturn(Optional.of(deal));
+        when(proposalRepo.findById(p.getId())).thenReturn(Optional.of(p));
+
+        assertThatThrownBy(() -> service.acceptProposal(FISHERMAN_ID, deal.getId(), p.getId()))
+                .isInstanceOf(DealConflictException.class);
+    }
+
+    @Test
+    void acceptProposal_rejectsNonParticipant() {
+        Deal deal = negotiatingDeal();
+        when(dealRepo.findByIdForUpdate(deal.getId())).thenReturn(Optional.of(deal));
+
+        assertThatThrownBy(() -> service.acceptProposal(OUTSIDER_ID, deal.getId(), 1001L))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void acceptProposal_overcommit_marksSuperseded_andRethrows() {
+        Deal deal = negotiatingDeal();
+        DealProposal p = pending(deal, VENDOR_ID, new BigDecimal("60"), new BigDecimal("240"));
+        when(dealRepo.findByIdForUpdate(deal.getId())).thenReturn(Optional.of(deal));
+        when(proposalRepo.findById(p.getId())).thenReturn(Optional.of(p));
+        when(procurementOrderService.createFromAgreement(deal, p))
+                .thenThrow(new ListingClosedException("Only 10kg remaining"));
+        when(proposalRepo.save(any(DealProposal.class))).thenAnswer(inv -> inv.getArgument(0));
+        stubUsers();
+
+        assertThatThrownBy(() -> service.acceptProposal(FISHERMAN_ID, deal.getId(), p.getId()))
+                .isInstanceOf(ListingClosedException.class);
+
+        assertThat(p.getStatus()).isEqualTo(ProposalStatus.SUPERSEDED);
+        assertThat(p.getSupersededReason()).isEqualTo(DealService.SUPERSEDED_REASON_OVERCOMMIT);
+        assertThat(deal.getStatus()).isEqualTo(DealStatus.NEGOTIATING);
+        verify(eventPublisher).publishDealEvent(eq(deal), eq("PROPOSAL_SUPERSEDED"), any());
+    }
+
+    @Test
+    void acceptProposal_sweep_supersedesOvercommittedPeerProposals() {
+        // Primary deal: vendor proposes 40kg of 50, leaving 10kg remaining.
+        Deal primary = negotiatingDeal();
+        primary.getCatchAlert().setQuantityKg(new BigDecimal("50"));
+        // Simulate: after order creation, alert.claimedKg = 40 (so remaining = 10).
+        primary.getCatchAlert().setClaimedKg(new BigDecimal("40"));
+        DealProposal primaryProp = pending(primary, VENDOR_ID, new BigDecimal("40"), new BigDecimal("240"));
+
+        Deal peerA = new Deal();
+        peerA.setId(78L);
+        peerA.setVendorId(11L);
+        peerA.setFishermanId(FISHERMAN_ID);
+        peerA.setStatus(DealStatus.NEGOTIATING);
+        peerA.setCatchAlert(primary.getCatchAlert());
+        DealProposal peerAProp = pending(peerA, 11L, new BigDecimal("25"), new BigDecimal("230"));
+        peerAProp.setId(2001L);
+
+        Deal peerB = new Deal();
+        peerB.setId(79L);
+        peerB.setVendorId(12L);
+        peerB.setFishermanId(FISHERMAN_ID);
+        peerB.setStatus(DealStatus.NEGOTIATING);
+        peerB.setCatchAlert(primary.getCatchAlert());
+        DealProposal peerBProp = pending(peerB, 12L, new BigDecimal("5"), new BigDecimal("230"));
+        peerBProp.setId(2002L);
+
+        when(dealRepo.findByIdForUpdate(primary.getId())).thenReturn(Optional.of(primary));
+        when(proposalRepo.findById(primaryProp.getId())).thenReturn(Optional.of(primaryProp));
+        when(procurementOrderService.createFromAgreement(primary, primaryProp))
+                .thenReturn(stubOrder(77L, primary, primaryProp));
+        when(dealRepo.save(any(Deal.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(proposalRepo.save(any(DealProposal.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dealRepo.findByCatchAlertIdAndStatus(ALERT_ID, DealStatus.NEGOTIATING))
+                .thenReturn(List.of(primary, peerA, peerB));
+        when(proposalRepo.findFirstByDealIdAndStatus(peerA.getId(), ProposalStatus.PENDING))
+                .thenReturn(Optional.of(peerAProp));
+        when(proposalRepo.findFirstByDealIdAndStatus(peerB.getId(), ProposalStatus.PENDING))
+                .thenReturn(Optional.of(peerBProp));
+        when(cartRepo.findByDealId(primary.getId())).thenReturn(Optional.empty());
+        stubUsers();
+        User v11 = new User(); v11.setId(11L);
+        User v12 = new User(); v12.setId(12L);
+        lenient().when(userRepo.findById(11L)).thenReturn(Optional.of(v11));
+        lenient().when(userRepo.findById(12L)).thenReturn(Optional.of(v12));
+
+        service.acceptProposal(FISHERMAN_ID, primary.getId(), primaryProp.getId());
+
+        // peerA's 25kg > remaining 10 → SUPERSEDED OVERCOMMIT
+        assertThat(peerAProp.getStatus()).isEqualTo(ProposalStatus.SUPERSEDED);
+        assertThat(peerAProp.getSupersededReason()).isEqualTo(DealService.SUPERSEDED_REASON_OVERCOMMIT);
+        // peerB's 5kg ≤ remaining 10 → stays PENDING
+        assertThat(peerBProp.getStatus()).isEqualTo(ProposalStatus.PENDING);
+        // peerA deal stays NEGOTIATING (only the proposal got superseded, vendor can counter)
+        assertThat(peerA.getStatus()).isEqualTo(DealStatus.NEGOTIATING);
+        verify(eventPublisher).publishDealEvent(eq(peerA), eq("PROPOSAL_SUPERSEDED"), any());
+    }
+
+    @Test
+    void acceptProposal_sweep_cancelsAllPeersWhenSoldOut() {
+        // Alert sold out: claimedKg == quantityKg after order creation.
+        Deal primary = negotiatingDeal();
+        primary.getCatchAlert().setQuantityKg(new BigDecimal("50"));
+        primary.getCatchAlert().setClaimedKg(new BigDecimal("50"));
+        DealProposal primaryProp = pending(primary, VENDOR_ID, new BigDecimal("50"), new BigDecimal("240"));
+
+        Deal peerA = new Deal();
+        peerA.setId(78L);
+        peerA.setVendorId(11L);
+        peerA.setFishermanId(FISHERMAN_ID);
+        peerA.setStatus(DealStatus.NEGOTIATING);
+        peerA.setCatchAlert(primary.getCatchAlert());
+        DealProposal peerAProp = pending(peerA, 11L, new BigDecimal("10"), new BigDecimal("230"));
+        peerAProp.setId(2001L);
+
+        when(dealRepo.findByIdForUpdate(primary.getId())).thenReturn(Optional.of(primary));
+        when(proposalRepo.findById(primaryProp.getId())).thenReturn(Optional.of(primaryProp));
+        when(procurementOrderService.createFromAgreement(primary, primaryProp))
+                .thenReturn(stubOrder(77L, primary, primaryProp));
+        when(dealRepo.save(any(Deal.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(proposalRepo.save(any(DealProposal.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(dealRepo.findByCatchAlertIdAndStatus(ALERT_ID, DealStatus.NEGOTIATING))
+                .thenReturn(List.of(primary, peerA));
+        when(proposalRepo.findFirstByDealIdAndStatus(peerA.getId(), ProposalStatus.PENDING))
+                .thenReturn(Optional.of(peerAProp));
+        when(cartRepo.findByDealId(primary.getId())).thenReturn(Optional.empty());
+        stubUsers();
+        User v11 = new User(); v11.setId(11L);
+        lenient().when(userRepo.findById(11L)).thenReturn(Optional.of(v11));
+
+        service.acceptProposal(FISHERMAN_ID, primary.getId(), primaryProp.getId());
+
+        assertThat(peerA.getStatus()).isEqualTo(DealStatus.CANCELLED);
+        assertThat(peerA.getClosedAt()).isNotNull();
+        assertThat(peerAProp.getStatus()).isEqualTo(ProposalStatus.SUPERSEDED);
+        assertThat(peerAProp.getSupersededReason()).isEqualTo(DealService.SUPERSEDED_REASON_OVERCOMMIT);
+        verify(eventPublisher).publishDealEvent(eq(peerA), eq("DEAL_CLOSED"),
+                argThat(m -> ((java.util.Map<?,?>) m).get("reason").equals(DealService.CLOSED_REASON_ALERT_SOLD_OUT)));
     }
 }

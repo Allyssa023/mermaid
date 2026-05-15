@@ -26,7 +26,6 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ProcurementOrderServiceTest {
 
-    @Mock ProcurementCartItemRepository cartRepo;
     @Mock CatchAlertRepository alertRepo;
     @Mock OrderRepository orderRepo;
     @Mock OrderStatusEventRepository eventRepo;
@@ -36,88 +35,93 @@ class ProcurementOrderServiceTest {
 
     @InjectMocks ProcurementOrderService service;
 
-    // ── checkout ──────────────────────────────────────────────────────────────
+    // ── createFromAgreement ──────────────────────────────────────────────────
 
     @Test
-    void checkout_happyPath_createsOrderAndIncrementsClaim() {
+    void createFromAgreement_happyPath_createsOrderAndIncrementsClaim() {
         FishSpecies sp = species(5L);
         CatchAlert alert = alert(10L, 1L, sp, bd("50.00"), bd("100.00"), "ACTIVE",
                 OffsetDateTime.now().plusHours(2));
-        ProcurementCartItem cartItem = cartItem(20L, 99L, alert, bd("30.00"), null);
+        Deal deal = deal(33L, 99L, 1L, alert);
+        DealProposal proposal = proposal(900L, 99L, bd("30.00"), bd("240.00"));
 
-        when(cartRepo.findAllByVendorIdOrderByCreatedAtAsc(99L)).thenReturn(List.of(cartItem));
         when(alertRepo.findByIdInForUpdate(List.of(10L))).thenReturn(List.of(alert));
         when(alertRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         Order saved = order(77L, 99L, 1L, sp, "PENDING");
         when(orderRepo.save(any())).thenReturn(saved);
         when(eventRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        List<Order> result = service.checkout(99L);
+        Order result = service.createFromAgreement(deal, proposal);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getId()).isEqualTo(77L);
+        assertThat(result.getId()).isEqualTo(77L);
 
         ArgumentCaptor<CatchAlert> alertCap = ArgumentCaptor.forClass(CatchAlert.class);
         verify(alertRepo).save(alertCap.capture());
         assertThat(alertCap.getValue().getClaimedKg()).isEqualByComparingTo("80.00");
+        // Not yet sold out (80 < 100), status stays ACTIVE
+        assertThat(alertCap.getValue().getStatus()).isEqualTo("ACTIVE");
 
         ArgumentCaptor<Order> orderCap = ArgumentCaptor.forClass(Order.class);
         verify(orderRepo).save(orderCap.capture());
-        assertThat(orderCap.getValue().getKind()).isEqualTo(OrderKind.RETAIL);
-        assertThat(orderCap.getValue().getBuyerId()).isEqualTo(99L);
-
-        verify(cartRepo).deleteAllByVendorId(99L);
+        Order built = orderCap.getValue();
+        assertThat(built.getKind()).isEqualTo(OrderKind.RETAIL);
+        assertThat(built.getBuyerId()).isEqualTo(99L);
+        assertThat(built.getSellerId()).isEqualTo(1L);
+        assertThat(built.getCatchAlertId()).isEqualTo(10L);
+        assertThat(built.getDeal()).isSameAs(deal);
+        assertThat(built.getOrderedQtyKg()).isEqualByComparingTo("30.00");
+        assertThat(built.getAgreedPricePerKg()).isEqualByComparingTo("240.00");
+        assertThat(built.getStatus()).isEqualTo("PENDING");
     }
 
     @Test
-    void checkout_emptyCart_throws() {
-        when(cartRepo.findAllByVendorIdOrderByCreatedAtAsc(99L)).thenReturn(List.of());
-        assertThatThrownBy(() -> service.checkout(99L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("empty");
+    void createFromAgreement_fullyClaimed_marksAlertSold() {
+        FishSpecies sp = species(5L);
+        CatchAlert alert = alert(10L, 1L, sp, bd("70.00"), bd("100.00"), "ACTIVE",
+                OffsetDateTime.now().plusHours(2));
+        Deal deal = deal(33L, 99L, 1L, alert);
+        DealProposal proposal = proposal(900L, 99L, bd("30.00"), bd("240.00"));
+
+        when(alertRepo.findByIdInForUpdate(List.of(10L))).thenReturn(List.of(alert));
+        when(alertRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(orderRepo.save(any())).thenReturn(order(77L, 99L, 1L, sp, "PENDING"));
+        when(eventRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.createFromAgreement(deal, proposal);
+
+        ArgumentCaptor<CatchAlert> alertCap = ArgumentCaptor.forClass(CatchAlert.class);
+        verify(alertRepo).save(alertCap.capture());
+        assertThat(alertCap.getValue().getClaimedKg()).isEqualByComparingTo("100.00");
+        assertThat(alertCap.getValue().getStatus()).isEqualTo("SOLD");
     }
 
     @Test
-    void checkout_expiredAlert_throwsListingClosed() {
+    void createFromAgreement_expiredAlert_throwsListingClosed() {
         FishSpecies sp = species(5L);
         CatchAlert alert = alert(10L, 1L, sp, bd("0.00"), bd("100.00"), "ACTIVE",
                 OffsetDateTime.now().minusMinutes(1));
-        ProcurementCartItem cartItem = cartItem(20L, 99L, alert, bd("30.00"), null);
+        Deal deal = deal(33L, 99L, 1L, alert);
+        DealProposal proposal = proposal(900L, 99L, bd("30.00"), bd("240.00"));
 
-        when(cartRepo.findAllByVendorIdOrderByCreatedAtAsc(99L)).thenReturn(List.of(cartItem));
         when(alertRepo.findByIdInForUpdate(List.of(10L))).thenReturn(List.of(alert));
 
-        assertThatThrownBy(() -> service.checkout(99L))
+        assertThatThrownBy(() -> service.createFromAgreement(deal, proposal))
                 .isInstanceOf(ListingClosedException.class);
     }
 
     @Test
-    void checkout_overcommit_throwsListingClosed() {
+    void createFromAgreement_overcommit_throwsListingClosed() {
         FishSpecies sp = species(5L);
         CatchAlert alert = alert(10L, 1L, sp, bd("90.00"), bd("100.00"), "ACTIVE",
                 OffsetDateTime.now().plusHours(2));
-        ProcurementCartItem cartItem = cartItem(20L, 99L, alert, bd("20.00"), null);
+        Deal deal = deal(33L, 99L, 1L, alert);
+        DealProposal proposal = proposal(900L, 99L, bd("20.00"), bd("240.00"));
 
-        when(cartRepo.findAllByVendorIdOrderByCreatedAtAsc(99L)).thenReturn(List.of(cartItem));
         when(alertRepo.findByIdInForUpdate(List.of(10L))).thenReturn(List.of(alert));
 
-        assertThatThrownBy(() -> service.checkout(99L))
+        assertThatThrownBy(() -> service.createFromAgreement(deal, proposal))
                 .isInstanceOf(ListingClosedException.class)
-                .hasMessageContaining("overcommitted");
-    }
-
-    @Test
-    void checkout_cancelledAlert_throwsListingClosed() {
-        FishSpecies sp = species(5L);
-        CatchAlert alert = alert(10L, 1L, sp, bd("0.00"), bd("100.00"), "CANCELLED",
-                OffsetDateTime.now().plusHours(2));
-        ProcurementCartItem cartItem = cartItem(20L, 99L, alert, bd("30.00"), null);
-
-        when(cartRepo.findAllByVendorIdOrderByCreatedAtAsc(99L)).thenReturn(List.of(cartItem));
-        when(alertRepo.findByIdInForUpdate(List.of(10L))).thenReturn(List.of(alert));
-
-        assertThatThrownBy(() -> service.checkout(99L))
-                .isInstanceOf(ListingClosedException.class);
+                .hasMessageContaining("remaining");
     }
 
     // ── releaseClaim ──────────────────────────────────────────────────────────
@@ -338,15 +342,25 @@ class ProcurementOrderServiceTest {
         return a;
     }
 
-    private static ProcurementCartItem cartItem(Long id, Long vendorId, CatchAlert alert,
-                                                BigDecimal qtyKg, BigDecimal offeredPrice) {
-        ProcurementCartItem item = new ProcurementCartItem();
-        item.setId(id);
-        item.setVendorId(vendorId);
-        item.setCatchAlert(alert);
-        item.setQtyKg(qtyKg);
-        item.setOfferedPricePerKg(offeredPrice);
-        return item;
+    private static Deal deal(Long id, Long vendorId, Long fishermanId, CatchAlert alert) {
+        Deal d = new Deal();
+        d.setId(id);
+        d.setVendorId(vendorId);
+        d.setFishermanId(fishermanId);
+        d.setCatchAlert(alert);
+        d.setStatus(DealStatus.NEGOTIATING);
+        d.setExpiresAt(OffsetDateTime.now().plusHours(3));
+        return d;
+    }
+
+    private static DealProposal proposal(Long id, Long proposedById, BigDecimal qtyKg, BigDecimal pricePerKg) {
+        DealProposal p = new DealProposal();
+        p.setId(id);
+        p.setProposedById(proposedById);
+        p.setQtyKg(qtyKg);
+        p.setPricePerKg(pricePerKg);
+        p.setStatus(ProposalStatus.PENDING);
+        return p;
     }
 
     private static Order order(Long id, Long buyerId, Long sellerId, FishSpecies sp, String status) {
