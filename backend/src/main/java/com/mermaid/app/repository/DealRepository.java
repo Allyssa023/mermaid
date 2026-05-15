@@ -18,6 +18,10 @@ public interface DealRepository extends JpaRepository<Deal, Long> {
 
     List<Deal> findByFishermanIdAndStatus(Long fishermanId, DealStatus status);
 
+    List<Deal> findByVendorId(Long vendorId);
+
+    List<Deal> findByFishermanId(Long fishermanId);
+
     List<Deal> findByCatchAlertIdAndStatus(Long alertId, DealStatus status);
 
     Optional<Deal> findByVendorIdAndCatchAlertIdAndStatus(

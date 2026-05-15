@@ -12,4 +12,6 @@ public interface DealProposalRepository extends JpaRepository<DealProposal, Long
     Optional<DealProposal> findFirstByDealIdAndStatus(Long dealId, ProposalStatus status);
 
     List<DealProposal> findByDealIdOrderByCreatedAtAsc(Long dealId);
+
+    Optional<DealProposal> findFirstByDealIdOrderByCreatedAtDesc(Long dealId);
 }

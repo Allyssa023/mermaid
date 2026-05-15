@@ -54,6 +54,10 @@ class VendorProcurementControllerTest {
     @MockitoBean OrderRepository orderRepo;
     @MockitoBean UserRepository userRepo;
     @MockitoBean com.mermaid.app.service.WatchlistService watchlistService;
+    @MockitoBean com.mermaid.app.service.DealService dealService;
+    @MockitoBean com.mermaid.app.repository.DealProposalRepository proposalRepo;
+    @MockitoBean com.mermaid.app.mapper.DealMapper dealMapper;
+    @MockitoBean com.mermaid.app.mapper.FishSpeciesMapper fishSpeciesMapper;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private final ObjectMapper om = new ObjectMapper()

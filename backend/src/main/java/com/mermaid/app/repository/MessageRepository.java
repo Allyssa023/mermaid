@@ -3,13 +3,14 @@ package com.mermaid.app.repository;
 import com.mermaid.app.domain.Message;
 import com.mermaid.app.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface MessageRepository extends JpaRepository<Message, Long> {
+public interface MessageRepository extends JpaRepository<Message, Long>, JpaSpecificationExecutor<Message> {
 
     @Query("SELECT m FROM Message m WHERE (m.sender.id = :user1Id AND m.recipient.id = :user2Id) " +
            "OR (m.sender.id = :user2Id AND m.recipient.id = :user1Id) ORDER BY m.sentAt ASC")
@@ -22,4 +23,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     @Query("SELECT m FROM Message m WHERE m.recipient.id = :userId ORDER BY m.sentAt DESC")
     List<Message> findRecentReceived(Long userId, org.springframework.data.domain.Pageable pageable);
+
+    org.springframework.data.domain.Page<Message> findByDealId(
+            Long dealId, org.springframework.data.domain.Pageable pageable);
 }

@@ -4638,6 +4638,11 @@ components:
           format: date-time
         read:
           type: boolean
+        dealId:
+          type: integer
+          format: int64
+          nullable: true
+          description: If set, message is part of a deal negotiation thread.
 
     Role:
       type: string

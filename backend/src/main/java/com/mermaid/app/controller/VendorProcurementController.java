@@ -6,10 +6,13 @@ import com.mermaid.app.domain.ProcurementCartItem;
 import com.mermaid.app.domain.User;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.model.*;
+import com.mermaid.app.mapper.DealMapper;
 import com.mermaid.app.repository.CatchAlertRepository;
+import com.mermaid.app.repository.DealProposalRepository;
 import com.mermaid.app.repository.OrderRepository;
 import com.mermaid.app.repository.UserRepository;
 import com.mermaid.app.security.SecurityUtils;
+import com.mermaid.app.service.DealService;
 import com.mermaid.app.service.ProcurementCartService;
 import com.mermaid.app.service.ProcurementOrderService;
 import com.mermaid.app.service.WatchlistService;
@@ -35,19 +38,28 @@ public class VendorProcurementController implements VendorProcurementApi {
     private final OrderRepository orderRepo;
     private final UserRepository userRepo;
     private final WatchlistService watchlistService;
+    private final DealService dealService;
+    private final DealProposalRepository proposalRepo;
+    private final DealMapper dealMapper;
 
     public VendorProcurementController(ProcurementCartService cartService,
                                        ProcurementOrderService orderService,
                                        CatchAlertRepository alertRepo,
                                        OrderRepository orderRepo,
                                        UserRepository userRepo,
-                                       WatchlistService watchlistService) {
+                                       WatchlistService watchlistService,
+                                       DealService dealService,
+                                       DealProposalRepository proposalRepo,
+                                       DealMapper dealMapper) {
         this.cartService = cartService;
         this.orderService = orderService;
         this.alertRepo = alertRepo;
         this.orderRepo = orderRepo;
         this.userRepo = userRepo;
         this.watchlistService = watchlistService;
+        this.dealService = dealService;
+        this.proposalRepo = proposalRepo;
+        this.dealMapper = dealMapper;
     }
 
     @Override
@@ -121,8 +133,16 @@ public class VendorProcurementController implements VendorProcurementApi {
 
     @Override
     public ResponseEntity<com.mermaid.app.model.DealDto> startDealFromCartItem(Long itemId) {
-        // Implemented in subsequent task (deals negotiation feature).
-        throw new UnsupportedOperationException("Not yet implemented");
+        Long vendorId = SecurityUtils.currentUserId();
+        com.mermaid.app.domain.Deal deal = dealService.startFromCartItem(vendorId, itemId);
+        com.mermaid.app.domain.DealProposal latest = proposalRepo
+                .findFirstByDealIdOrderByCreatedAtDesc(deal.getId())
+                .orElse(null);
+        String vendorName = userRepo.findById(vendorId)
+                .map(com.mermaid.app.domain.User::getFullName).orElse(null);
+        String fishermanName = userRepo.findById(deal.getFishermanId())
+                .map(com.mermaid.app.domain.User::getFullName).orElse(null);
+        return ResponseEntity.ok(dealMapper.toDto(deal, vendorName, fishermanName, latest));
     }
 
     @Override
