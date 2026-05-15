@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -64,12 +65,12 @@ public class ProcurementOrderService {
      * @throws ListingClosedException if the alert is no longer ACTIVE/within expiry, or
      *         if accepting this proposal would overcommit the alert.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Order createFromAgreement(Deal deal, DealProposal proposal) {
         Long alertId = deal.getCatchAlert().getId();
         List<CatchAlert> locked = alertRepo.findByIdInForUpdate(List.of(alertId));
         if (locked.isEmpty()) {
-            throw new ResourceNotFoundException("Alert gone");
+            throw new ResourceNotFoundException("Alert " + alertId);
         }
         CatchAlert alert = locked.get(0);
         if (!"ACTIVE".equals(alert.getStatus()) || alert.getExpiresAt().isBefore(OffsetDateTime.now())) {

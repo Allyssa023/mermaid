@@ -16,7 +16,6 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -46,15 +45,15 @@ class DealExpirySweeperTest {
     }
 
     @Test
-    void sweep_cancelsEachExpiredDealAsItsFisherman() {
+    void sweep_expiresEachStaleDealViaExpireDeal() {
         Deal a = expired(101L, 20L);
         Deal b = expired(102L, 21L);
         when(dealRepo.findExpired(any())).thenReturn(List.of(a, b));
 
         sweeper.sweep();
 
-        verify(dealService).cancelDeal(20L, 101L, DealExpirySweeper.EXPIRY_REASON);
-        verify(dealService).cancelDeal(21L, 102L, DealExpirySweeper.EXPIRY_REASON);
+        verify(dealService).expireDeal(101L, DealExpirySweeper.EXPIRY_REASON);
+        verify(dealService).expireDeal(102L, DealExpirySweeper.EXPIRY_REASON);
     }
 
     @Test
@@ -63,11 +62,11 @@ class DealExpirySweeperTest {
         Deal b = expired(102L, 21L);
         when(dealRepo.findExpired(any())).thenReturn(List.of(a, b));
         doThrow(new DealConflictException("already AGREED"))
-                .when(dealService).cancelDeal(eq(20L), eq(101L), any());
+                .when(dealService).expireDeal(eq(101L), any());
 
         sweeper.sweep(); // does not throw
 
-        verify(dealService).cancelDeal(21L, 102L, DealExpirySweeper.EXPIRY_REASON);
+        verify(dealService).expireDeal(102L, DealExpirySweeper.EXPIRY_REASON);
     }
 
     @Test
@@ -76,10 +75,10 @@ class DealExpirySweeperTest {
         Deal b = expired(102L, 21L);
         when(dealRepo.findExpired(any())).thenReturn(List.of(a, b));
         doThrow(new RuntimeException("db hiccup"))
-                .when(dealService).cancelDeal(eq(20L), eq(101L), any());
+                .when(dealService).expireDeal(eq(101L), any());
 
         sweeper.sweep();
 
-        verify(dealService).cancelDeal(21L, 102L, DealExpirySweeper.EXPIRY_REASON);
+        verify(dealService).expireDeal(102L, DealExpirySweeper.EXPIRY_REASON);
     }
 }

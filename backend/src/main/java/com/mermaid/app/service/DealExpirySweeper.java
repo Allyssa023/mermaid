@@ -31,18 +31,18 @@ public class DealExpirySweeper {
         this.dealService = dealService;
     }
 
-    @Scheduled(fixedRateString = "${mermaid.deals.expiry-sweep-ms:60000}")
+    @Scheduled(fixedDelayString = "${mermaid.deals.expiry-sweep-ms:60000}")
     public void sweep() {
         List<Deal> expired = dealRepo.findExpired(OffsetDateTime.now());
         if (expired.isEmpty()) return;
-        log.info("DealExpirySweeper: cancelling {} expired deal(s)", expired.size());
+        log.info("DealExpirySweeper: expiring {} stale deal(s)", expired.size());
         for (Deal d : expired) {
             try {
-                dealService.cancelDeal(d.getFishermanId(), d.getId(), EXPIRY_REASON);
+                dealService.expireDeal(d.getId(), EXPIRY_REASON);
             } catch (DealConflictException e) {
-                // Already terminal — someone closed it between query and cancel. Fine.
-                log.debug("Deal {} already {} — skipping expiry cancel", d.getId(), e.getMessage());
-            } catch (Exception e) {
+                // Already terminal — someone closed it between query and expire. Fine.
+                log.debug("Deal {} already {} — skipping expiry", d.getId(), e.getMessage());
+            } catch (RuntimeException e) {
                 log.warn("Failed to expire deal {}: {}", d.getId(), e.getMessage());
             }
         }

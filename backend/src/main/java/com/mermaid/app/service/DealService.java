@@ -283,6 +283,44 @@ public class DealService {
         return closeDeal(fishermanId, dealId, reason, DealStatus.REJECTED, /*fishermanOnly*/ true);
     }
 
+    // ------------------------------------------------------------------
+    // Expire deal (system-driven — invoked by DealExpirySweeper)
+    // ------------------------------------------------------------------
+
+    @Transactional
+    public Deal expireDeal(Long dealId, String reason) {
+        Deal deal = dealRepo.findByIdForUpdate(dealId)
+                .orElseThrow(() -> new ResourceNotFoundException("Deal " + dealId));
+        if (deal.getStatus() != DealStatus.NEGOTIATING) {
+            throw new DealConflictException("Deal " + dealId + " is " + deal.getStatus());
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        deal.setStatus(DealStatus.EXPIRED);
+        deal.setClosedAt(now);
+        Deal saved = dealRepo.save(deal);
+
+        proposalRepo.findFirstByDealIdAndStatus(dealId, ProposalStatus.PENDING).ifPresent(p -> {
+            p.setStatus(ProposalStatus.SUPERSEDED);
+            p.setSupersededReason(SUPERSEDED_REASON_DEAL_CLOSED);
+            proposalRepo.save(p);
+        });
+
+        String safeReason = reason == null || reason.isBlank() ? "Negotiation window closed without agreement" : reason;
+        insertSystemMessage(deal, "Deal expired: " + safeReason);
+
+        Long alertId = deal.getCatchAlert() != null ? deal.getCatchAlert().getId() : null;
+        eventPublisher.runAfterCommit(() -> {
+            eventPublisher.publishDealEvent(saved, "DEAL_CLOSED", Map.of(
+                    "status", DealStatus.EXPIRED.name(),
+                    "reason", safeReason
+            ));
+            if (alertId != null) {
+                eventPublisher.publishCompetitorCountChange(alertId);
+            }
+        });
+        return saved;
+    }
+
     private Deal closeDeal(Long callerId, Long dealId, String reason,
                            DealStatus terminal, boolean fishermanOnly) {
         Deal deal = dealRepo.findByIdForUpdate(dealId)
@@ -360,14 +398,14 @@ public class DealService {
     // Accept proposal (creates Order, sweeps competing deals)
     // ------------------------------------------------------------------
 
-    @Transactional
+    @Transactional(noRollbackFor = ListingClosedException.class)
     public AcceptResult acceptProposal(Long callerUserId, Long dealId, Long proposalId) {
         Deal deal = dealRepo.findByIdForUpdate(dealId)
                 .orElseThrow(() -> new ResourceNotFoundException("Deal " + dealId));
+        requireParticipant(deal, callerUserId);
         if (deal.getStatus() != DealStatus.NEGOTIATING) {
             throw new DealConflictException("Deal already " + deal.getStatus());
         }
-        requireParticipant(deal, callerUserId);
 
         DealProposal proposal = proposalRepo.findById(proposalId)
                 .orElseThrow(() -> new ResourceNotFoundException("Proposal " + proposalId));
@@ -413,8 +451,8 @@ public class DealService {
         proposal.setRespondedAt(now);
         proposalRepo.save(proposal);
 
-        // Unlink the vendor's cart row tied to this deal.
-        cartRepo.findByDealId(dealId).ifPresent(cartRepo::delete);
+        // Unlink any vendor cart rows tied to this deal.
+        cartRepo.deleteByDealId(dealId);
 
         insertSystemMessage(deal,
                 "Deal agreed at " + proposal.getQtyKg() + "kg @ ₱" + proposal.getPricePerKg()

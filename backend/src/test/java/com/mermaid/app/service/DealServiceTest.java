@@ -438,9 +438,7 @@ class DealServiceTest {
         when(proposalRepo.save(any(DealProposal.class))).thenAnswer(inv -> inv.getArgument(0));
         when(dealRepo.findByCatchAlertIdAndStatus(ALERT_ID, DealStatus.NEGOTIATING))
                 .thenReturn(List.of(deal));
-        ProcurementCartItem cart = new ProcurementCartItem();
-        cart.setId(500L);
-        when(cartRepo.findByDealId(deal.getId())).thenReturn(Optional.of(cart));
+        when(cartRepo.deleteByDealId(deal.getId())).thenReturn(1);
         stubUsers();
 
         DealService.AcceptResult result = service.acceptProposal(FISHERMAN_ID, deal.getId(), p.getId());
@@ -457,7 +455,7 @@ class DealServiceTest {
         assertThat(p.getRespondedById()).isEqualTo(FISHERMAN_ID);
         assertThat(p.getRespondedAt()).isNotNull();
 
-        verify(cartRepo).delete(cart);
+        verify(cartRepo).deleteByDealId(deal.getId());
         verify(eventPublisher).publishDealEvent(eq(deal), eq("DEAL_AGREED"), any());
         verify(eventPublisher).publishCompetitorCountChange(ALERT_ID);
         verify(eventPublisher).publishProposalNotification(eq(VENDOR_ID), eq(deal.getId()),
@@ -567,7 +565,7 @@ class DealServiceTest {
                 .thenReturn(Optional.of(peerAProp));
         when(proposalRepo.findFirstByDealIdAndStatus(peerB.getId(), ProposalStatus.PENDING))
                 .thenReturn(Optional.of(peerBProp));
-        when(cartRepo.findByDealId(primary.getId())).thenReturn(Optional.empty());
+        when(cartRepo.deleteByDealId(primary.getId())).thenReturn(0);
         stubUsers();
         User v11 = new User(); v11.setId(11L);
         User v12 = new User(); v12.setId(12L);
@@ -613,7 +611,7 @@ class DealServiceTest {
                 .thenReturn(List.of(primary, peerA));
         when(proposalRepo.findFirstByDealIdAndStatus(peerA.getId(), ProposalStatus.PENDING))
                 .thenReturn(Optional.of(peerAProp));
-        when(cartRepo.findByDealId(primary.getId())).thenReturn(Optional.empty());
+        when(cartRepo.deleteByDealId(primary.getId())).thenReturn(0);
         stubUsers();
         User v11 = new User(); v11.setId(11L);
         lenient().when(userRepo.findById(11L)).thenReturn(Optional.of(v11));

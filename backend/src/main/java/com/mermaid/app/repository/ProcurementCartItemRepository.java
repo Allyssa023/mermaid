@@ -19,6 +19,10 @@ public interface ProcurementCartItemRepository extends JpaRepository<Procurement
     Optional<ProcurementCartItem> findByDealId(Long dealId);
 
     @Modifying
+    @Query("DELETE FROM ProcurementCartItem c WHERE c.deal.id = :dealId")
+    int deleteByDealId(Long dealId);
+
+    @Modifying
     @Query("DELETE FROM ProcurementCartItem c WHERE c.vendorId = :vendorId")
     void deleteAllByVendorId(Long vendorId);
 }

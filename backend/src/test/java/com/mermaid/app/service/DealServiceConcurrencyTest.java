@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
@@ -104,9 +105,14 @@ class DealServiceConcurrencyTest {
         when(proposalRepo.save(any(DealProposal.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(dealRepo.findByCatchAlertIdAndStatus(ALERT_ID, DealStatus.NEGOTIATING))
                 .thenReturn(List.of(dealA, dealB));
-        lenient().when(proposalRepo.findFirstByDealIdAndStatus(any(), any()))
-                .thenReturn(Optional.empty());
-        lenient().when(cartRepo.findByDealId(any())).thenReturn(Optional.empty());
+        // The winner's sweep looks up the loser's PENDING proposal so it can mark
+        // it SUPERSEDED OVERCOMMIT. Returning the actual peer proposal here means
+        // the sweep path is exercised end-to-end rather than no-oped.
+        lenient().when(proposalRepo.findFirstByDealIdAndStatus(eq(dealA.getId()), eq(ProposalStatus.PENDING)))
+                .thenReturn(Optional.of(propA));
+        lenient().when(proposalRepo.findFirstByDealIdAndStatus(eq(dealB.getId()), eq(ProposalStatus.PENDING)))
+                .thenReturn(Optional.of(propB));
+        lenient().when(cartRepo.deleteByDealId(any())).thenReturn(0);
         User fisher = new User(); fisher.setId(FISHERMAN);
         User va = new User(); va.setId(VENDOR_A);
         User vb = new User(); vb.setId(VENDOR_B);
@@ -175,6 +181,18 @@ class DealServiceConcurrencyTest {
         assertThat(loserProp.getStatus()).isEqualTo(ProposalStatus.SUPERSEDED);
         assertThat(loserProp.getSupersededReason())
                 .isEqualTo(DealService.SUPERSEDED_REASON_OVERCOMMIT);
+
+        // Wire contract: the loser's DEAL_CLOSED event must carry the
+        // ALERT_SOLD_OUT reason so the vendor UI can show the right message.
+        org.mockito.ArgumentCaptor<java.util.Map<String, Object>> payloads =
+                org.mockito.ArgumentCaptor.forClass(java.util.Map.class);
+        org.mockito.Mockito.verify(eventPublisher, org.mockito.Mockito.atLeastOnce())
+                .publishDealEvent(eq(loser), eq("DEAL_CLOSED"), payloads.capture());
+        assertThat(payloads.getAllValues())
+                .anySatisfy(p -> {
+                    assertThat(p.get("status")).isEqualTo(DealStatus.CANCELLED.name());
+                    assertThat(p.get("reason")).isEqualTo(DealService.CLOSED_REASON_ALERT_SOLD_OUT);
+                });
     }
 
     // ── helpers ───────────────────────────────────────────────────────────
