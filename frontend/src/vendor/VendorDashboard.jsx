@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { I } from '../icons'
 import { StompProvider } from '../context/StompContext'
 import Home from './Home'
@@ -11,6 +12,7 @@ import Analytics from './Analytics'
 import Reviews from './Reviews'
 import Payouts from './Payouts'
 import ShopProfile from './ShopProfile'
+import VendorMessagesPage from './Messages'
 
 const VENDOR_NAV_ITEMS = [
   { id: 'vdashboard',   icon: 'Dashboard', label: 'Dashboard' },
@@ -18,6 +20,7 @@ const VENDOR_NAV_ITEMS = [
   { id: 'vinventory',   icon: 'Box',       label: 'Inventory' },
   { id: 'vorders',      icon: 'Clipboard', label: 'Orders' },
   { id: 'vprocurement', icon: 'Fish',      label: 'Source Catch' },
+  { id: 'vmessages',    icon: 'Message',   label: 'Messages' },
   { id: 'vwatchlist',   icon: 'Star',      label: 'Watchlist' },
   { id: 'vanalytics',   icon: 'Bars',      label: 'Analytics' },
   { id: 'vreviews',     icon: 'Heart',     label: 'Reviews' },
@@ -31,6 +34,7 @@ const PAGE_LABELS = {
   vinventory:   'Inventory',
   vorders:      'Orders',
   vprocurement: 'Source Catch',
+  vmessages:    'Messages',
   vwatchlist:   'Catch Watchlist',
   vanalytics:   'Analytics',
   vreviews:     'Reviews',
@@ -123,6 +127,7 @@ function PageContent({ page, pageState, navigate }) {
     case 'vinventory':   return <Inventory />
     case 'vorders':      return <OrdersInbox pageState={pageState} setPage={navigate} />
     case 'vprocurement': return <ProcurementFeed pageState={pageState} setPage={navigate} />
+    case 'vmessages':    return <VendorMessagesPage />
     case 'vwatchlist':   return <Watchlist setPage={navigate} />
     case 'vanalytics':   return <Analytics setPage={navigate} />
     case 'vreviews':     return <Reviews />
@@ -135,10 +140,26 @@ function PageContent({ page, pageState, navigate }) {
 export default function VendorDashboard({ user, onLogout }) {
   const [page, setPage] = useState('vdashboard')
   const [pageState, setPageState] = useState(null)
+  const location = useLocation()
+  const routerNavigate = useNavigate()
+
+  // Bridge real URLs (e.g. /vendor/messages?deal=42 from ProcurementFeed) into
+  // the tab-state shell. The Messages page itself reads ?deal=... via
+  // useSearchParams, so we only need to flip the tab here.
+  useEffect(() => {
+    if (location.pathname.startsWith('/vendor/messages') && page !== 'vmessages') {
+      setPage('vmessages')
+      setPageState(null)
+    }
+  }, [location.pathname, page])
 
   const navigate = (id, state = null) => {
     setPage(id)
     setPageState(state)
+    // Keep the URL clean when leaving the messages tab via the rail.
+    if (id !== 'vmessages' && location.pathname.startsWith('/vendor/messages')) {
+      routerNavigate('/', { replace: true })
+    }
   }
 
   return (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { I } from '../icons'
 import { useAuth } from '../context/AuthContext'
 import { getChatUsers, getConversation } from '../api/messages'
@@ -34,7 +35,7 @@ const fmtDate = (iso) => {
   return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
 }
 
-const fishermanDealsApi = {
+const vendorDealsApi = {
   getDeal,
   listDealMessages,
   submitProposal,
@@ -42,10 +43,11 @@ const fishermanDealsApi = {
   rejectProposal,
 }
 
-export default function MessagesPage() {
+export default function VendorMessagesPage() {
   const { user } = useAuth()
   const myId = user?.id
-  // Mode: 'dm' or 'deal'
+  const [searchParams, setSearchParams] = useSearchParams()
+
   const [mode, setMode] = useState('dm')
   const [activeUserId, setActiveUserId] = useState(null)
   const [activeDealId, setActiveDealId] = useState(null)
@@ -62,33 +64,16 @@ export default function MessagesPage() {
   })
   const activeDeals = dealsQ.data || []
 
-  // Re-read ?deal=... and sessionStorage on every render so external triggers
-  // (other pages writing to sessionStorage, or URL changes while mounted) still
-  // auto-select. Guard against re-selecting the same id to avoid infinite loops.
+  // Auto-select deal from ?deal=... on mount (and on changes).
+  const dealParam = searchParams.get('deal')
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search)
-      const fromQs = params.get('deal')
-      const fromSession = sessionStorage.getItem('mermaid:openDeal')
-      const dealIdRaw = fromQs || fromSession
-      if (!dealIdRaw) return
-      const id = Number(dealIdRaw)
-      if (Number.isNaN(id)) return
-      if (mode === 'deal' && activeDealId === id) {
-        // Already selected — still clear the one-shot sessionStorage trigger.
-        if (fromSession) {
-          try { sessionStorage.removeItem('mermaid:openDeal') } catch { /* ignore */ }
-        }
-        return
-      }
-      setMode('deal')
-      setActiveDealId(id)
-      writeLastViewed(id)
-      if (fromSession) {
-        try { sessionStorage.removeItem('mermaid:openDeal') } catch { /* ignore */ }
-      }
-    } catch { /* ignore */ }
-  })
+    if (!dealParam) return
+    const id = Number(dealParam)
+    if (Number.isNaN(id)) return
+    setMode('deal')
+    setActiveDealId(id)
+    writeLastViewed(id)
+  }, [dealParam])
 
   useEffect(() => {
     if (mode === 'dm' && !activeUserId && contacts.length > 0) {
@@ -144,16 +129,24 @@ export default function MessagesPage() {
     setMode('deal')
     setActiveDealId(deal.id)
     writeLastViewed(deal.id)
+    // Reflect selection in URL so refreshes hold.
+    const next = new URLSearchParams(searchParams)
+    next.set('deal', String(deal.id))
+    setSearchParams(next, { replace: true })
   }
 
   const handleSelectContact = (id) => {
     setMode('dm')
     setActiveUserId(id)
+    if (searchParams.has('deal')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('deal')
+      setSearchParams(next, { replace: true })
+    }
   }
 
   const active = contacts.find(c => c.id === activeUserId)
 
-  // Unread = deal.updatedAt (or latestProposal.createdAt) newer than last viewed.
   const dealUnread = useMemo(() => {
     const map = {}
     for (const d of activeDeals) {
@@ -179,9 +172,7 @@ export default function MessagesPage() {
       </div>
 
       <div className="msgs">
-        {/* Contact list */}
         <div className="msgs__list">
-          {/* Active deals section (BEFORE generic conversation list) */}
           {activeDeals.length > 0 && (
             <>
               <div className="msgs__head">
@@ -275,10 +266,9 @@ export default function MessagesPage() {
           )}
         </div>
 
-        {/* Thread / Deal pane */}
         <div className="thread">
           {mode === 'deal' && activeDealId != null ? (
-            <DealChatPane dealId={activeDealId} currentUserId={myId} apiClient={fishermanDealsApi} />
+            <DealChatPane dealId={activeDealId} currentUserId={myId} apiClient={vendorDealsApi} />
           ) : active ? (
             <>
               <div className="thread__head">
@@ -332,7 +322,6 @@ export default function MessagesPage() {
           )}
         </div>
 
-        {/* Info panel - only for DM mode */}
         {mode === 'dm' && active && (
           <div className="thread__info">
             <div>
