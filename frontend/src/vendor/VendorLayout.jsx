@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { I } from '../icons'
 import VendorNotificationsBell from './components/NotificationsBell'
+import { StompProvider } from '../context/StompContext'
 
 const NAV = [
   { to: 'home',         label: 'Home',         icon: 'Dashboard' },
@@ -25,6 +26,7 @@ export default function VendorLayout({ user, onLogout }) {
   const firstName = user?.fullName?.split(' ')[0] || 'Vendor'
 
   return (
+    <StompProvider>
     <div className="app" data-density="balanced" data-accent="warm">
       <aside className="rail">
         <div className="rail__logo">
@@ -92,5 +94,6 @@ export default function VendorLayout({ user, onLogout }) {
         </div>
       </main>
     </div>
+    </StompProvider>
   )
 }

@@ -1,44 +1,37 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { I } from '../icons'
 import '../design-system.css'
+import { StompProvider } from '../context/StompContext'
 
-import FishermanHomePage  from './Home'
-import TripsPage          from './Trips'
-import AlertsPage         from './CatchAlerts'
-import OrdersPage         from './Orders'
-import ProcurementPage    from './Procurement'
-import EarningsPage       from './Earnings'
-import MarketplacePage    from './Marketplace'
-import MessagesPage       from './Messages'
+import FishermanHomePage    from './Home'
+import TripsPage            from './Trips'
+import AlertsPage           from './CatchAlerts'
+import OrdersPage           from './Orders'
+import EarningsPage         from './Earnings'
+import MessagesPage         from './Messages'
 import FishermanProfilePage from './Profile'
-import PlannerPage        from './Planner'
+import FishermanNotificationsBell from './components/NotificationsBell'
 
 // ── Nav config ───────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { id: 'dashboard',   icon: 'Dashboard', label: 'Dashboard' },
-  { id: 'planner',     icon: 'Calendar',  label: 'Trip Planner' },
-  { id: 'trips',       icon: 'Anchor',    label: 'My Trips' },
-  { id: 'alerts',      icon: 'Bell',      label: 'Catch Alerts',     badge: 3 },
-  { id: 'procurement', icon: 'Truck',     label: 'Procurement',      badge: 2 },
-  { id: 'orders',      icon: 'Clipboard', label: 'Orders',           badge: 2 },
-  { id: 'earnings',    icon: 'Wallet',    label: 'Earnings' },
-  { id: 'market',      icon: 'Store',     label: 'Marketplace' },
-  { id: 'messages',    icon: 'Message',   label: 'Messages',         badge: 3 },
-  { id: 'profile',     icon: 'User',      label: 'Profile' },
+  { id: 'dashboard', icon: 'Dashboard', label: 'Dashboard' },
+  { id: 'trips',     icon: 'Anchor',    label: 'My Trips' },
+  { id: 'alerts',    icon: 'Bell',      label: 'Catch Alerts' },
+  { id: 'orders',    icon: 'Clipboard', label: 'Orders' },
+  { id: 'earnings',  icon: 'Wallet',    label: 'Earnings' },
+  { id: 'messages',  icon: 'Message',   label: 'Messages' },
+  { id: 'profile',   icon: 'User',      label: 'Profile' },
 ]
 
 const PAGE_LABELS = {
-  dashboard:   'Dashboard',
-  planner:     'Trip Planner',
-  trips:       'My Trips',
-  alerts:      'Catch Alerts',
-  procurement: 'Procurement',
-  orders:      'Orders',
-  earnings:    'Earnings',
-  market:      'Marketplace',
-  messages:    'Messages',
-  profile:     'Profile',
+  dashboard: 'Dashboard',
+  trips:     'My Trips',
+  alerts:    'Catch Alerts',
+  orders:    'Orders',
+  earnings:  'Earnings',
+  messages:  'Messages',
+  profile:   'Profile',
 }
 
 // ── Rail ─────────────────────────────────────────────────────────────────────
@@ -67,7 +60,6 @@ function Rail({ page, setPage, user, onLogout }) {
             >
               <div className="rail-item__icon"><Icon size={18} /></div>
               <div className="rail-item__text">{it.label}</div>
-              {it.badge ? <span className="rail-item__badge">{it.badge}</span> : null}
             </div>
           )
         })}
@@ -82,7 +74,7 @@ function Rail({ page, setPage, user, onLogout }) {
           <div className="rail__avatar">{initials}</div>
           <div className="rail__user-info">
             <span className="rail__user-name">{firstName}</span>
-            <span className="rail__user-role">FISHERMAN · {user?.vessel || ''}</span>
+            <span className="rail__user-role">FISHERMAN</span>
           </div>
         </div>
       </div>
@@ -106,12 +98,10 @@ function Topbar({ page }) {
       <div className="topbar__spacer" />
       <div className="topbar__search">
         <I.Search size={14} />
-        <input placeholder="Search trips, catches, vendors…" />
+        <input placeholder="Search trips, catches…" />
         <kbd>⌘K</kbd>
       </div>
-      <button className="topbar__icon-btn" title="Notifications">
-        <I.Bell size={16} /><span className="dot" />
-      </button>
+      <FishermanNotificationsBell />
       <button className="topbar__icon-btn" title="Help"><I.Help size={16} /></button>
     </div>
   )
@@ -121,29 +111,34 @@ function Topbar({ page }) {
 
 export default function FishermanDashboard({ user, onLogout }) {
   const [page, setPage] = useState('dashboard')
+  const [tripModalTrigger, setTripModalTrigger] = useState(0)
+
+  const handleStartTrip = useCallback(() => {
+    setPage('trips')
+    setTripModalTrigger(v => v + 1)
+  }, [])
 
   const PageComponent = {
-    dashboard:   FishermanHomePage,
-    planner:     PlannerPage,
-    trips:       TripsPage,
-    alerts:      AlertsPage,
-    procurement: ProcurementPage,
-    orders:      OrdersPage,
-    earnings:    EarningsPage,
-    market:      MarketplacePage,
-    messages:    MessagesPage,
-    profile:     FishermanProfilePage,
+    dashboard: FishermanHomePage,
+    trips:     TripsPage,
+    alerts:    AlertsPage,
+    orders:    OrdersPage,
+    earnings:  EarningsPage,
+    messages:  MessagesPage,
+    profile:   FishermanProfilePage,
   }[page] || FishermanHomePage
 
   return (
-    <div className="app" data-accent="ocean" data-density="balanced">
-      <Rail page={page} setPage={setPage} user={user} onLogout={onLogout} />
-      <main className="main">
-        <Topbar page={page} />
-        <div className="content" style={{ flex: 1, overflowY: 'auto' }}>
-          <PageComponent setPage={setPage} user={user} />
-        </div>
-      </main>
-    </div>
+    <StompProvider>
+      <div className="app" data-accent="ocean" data-density="balanced">
+        <Rail page={page} setPage={setPage} user={user} onLogout={onLogout} />
+        <main className="main">
+          <Topbar page={page} />
+          <div className="content" style={{ flex: 1, overflowY: 'auto' }}>
+            <PageComponent setPage={setPage} user={user} onStartTrip={handleStartTrip} openModalTrigger={page === 'trips' ? tripModalTrigger : 0} />
+          </div>
+        </main>
+      </div>
+    </StompProvider>
   )
 }

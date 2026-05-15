@@ -1,13 +1,13 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { I } from '../icons'
 import FishermanNotificationsBell from './components/NotificationsBell'
+import { StompProvider } from '../context/StompContext'
 
 const NAV = [
   { to: 'home',         label: 'Home',         icon: 'Dashboard' },
   { to: 'trips',        label: 'Trips',        icon: 'Anchor' },
   { to: 'catch-alerts', label: 'Catch Alerts', icon: 'Bell' },
   { to: 'orders',       label: 'Orders',       icon: 'Clipboard' },
-  { to: 'procurement',  label: 'Procurement',  icon: 'Store' },
   { to: 'marketplace',  label: 'Marketplace',  icon: 'Fish' },
   { to: 'earnings',     label: 'Earnings',     icon: 'Receipt' },
   { to: 'messages',     label: 'Messages',     icon: 'Message' },
@@ -24,6 +24,7 @@ export default function FishermanLayout({ user, onLogout }) {
   const firstName = user?.fullName?.split(' ')[0] || 'Fisherman'
 
   return (
+    <StompProvider>
     <div className="app" data-density="balanced">
       <aside className="rail">
         <div className="rail__logo">
@@ -86,5 +87,6 @@ export default function FishermanLayout({ user, onLogout }) {
         </div>
       </main>
     </div>
+    </StompProvider>
   )
 }
