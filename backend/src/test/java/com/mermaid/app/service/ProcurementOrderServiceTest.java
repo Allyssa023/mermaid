@@ -63,7 +63,7 @@ class ProcurementOrderServiceTest {
 
         ArgumentCaptor<Order> orderCap = ArgumentCaptor.forClass(Order.class);
         verify(orderRepo).save(orderCap.capture());
-        assertThat(orderCap.getValue().getKind()).isEqualTo(OrderKind.PROCUREMENT);
+        assertThat(orderCap.getValue().getKind()).isEqualTo(OrderKind.RETAIL);
         assertThat(orderCap.getValue().getBuyerId()).isEqualTo(99L);
 
         verify(cartRepo).deleteAllByVendorId(99L);

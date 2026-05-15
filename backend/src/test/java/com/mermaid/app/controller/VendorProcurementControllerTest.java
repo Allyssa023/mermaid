@@ -143,27 +143,8 @@ class VendorProcurementControllerTest {
                .andExpect(status().isBadRequest());
     }
 
-    // ── POST /vendor/procurement/checkout ─────────────────────────────────────
-
-    @Test
-    void checkout_returnsOrders() throws Exception {
-        FishSpecies sp = species(5L, "Tuna");
-        Order ord = order(77L, 20L, 1L, sp, "PENDING");
-        when(orderService.checkout(20L)).thenReturn(List.of(ord));
-        when(userRepo.findById(1L)).thenReturn(Optional.empty());
-
-        mockMvc.perform(post("/vendor/procurement/checkout").with(asVendor(20L)))
-               .andExpect(status().isOk())
-               .andExpect(jsonPath("$[0].id").value(77));
-    }
-
-    @Test
-    void checkout_emptyCart_returns400() throws Exception {
-        when(orderService.checkout(20L)).thenThrow(new IllegalArgumentException("Procurement cart is empty"));
-
-        mockMvc.perform(post("/vendor/procurement/checkout").with(asVendor(20L)))
-               .andExpect(status().isBadRequest());
-    }
+    // Old POST /vendor/procurement/checkout tests removed — endpoint deleted in deals refactor.
+    // Orders are now created when a deal proposal is accepted (see DealService.acceptProposal).
 
     // ── GET /vendor/procurement/orders ────────────────────────────────────────
 
