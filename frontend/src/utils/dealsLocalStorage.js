@@ -18,3 +18,21 @@ export const writeLastViewed = (dealId) => {
     /* ignore */
   }
 }
+
+export const ONBOARDING_DISMISSED_KEY = 'mermaid:deals:onboardingDismissed'
+
+export const isOnboardingDismissed = () => {
+  try {
+    return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === '1'
+  } catch {
+    return true // fail-closed: hide hint when storage is unavailable
+  }
+}
+
+export const dismissOnboarding = () => {
+  try {
+    localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1')
+  } catch {
+    // best-effort; hint will reappear next session if storage blocked
+  }
+}

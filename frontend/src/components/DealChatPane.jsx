@@ -23,6 +23,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useStomp } from '../context/StompContext'
 import ProposalCard from './ProposalCard'
 import DealComposer from './DealComposer'
+import { isOnboardingDismissed, dismissOnboarding } from '../utils/dealsLocalStorage'
 
 const PROPOSAL_RE = /^\[PROPOSAL\]\s*qty=(\d+(?:\.\d+)?),\s*price=(\d+(?:\.\d+)?)/i
 
@@ -47,6 +48,13 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
   const qc = useQueryClient()
   const stomp = useStomp()
   const [counterInitial, setCounterInitial] = useState(null)
+  // One-time onboarding hint: dismissed flag is persisted in localStorage so
+  // it never re-appears after the first dismissal across deals/sessions.
+  const [onboardingDismissed, setOnboardingDismissed] = useState(() => isOnboardingDismissed())
+  function handleDismissOnboarding() {
+    dismissOnboarding()
+    setOnboardingDismissed(true)
+  }
 
   const { data: deal } = useQuery({
     queryKey: ['deal', dealId],
@@ -205,6 +213,41 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
           )
         })}
       </div>
+
+      {/* One-time onboarding hint — only while deal is NEGOTIATING and user
+          has never dismissed it. Mirrors the SYSTEM-message bubble styling. */}
+      {!onboardingDismissed && deal?.status === 'NEGOTIATING' && (
+        <div
+          data-testid="deals-onboarding-hint"
+          role="status"
+          style={{
+            alignSelf: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontStyle: 'italic',
+            color: 'var(--ink-4, #888)',
+            fontSize: 12,
+          }}
+        >
+          <span>💡 To make an offer, tap Propose.</span>
+          <button
+            type="button"
+            onClick={handleDismissOnboarding}
+            aria-label="Dismiss onboarding hint"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'inherit',
+              fontSize: 14,
+              padding: '0 4px',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Composer */}
       {/*
