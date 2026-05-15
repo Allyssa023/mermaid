@@ -23,9 +23,9 @@ describe('OrderCard — fisherman perspective', () => {
     expect(screen.getByRole('button', { name: /confirm order/i })).toBeInTheDocument()
   })
 
-  it('shows "Waiting" text when CONFIRMED + role=FISHERMAN', () => {
+  it('shows Initiate Handoff when CONFIRMED + role=FISHERMAN (fisherman is seller)', () => {
     wrap(<OrderCard order={{ ...BASE_ORDER, status: 'CONFIRMED' }} currentRole="FISHERMAN" onAction={vi.fn()} />)
-    expect(screen.getByText(/waiting/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /initiate handoff/i })).toBeInTheDocument()
   })
 
   it('shows order code', () => {
