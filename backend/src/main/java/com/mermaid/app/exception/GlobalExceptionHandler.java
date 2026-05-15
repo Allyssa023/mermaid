@@ -115,6 +115,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(DealConflictException.class)
+    public ResponseEntity<ErrorResponse> handleDealConflict(
+            DealConflictException ex, HttpServletRequest request) {
+        ErrorResponse body = errorResponse(request.getRequestURI(), HttpStatus.CONFLICT,
+                ex.getMessage(), "DEAL_CONFLICT");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(TripNotActiveException.class)
     public ResponseEntity<ErrorResponse> handleTripNotActive(
             TripNotActiveException ex, HttpServletRequest request) {
