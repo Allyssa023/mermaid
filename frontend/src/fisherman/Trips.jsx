@@ -23,7 +23,7 @@ const CHECKLIST_DISPLAY = [
 
 // ── Add Catch Modal ───────────────────────────────────────────────────────────
 
-function AddCatchModal({ tripId, species, onSaved, onClose }) {
+export function AddCatchModal({ tripId, species, onSaved, onClose }) {
   const [speciesId, setSpeciesId] = useState('')
   const [quantityKg, setQuantityKg] = useState('')
   const [pricePerKg, setPricePerKg] = useState('')
