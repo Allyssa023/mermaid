@@ -60,6 +60,17 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
     enabled: dealId != null,
   })
 
+  // Competitor count: pulled on a 30s interval AND invalidated by the
+  // COMPETITOR_COUNT_CHANGED STOMP event (see StompContext.jsx). The helper
+  // is optional on apiClient — if a caller doesn't wire it up we skip the query.
+  const { data: competitorData } = useQuery({
+    queryKey: ['deal', dealId, 'competitorCount'],
+    queryFn: () => apiClient.competitorCount(dealId),
+    refetchInterval: 30000,
+    enabled: !!dealId && typeof apiClient.competitorCount === 'function',
+  })
+  const competitorCount = competitorData?.count ?? competitorData ?? 0
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['deal', dealId] })
     qc.invalidateQueries({ queryKey: ['deal', dealId, 'messages'] })
@@ -120,11 +131,18 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
           <div style={{fontWeight: 600}}>{counterpartyName || 'Deal'}</div>
           <div className="eyebrow">{deal?.species ?? deal?.speciesName ?? ''}</div>
         </div>
-        {deal?.status && (
-          <span className={`chip ${deal.status === 'NEGOTIATING' ? 'chip--accent' : 'chip--ink'}`}>
-            {deal.status}
-          </span>
-        )}
+        <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+          {competitorCount > 0 && (
+            <span className="chip" data-testid="competitor-chip">
+              {competitorCount} {competitorCount === 1 ? 'other bidding' : 'others bidding'}
+            </span>
+          )}
+          {deal?.status && (
+            <span className={`chip ${deal.status === 'NEGOTIATING' ? 'chip--accent' : 'chip--ink'}`}>
+              {deal.status}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Pinned latest proposal */}

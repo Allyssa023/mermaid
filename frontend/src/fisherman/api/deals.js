@@ -15,3 +15,4 @@ export const cancelDeal           = (id, reason) =>
 export const engageDeal           = (id)     => apiPost(`/deals/${id}/engage`, null, {})
 export const rejectDeal           = (id, reason) =>
   apiPost(`/deals/${id}/reject`, null, { reason })
+export const competitorCount      = (id)     => apiGet(`/deals/${id}/competitor-count`)

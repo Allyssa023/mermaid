@@ -31,6 +31,18 @@ export function StompProvider({ children }) {
             if (evt?.dealId != null) {
               qc.invalidateQueries({ queryKey: ['deal', evt.dealId] })
             }
+            // COMPETITOR_COUNT_CHANGED carries only `alertId` (no `dealId`),
+            // because it broadcasts to all participants of a single alert.
+            // Since competitor-count is cached per-deal, we invalidate ALL
+            // ['deal', X, 'competitorCount'] queries via a predicate. This is
+            // pragmatic: there are few in-flight deal panes per user, and the
+            // refetch is cheap (single integer endpoint).
+            if (evt?.kind === 'COMPETITOR_COUNT_CHANGED') {
+              qc.invalidateQueries({
+                predicate: (q) =>
+                  q.queryKey[0] === 'deal' && q.queryKey[2] === 'competitorCount',
+              })
+            }
             qc.invalidateQueries({ queryKey: ['deals', 'mine'] })
           } catch (e) {
             console.error('STOMP /user/queue/deals parse error', e)
