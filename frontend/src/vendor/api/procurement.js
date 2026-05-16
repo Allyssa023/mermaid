@@ -46,3 +46,9 @@ export const resolveDisputeVendor = (id, body) => apiPut(`/vendor/procurement-or
 
 export const initiateOrderPayout = (orderId, channel) =>
   apiPost(`/orders/${orderId}/payout`, null, { channel })
+
+// Xendit payment-intent — buyer/vendor side. After handoff is confirmed, the
+// vendor (acting as buyer of the deal) requests a payment intent and follows
+// the redirectUrl to complete payment.
+export const createOrderPaymentIntent = (orderId, method) =>
+  apiPost(`/buyer/orders/${orderId}/payment-intent?method=${encodeURIComponent(method)}`, null, {})

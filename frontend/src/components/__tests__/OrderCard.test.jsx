@@ -40,3 +40,38 @@ describe('OrderCard — vendor perspective', () => {
     expect(screen.getByRole('button', { name: /initiate handoff/i })).toBeInTheDocument()
   })
 })
+
+describe('OrderCard — Xendit payment-after-handoff flow', () => {
+  const HANDOFF_CONFIRMED = {
+    status: 'CONFIRMED',
+    actualQtyKg: 40,
+    finalPricePerKg: 375,
+    totalAmount: 15000,
+    confirmedByBuyer: true,
+    confirmedBySeller: true,
+  }
+
+  it('shows Pay button for BUYER when handoff CONFIRMED and no payment', () => {
+    wrap(
+      <OrderCard
+        order={{ ...BASE_ORDER, status: 'CONFIRMED', handoff: HANDOFF_CONFIRMED }}
+        viewerRole="BUYER"
+        onAction={vi.fn()}
+      />
+    )
+    expect(screen.getByRole('button', { name: /pay ₱/i })).toBeInTheDocument()
+  })
+
+  it('shows "Waiting for buyer to pay" banner for SELLER when handoff CONFIRMED and no payment', () => {
+    wrap(
+      <OrderCard
+        order={{ ...BASE_ORDER, status: 'CONFIRMED', handoff: HANDOFF_CONFIRMED }}
+        viewerRole="SELLER"
+        onAction={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/waiting for buyer to pay/i)).toBeInTheDocument()
+    // No actionable button for the fisherman at this stage (other than ghost cancel/dispute)
+    expect(screen.queryByRole('button', { name: /record payment/i })).not.toBeInTheDocument()
+  })
+})

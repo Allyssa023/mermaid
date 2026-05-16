@@ -7,6 +7,7 @@ import {
   initiateHandoff, confirmHandoff,
   recordPayment, confirmPayment,
   cancelOrder,
+  createOrderPaymentIntent,
 } from './api/procurement'
 import { TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
@@ -73,11 +74,16 @@ export default function ProcurementFeed({ pageState }) {
 
   // Vendor is BUYER of these procurement orders — handoff confirm + payment confirm are buyer actions.
   const orderMutations = {
-    confirmHandoff:  (id)       => confirmHandoff(id).then(invalidateOrders),
-    confirmPayment:  (id)       => confirmPayment(id).then(invalidateOrders),
-    initiateHandoff: (id, body) => initiateHandoff(id, body).then(invalidateOrders),
-    recordPayment:   (id, body) => recordPayment(id, body).then(invalidateOrders),
-    cancelOrder:     (id, r)    => cancelOrder(id, r).then(invalidateOrders),
+    confirmHandoff:  (id)            => confirmHandoff(id).then(invalidateOrders),
+    confirmPayment:  (id)            => confirmPayment(id).then(invalidateOrders),
+    initiateHandoff: (id, body)      => initiateHandoff(id, body).then(invalidateOrders),
+    recordPayment:   (id, body)      => recordPayment(id, body).then(invalidateOrders),
+    cancelOrder:     (id, r)         => cancelOrder(id, r).then(invalidateOrders),
+    createPaymentIntent: async (id, method) => {
+      const result = await createOrderPaymentIntent(id, method)
+      invalidateOrders()
+      return result
+    },
   }
 
   const cartItems = Array.isArray(cartQ.data) ? cartQ.data : (cartQ.data?.items ?? [])

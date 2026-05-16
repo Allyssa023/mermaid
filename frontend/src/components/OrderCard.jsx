@@ -8,6 +8,7 @@ import ConfirmPaymentModal  from './modals/ConfirmPaymentModal'
 import CancelOrderModal     from './modals/CancelOrderModal'
 import DisputeModal         from './modals/DisputeModal'
 import InitiatePayoutModal  from './modals/InitiatePayoutModal'
+import PayHandoffModal      from './modals/PayHandoffModal'
 
 function resolveViewerRole(viewerRole, currentRole) {
   if (viewerRole === 'BUYER' || viewerRole === 'SELLER') return viewerRole
@@ -25,10 +26,13 @@ function getPrimaryAction(order, viewerRole) {
     if (viewerRole === 'SELLER') {
       if (!handoff)                                                            return 'INITIATE_HANDOFF'
       if (handoff.status === 'PENDING' && !handoff.confirmedBySeller)          return 'CONFIRM_HANDOFF'
-      if (handoff.status === 'CONFIRMED' && !payment)                          return 'RECORD_PAYMENT'
+      // After handoff is confirmed by both sides, the fisherman waits for the
+      // buyer to pay via Xendit. No actionable button — info-only banner.
+      if (handoff.status === 'CONFIRMED' && !payment)                          return 'AWAITING_BUYER_PAYMENT'
     }
     if (viewerRole === 'BUYER') {
-      if (handoff?.status === 'PENDING' && !handoff.confirmedByBuyer)          return 'CONFIRM_HANDOFF'
+      if (!handoff || (handoff.status === 'PENDING' && !handoff.confirmedByBuyer)) return 'CONFIRM_HANDOFF'
+      if (handoff.status === 'CONFIRMED' && !payment)                          return 'PAY_HANDOFF'
       if (payment?.status === 'PENDING')                                       return 'CONFIRM_PAYMENT'
     }
   }
@@ -51,6 +55,7 @@ function dispatchLabels(order) {
 
 function WhosTurnBanner({ order, viewerRole }) {
   const action = getPrimaryAction(order, viewerRole)
+  if (action === 'AWAITING_BUYER_PAYMENT') return <div className="whos-turn">Waiting for buyer to pay</div>
   if (action) return <div className="whos-turn whos-turn--yours">Your turn</div>
   if (order.status === 'PENDING'   && viewerRole === 'BUYER')  return <div className="whos-turn">Waiting for seller to confirm</div>
   if (order.status === 'CONFIRMED' && viewerRole === 'BUYER')  return <div className="whos-turn">Waiting for seller</div>
@@ -113,6 +118,7 @@ export default function OrderCard({ order, currentRole, viewerRole: viewerRolePr
         {action === 'INITIATE_HANDOFF' && <button className="btn btn--primary btn--sm" onClick={() => setModal('INITIATE_HANDOFF')}>{labels.initiate}</button>}
         {action === 'CONFIRM_HANDOFF'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_HANDOFF')}>{labels.confirm}</button>}
         {action === 'RECORD_PAYMENT'   && <button className="btn btn--primary btn--sm" onClick={() => setModal('RECORD_PAYMENT')}>Record Payment</button>}
+        {action === 'PAY_HANDOFF'      && <button className="btn btn--primary btn--sm" onClick={() => setModal('PAY_HANDOFF')}>Pay ₱{Number(order.handoff?.totalAmount ?? 0).toLocaleString()}</button>}
         {action === 'CONFIRM_PAYMENT'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_PAYMENT')}>Confirm Payment</button>}
         {action === 'PAYOUT'           && <button className="btn btn--ghost btn--sm" onClick={() => setModal('PAYOUT')}>Initiate Payout</button>}
         {action === 'LEAVE_REVIEW'     && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('REVIEW', order)}>Leave a Review</button>}
@@ -132,6 +138,10 @@ export default function OrderCard({ order, currentRole, viewerRole: viewerRolePr
       {modal === 'CANCEL'           && <CancelOrderModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={(reason) => runMutation(() => mutations.cancelOrder?.(order.id, reason))} />}
       {modal === 'DISPUTE'          && <DisputeModal order={order} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.raiseDispute?.(order.id, body))} />}
       {modal === 'PAYOUT'           && <InitiatePayoutModal order={order} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.initiatePayout?.(order.id, body))} />}
+      {modal === 'PAY_HANDOFF'      && <PayHandoffModal order={order} handoff={order.handoff} loading={submitting} onClose={() => setModal(null)} onSubmit={(method) => runMutation(async () => {
+        const result = await mutations.createPaymentIntent?.(order.id, method)
+        if (result?.redirectUrl) window.location = result.redirectUrl
+      })} />}
     </div>
   )
 }
