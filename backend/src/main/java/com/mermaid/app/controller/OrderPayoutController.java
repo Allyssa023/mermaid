@@ -1,7 +1,6 @@
 package com.mermaid.app.controller;
 
 import com.mermaid.app.api.PayoutsApi;
-import com.mermaid.app.domain.OrderKind;
 import com.mermaid.app.domain.Payment;
 import com.mermaid.app.domain.User;
 import com.mermaid.app.exception.ResourceNotFoundException;
@@ -52,10 +51,9 @@ public class OrderPayoutController implements PayoutsApi {
         if (paymentRepo.findByOrderId(orderId).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Payout already initiated");
         }
-        if (order.getKind() != OrderKind.PROCUREMENT) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Payouts only available for procurement orders");
-        }
+        // Payouts are available for any vendor↔fisherman order (PROCUREMENT or the
+        // deal-created RETAIL flow). The only eligibility requirements are no
+        // existing payment record (above) and the seller having an e-wallet (below).
 
         User fisherman = userRepo.findById(order.getSellerId())
             .orElseThrow(() -> new ResourceNotFoundException("Fisherman not found"));
