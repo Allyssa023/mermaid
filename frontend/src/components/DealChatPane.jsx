@@ -62,11 +62,16 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
     enabled: dealId != null,
   })
 
-  const { data: messages = [] } = useQuery({
+  const { data: messagesPage } = useQuery({
     queryKey: ['deal', dealId, 'messages'],
     queryFn: () => apiClient.listDealMessages(dealId),
     enabled: dealId != null,
   })
+  // Backend returns DealMessagesPage = { content, page, size, totalElements, totalPages };
+  // older mocks / tests may still return a bare array. Tolerate both.
+  const messages = Array.isArray(messagesPage)
+    ? messagesPage
+    : (messagesPage?.content ?? [])
 
   // Competitor count: pulled on a 30s interval AND invalidated by the
   // COMPETITOR_COUNT_CHANGED STOMP event (see StompContext.jsx). The helper
