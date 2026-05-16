@@ -52,17 +52,24 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
             : Map.of("success_return_url", returnUrl,
                      "failure_return_url", returnUrl,
                      "cancel_return_url",  returnUrl);
+        // Xendit Payment Methods v2 / payment_requests expects channel_code +
+        // channel_properties at the TOP of payment_method (siblings of `type`),
+        // not nested under an `ewallet` key. The nested shape triggers
+        // "Either channel_code or payment_token_id is required".
+        Map<String, Object> paymentMethod = isCard
+            ? Map.of("type", "CARD", "reusability", "ONE_TIME_USE", "card", Map.of())
+            : Map.of(
+                "type",               "EWALLET",
+                "reusability",        "ONE_TIME_USE",
+                "channel_code",       channelCode,
+                "channel_properties", channelProps
+            );
         Map<String, Object> body = Map.of(
             "reference_id", idempotencyKey,
             "amount",       amountCentavos / 100.0,
             "currency",     "PHP",
             "description",  description,
-            "payment_method", Map.of(
-                "type",        isCard ? "CARD" : "EWALLET",
-                "reusability", "ONE_TIME_USE",
-                isCard ? "card" : "ewallet",
-                isCard ? Map.of() : Map.of("channel_code", channelCode, "channel_properties", channelProps)
-            )
+            "payment_method", paymentMethod
         );
         try {
             log.info("Xendit payment_requests body: {}", body);
@@ -74,7 +81,15 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
                 String ck = resp.path("payment_method").path("card").path("token_id").asText(null);
                 return new PaymentRequestResult(id, null, ck, publicKey);
             }
+            // Xendit returns the hosted checkout URL in one of several places
+            // depending on api-version: actions[0].url (new), payment_method.
+            // channel_properties.checkout_url (current), payment_method.ewallet.
+            // channel_properties.checkout_url (legacy).
             String redirect = resp.path("actions").path(0).path("url").asText(null);
+            if (redirect == null || redirect.isBlank()) {
+                redirect = resp.path("payment_method")
+                    .path("channel_properties").path("checkout_url").asText(null);
+            }
             if (redirect == null || redirect.isBlank()) {
                 redirect = resp.path("payment_method").path("ewallet")
                     .path("channel_properties").path("checkout_url").asText(null);
