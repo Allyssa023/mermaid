@@ -137,7 +137,7 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
       <div className="card" style={{padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8}}>
         <div>
           <div style={{fontWeight: 600}}>{counterpartyName || 'Deal'}</div>
-          <div className="eyebrow">{deal?.species ?? deal?.speciesName ?? ''}</div>
+          <div className="eyebrow">{deal?.species?.commonName ?? deal?.speciesName ?? ''}</div>
         </div>
         <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
           {competitorCount > 0 && (
