@@ -65,6 +65,7 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
             )
         );
         try {
+            log.info("Xendit payment_requests body: {}", body);
             JsonNode resp = restClient.post().uri("/v3/payment_requests")
                 .header("idempotency-key", idempotencyKey)
                 .body(body).retrieve().body(JsonNode.class);
