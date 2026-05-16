@@ -62,6 +62,18 @@ describe('OrderCard — Xendit payment-after-handoff flow', () => {
     expect(screen.getByRole('button', { name: /pay ₱/i })).toBeInTheDocument()
   })
 
+  it('BUYER on CONFIRMED order with no handoff yet shows "Waiting for seller" banner (NOT a Confirm Handoff button)', () => {
+    wrap(
+      <OrderCard
+        order={{ ...BASE_ORDER, status: 'CONFIRMED', handoff: null }}
+        viewerRole="BUYER"
+        onAction={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/waiting for seller/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /confirm handoff/i })).not.toBeInTheDocument()
+  })
+
   it('shows "Waiting for buyer to pay" banner for SELLER when handoff CONFIRMED and no payment', () => {
     wrap(
       <OrderCard

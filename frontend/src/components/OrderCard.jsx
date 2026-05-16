@@ -31,8 +31,8 @@ function getPrimaryAction(order, viewerRole) {
       if (handoff.status === 'CONFIRMED' && !payment)                          return 'AWAITING_BUYER_PAYMENT'
     }
     if (viewerRole === 'BUYER') {
-      if (!handoff || (handoff.status === 'PENDING' && !handoff.confirmedByBuyer)) return 'CONFIRM_HANDOFF'
-      if (handoff.status === 'CONFIRMED' && !payment)                          return 'PAY_HANDOFF'
+      if (handoff?.status === 'PENDING' && !handoff.confirmedByBuyer) return 'CONFIRM_HANDOFF'
+      if (handoff?.status === 'CONFIRMED' && !payment)                         return 'PAY_HANDOFF'
       if (payment?.status === 'PENDING')                                       return 'CONFIRM_PAYMENT'
     }
   }

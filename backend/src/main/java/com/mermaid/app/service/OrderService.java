@@ -316,6 +316,8 @@ public class OrderService {
             });
         }
 
+        completeOrderOnPaymentConfirmed(orderId);
+
         return toPaymentModel(payment);
     }
 
