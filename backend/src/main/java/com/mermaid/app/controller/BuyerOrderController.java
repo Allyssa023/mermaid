@@ -15,6 +15,7 @@ import com.mermaid.app.service.BuyerOrderService;
 import com.mermaid.app.service.CartService;
 import com.mermaid.app.service.OrderTimelineService;
 import com.mermaid.app.service.PaymentGatewayService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,6 +38,7 @@ public class BuyerOrderController implements BuyerOrdersApi {
     private final HandoffConfirmationRepository handoffRepo;
     private final BuyerActivityService activityService;
     private final CartService cartService;
+    private final String frontendUrl;
 
     public BuyerOrderController(BuyerOrderService buyerOrderService,
                                  OrderTimelineService timelineService,
@@ -45,7 +47,8 @@ public class BuyerOrderController implements BuyerOrdersApi {
                                  PaymentRepository paymentRepo,
                                  HandoffConfirmationRepository handoffRepo,
                                  BuyerActivityService activityService,
-                                 CartService cartService) {
+                                 CartService cartService,
+                                 @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
         this.buyerOrderService = buyerOrderService;
         this.timelineService   = timelineService;
         this.gatewayService    = gatewayService;
@@ -54,6 +57,7 @@ public class BuyerOrderController implements BuyerOrdersApi {
         this.handoffRepo       = handoffRepo;
         this.activityService   = activityService;
         this.cartService       = cartService;
+        this.frontendUrl       = frontendUrl;
     }
 
     @Override
@@ -112,7 +116,7 @@ public class BuyerOrderController implements BuyerOrdersApi {
 
         String paymentMethod = (method != null && !method.isBlank()) ? method.toUpperCase() : "CARD";
         String idempotencyKey = UUID.randomUUID().toString();
-        String returnUrl = "http://localhost:5173/payment/return?orderId=" + orderId;
+        String returnUrl = frontendUrl + "/payment/return?orderId=" + orderId;
         PaymentGatewayService.PaymentRequestResult result =
             gatewayService.createPaymentRequest(amountCentavos, paymentMethod,
                 "Order #" + orderId, idempotencyKey, returnUrl);
