@@ -4,8 +4,12 @@ import { I } from '../icons'
 import {
   listOrders, confirmOrder, cancelOrder,
   initiateHandoff, confirmHandoff, recordPayment,
-  confirmPayment, raiseDispute,
+  confirmPayment, raiseDispute, initiateOrderPayout,
 } from './api/orders'
+import {
+  acceptOrder, markReady, completeOrder,
+  cancelOrder as procureCancelOrder,
+} from './api/procurement'
 import OrderCard from '../components/OrderCard'
 import { OrderCardSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
@@ -32,6 +36,11 @@ export default function OrdersPage() {
     recordPayment:   (id, body) => recordPayment(id, body).then(invalidate),
     confirmPayment:  (id)       => confirmPayment(id).then(invalidate),
     raiseDispute:    (id, body) => raiseDispute(id, body).then(invalidate),
+    initiatePayout:  (id, body) => initiateOrderPayout(id, body).then(invalidate),
+    procureAccept:   (id)       => acceptOrder(id).then(invalidate),
+    procureReady:    (id)       => markReady(id).then(invalidate),
+    procureComplete: (id)       => completeOrder(id).then(invalidate),
+    procureCancel:   (id, r)    => procureCancelOrder(id, r).then(invalidate),
   }
 
   if (ordersQ.isLoading) return (

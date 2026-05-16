@@ -30,3 +30,6 @@ export const getTimeline     = (id)         => apiGet(`/orders/${id}/timeline`)
 
 // POST /fisherman/procurement-orders/{id}/dispute (api.yaml: no /orders/{id}/dispute — closest is this)
 export const raiseDispute    = (id, body)   => apiPost(`/fisherman/procurement-orders/${id}/dispute`, null, body)
+
+// POST /orders/{orderId}/payout — body: { channelCode: 'PH_GCASH' | 'PH_PAYMAYA' }
+export const initiateOrderPayout = (id, body) => apiPost(`/orders/${id}/payout`, null, body)
