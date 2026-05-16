@@ -1,0 +1,2 @@
+org.springframework.boot.env.EnvironmentPostProcessor=\
+  com.mermaid.app.config.DotenvEnvironmentPostProcessor
