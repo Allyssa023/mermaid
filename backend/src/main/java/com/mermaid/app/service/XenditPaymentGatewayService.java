@@ -32,6 +32,8 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
             .baseUrl("https://api.xendit.co")
             .defaultHeader("Authorization", "Basic " + encoded)
             .defaultHeader("Content-Type", "application/json")
+            // Required by Xendit /v3/payment_requests and /v3/payouts.
+            .defaultHeader("api-version", "2024-11-11")
             .build();
     }
 
