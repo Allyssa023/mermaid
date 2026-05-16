@@ -41,10 +41,12 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
     public PaymentRequestResult createPaymentRequest(long amountCentavos, String method,
             String description, String idempotencyKey, String returnUrl) {
         boolean isCard = "CARD".equalsIgnoreCase(method);
+        // Xendit channel codes for PH ewallets use the PH_ prefix on the current
+        // /v3/payment_requests API (matching what disburse() uses).
         String channelCode = switch (method.toUpperCase()) {
-            case "GCASH"           -> "GCASH";
-            case "PAYMAYA", "MAYA" -> "PAYMAYA";
-            default                -> "CREDIT_DEBIT";
+            case "GCASH",   "PH_GCASH"             -> "PH_GCASH";
+            case "PAYMAYA", "MAYA", "PH_PAYMAYA"   -> "PH_PAYMAYA";
+            default                                -> "CREDIT_DEBIT";
         };
         Object channelProps = isCard ? Map.of()
             : Map.of("success_return_url", returnUrl,
