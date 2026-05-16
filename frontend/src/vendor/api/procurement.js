@@ -26,7 +26,7 @@ export const listMySupplierOrders = (status) =>
   apiGet(`/orders/mine${status ? `?status=${status}` : ''}`)
 
 export const initiateHandoff = (id, body) => apiPost(`/orders/${id}/handoff`, null, body)
-export const confirmHandoff  = (id)       => apiPut(`/orders/${id}/handoff/confirm-seller`, null, {})
+export const confirmHandoff  = (id)       => apiPut(`/orders/${id}/handoff/confirm-buyer`, null, {})
 export const recordPayment   = (id, body) => apiPost(`/orders/${id}/payment`, null, body)
 export const confirmPayment  = (id)       => apiPut(`/orders/${id}/payment/confirm`, null, {})
 export const cancelOrder     = (id, reason) => apiPut(`/orders/${id}/cancel`, null, { reason })
