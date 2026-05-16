@@ -219,9 +219,10 @@ public class OrderService {
             Boolean.TRUE.equals(handoff.getConfirmedBySeller())) {
             handoff.setStatus("CONFIRMED");
             handoff.setConfirmedAt(OffsetDateTime.now());
-            order.setStatus("COMPLETED");
-            orderRepo.save(order);
-            recordStatusEvent(order.getId(), "COMPLETED", null, "Both parties confirmed handoff");
+            // NOTE: Order status no longer flips to COMPLETED here. The order stays
+            // CONFIRMED until the Xendit payment webhook confirms collection. See
+            // OrderService#completeOrderOnPaymentConfirmed.
+            recordStatusEvent(order.getId(), "HANDOFF_CONFIRMED", null, "Both parties confirmed handoff");
 
             // Mark the catch alert as SOLD so it no longer appears in browse
             if (order.getCatchAlertId() != null) {
@@ -233,6 +234,22 @@ public class OrderService {
                 });
             }
         }
+    }
+
+    /**
+     * Called by the payment webhook flow when a Payment transitions to CONFIRMED.
+     * If the corresponding order is still CONFIRMED, complete it.
+     */
+    @Transactional
+    public void completeOrderOnPaymentConfirmed(Long orderId) {
+        if (orderId == null) return;
+        orderRepo.findById(orderId).ifPresent(order -> {
+            if ("CONFIRMED".equals(order.getStatus())) {
+                order.setStatus("COMPLETED");
+                orderRepo.save(order);
+                recordStatusEvent(order.getId(), "COMPLETED", null, "Payment confirmed via Xendit");
+            }
+        });
     }
 
     @Transactional

@@ -44,6 +44,7 @@ class PaymentWebhookControllerTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean PaymentGatewayService gatewayService;
     @MockitoBean PaymentRepository paymentRepository;
+    @MockitoBean com.mermaid.app.service.OrderService orderService;
     @MockitoBean JwtDecoder jwtDecoder;
 
     private static final String PAYLOAD =
@@ -55,6 +56,7 @@ class PaymentWebhookControllerTest {
         Payment p = new Payment();
         p.setStatus("PENDING");
         p.setAmount(BigDecimal.TEN);
+        p.setOrderId(77L);
         when(paymentRepository.findByPaymentIntentId("pr_test_123")).thenReturn(Optional.of(p));
 
         mockMvc.perform(post("/webhooks/xendit")
@@ -64,6 +66,7 @@ class PaymentWebhookControllerTest {
             .andExpect(status().isOk());
 
         verify(paymentRepository).save(argThat(saved -> "CONFIRMED".equals(saved.getStatus())));
+        verify(orderService).completeOrderOnPaymentConfirmed(77L);
     }
 
     @Test

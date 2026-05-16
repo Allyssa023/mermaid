@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mermaid.app.api.WebhooksApi;
 import com.mermaid.app.domain.Payment;
 import com.mermaid.app.repository.PaymentRepository;
+import com.mermaid.app.service.OrderService;
 import com.mermaid.app.service.PaymentGatewayService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,13 +22,16 @@ public class PaymentWebhookController implements WebhooksApi {
 
     private final PaymentGatewayService gatewayService;
     private final PaymentRepository paymentRepository;
+    private final OrderService orderService;
     private final ObjectMapper objectMapper;
 
     public PaymentWebhookController(PaymentGatewayService gatewayService,
                                      PaymentRepository paymentRepository,
+                                     OrderService orderService,
                                      ObjectMapper objectMapper) {
         this.gatewayService    = gatewayService;
         this.paymentRepository = paymentRepository;
+        this.orderService      = orderService;
         this.objectMapper      = objectMapper;
     }
 
@@ -80,6 +84,14 @@ public class PaymentWebhookController implements WebhooksApi {
         p.setStatus("CONFIRMED");
         p.setPaidAt(OffsetDateTime.now());
         paymentRepository.save(p);
+
+        // Now that Xendit has collected from the buyer, complete the order.
+        try {
+            orderService.completeOrderOnPaymentConfirmed(p.getOrderId());
+        } catch (Exception e) {
+            log.error("Failed to complete order {} after payment confirm: {}",
+                p.getOrderId(), e.getMessage());
+        }
     }
 
     private void confirmPayout(String payoutId) {
