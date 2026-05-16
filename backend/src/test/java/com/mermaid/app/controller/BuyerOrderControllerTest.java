@@ -62,6 +62,7 @@ class BuyerOrderControllerTest {
     @MockitoBean com.mermaid.app.service.PaymentGatewayService paymentGatewayService;
     @MockitoBean com.mermaid.app.repository.OrderRepository orderRepository;
     @MockitoBean com.mermaid.app.repository.PaymentRepository paymentRepository;
+    @MockitoBean com.mermaid.app.repository.HandoffConfirmationRepository handoffConfirmationRepository;
     @MockitoBean com.mermaid.app.service.BuyerActivityService buyerActivityService;
     @MockitoBean com.mermaid.app.service.CartService cartService;
     @MockitoBean JwtDecoder jwtDecoder;
@@ -172,6 +173,8 @@ class BuyerOrderControllerTest {
         var order = minimalOrder(10L, 42L, 99L);
         when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
         when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.empty());
+        when(handoffConfirmationRepository.findByOrderId(10L))
+            .thenReturn(Optional.of(confirmedHandoff(500L, 10L, java.math.BigDecimal.valueOf(1500))));
         when(paymentGatewayService.createPaymentRequest(
                 anyLong(), eq("GCASH"), anyString(), anyString(), anyString()))
             .thenReturn(new com.mermaid.app.service.PaymentGatewayService.PaymentRequestResult(
@@ -190,6 +193,8 @@ class BuyerOrderControllerTest {
         var order = minimalOrder(11L, 42L, 99L);
         when(orderRepository.findById(11L)).thenReturn(Optional.of(order));
         when(paymentRepository.findByOrderId(11L)).thenReturn(Optional.empty());
+        when(handoffConfirmationRepository.findByOrderId(11L))
+            .thenReturn(Optional.of(confirmedHandoff(501L, 11L, java.math.BigDecimal.valueOf(1500))));
         when(paymentGatewayService.createPaymentRequest(
                 anyLong(), eq("CARD"), anyString(), anyString(), anyString()))
             .thenReturn(new com.mermaid.app.service.PaymentGatewayService.PaymentRequestResult(
@@ -200,6 +205,52 @@ class BuyerOrderControllerTest {
                 .with(asBuyer(42L)))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.clientKey").value("ck_xendit"));
+    }
+
+    @Test
+    void createPaymentIntent_retailWithoutConfirmedHandoff_returns422() throws Exception {
+        var order = minimalOrder(12L, 42L, 99L);
+        when(orderRepository.findById(12L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(12L)).thenReturn(Optional.empty());
+        when(handoffConfirmationRepository.findByOrderId(12L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/buyer/orders/12/payment-intent?method=GCASH")
+                .with(asBuyer(42L)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void createPaymentIntent_asVendorRole_allowed() throws Exception {
+        var order = minimalOrder(13L, 42L, 99L);
+        when(orderRepository.findById(13L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(13L)).thenReturn(Optional.empty());
+        when(handoffConfirmationRepository.findByOrderId(13L))
+            .thenReturn(Optional.of(confirmedHandoff(502L, 13L, java.math.BigDecimal.valueOf(1500))));
+        when(paymentGatewayService.createPaymentRequest(
+                anyLong(), eq("GCASH"), anyString(), anyString(), anyString()))
+            .thenReturn(new com.mermaid.app.service.PaymentGatewayService.PaymentRequestResult(
+                "pr_gcash_2", "https://gcash.redirect/pay2", null, null));
+        when(paymentGatewayService.getGatewayName()).thenReturn("XENDIT");
+
+        mockMvc.perform(post("/buyer/orders/13/payment-intent?method=GCASH")
+                .with(asVendor(42L)))
+            .andExpect(status().isCreated());
+    }
+
+    private static com.mermaid.app.domain.HandoffConfirmation confirmedHandoff(Long id, Long orderId, java.math.BigDecimal total) {
+        var h = new com.mermaid.app.domain.HandoffConfirmation();
+        h.setId(id);
+        h.setOrderId(orderId);
+        h.setActualQtyKg(java.math.BigDecimal.TEN);
+        h.setFinalPricePerKg(java.math.BigDecimal.valueOf(150));
+        h.setTotalAmount(total);
+        h.setStatus("CONFIRMED");
+        return h;
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor asVendor(long userId) {
+        return jwt().jwt(b -> b.subject(String.valueOf(userId)))
+                    .authorities(new SimpleGrantedAuthority("ROLE_VENDOR"));
     }
 
     // --- helpers ---
