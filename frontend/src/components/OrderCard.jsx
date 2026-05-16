@@ -8,49 +8,62 @@ import ConfirmPaymentModal  from './modals/ConfirmPaymentModal'
 import CancelOrderModal     from './modals/CancelOrderModal'
 import DisputeModal         from './modals/DisputeModal'
 
-function getPrimaryAction(order, role, orderType) {
+function resolveViewerRole(viewerRole, currentRole) {
+  if (viewerRole === 'BUYER' || viewerRole === 'SELLER') return viewerRole
+  if (currentRole === 'BUYER') return 'BUYER'
+  return 'SELLER'
+}
+
+function getPrimaryAction(order, viewerRole) {
   const { status, handoff, payment } = order
-  if (orderType === 'B') {
-    if (role === 'VENDOR') {
-      if (status === 'NEW')       return 'ACCEPT'
-      if (status === 'PREPARING') return 'MARK_READY'
-      if (status === 'READY')     return 'COMPLETE'
-      if (status === 'COMPLETED') return 'PAYOUT'
-    }
-    if (role === 'BUYER') {
-      if (status === 'READY')     return 'CONFIRM_RECEIPT'
-      if (status === 'COMPLETED') return 'LEAVE_REVIEW'
-    }
-    return null
+
+  if (status === 'PENDING') {
+    return viewerRole === 'SELLER' ? 'CONFIRM_ORDER' : null
   }
-  // Type A
-  if (role === 'FISHERMAN') {
-    if (status === 'PENDING')                                                  return 'CONFIRM_ORDER'
-    if (status === 'CONFIRMED' && handoff?.status === 'PENDING')               return 'CONFIRM_HANDOFF'
-    if (status === 'CONFIRMED' && payment?.status === 'PENDING')               return 'CONFIRM_PAYMENT'
-    if (status === 'COMPLETED')                                                return 'VIEW_EARNINGS'
+  if (status === 'CONFIRMED') {
+    if (viewerRole === 'SELLER') {
+      if (!handoff)                                                            return 'INITIATE_HANDOFF'
+      if (handoff.status === 'PENDING' && !handoff.confirmedBySeller)          return 'CONFIRM_HANDOFF'
+      if (handoff.status === 'CONFIRMED' && !payment)                          return 'RECORD_PAYMENT'
+    }
+    if (viewerRole === 'BUYER') {
+      if (handoff?.status === 'PENDING' && !handoff.confirmedByBuyer)          return 'CONFIRM_HANDOFF'
+      if (payment?.status === 'PENDING')                                       return 'CONFIRM_PAYMENT'
+    }
   }
-  if (role === 'VENDOR') {
-    if (status === 'CONFIRMED' && !handoff)                                    return 'INITIATE_HANDOFF'
-    if (status === 'CONFIRMED' && handoff?.status === 'CONFIRMED' && !payment) return 'RECORD_PAYMENT'
-    if (status === 'COMPLETED')                                                return 'PAYOUT'
+  if (status === 'COMPLETED') {
+    if (viewerRole === 'SELLER') return 'PAYOUT'
+    if (viewerRole === 'BUYER')  return 'LEAVE_REVIEW'
   }
   return null
 }
 
-function WhosTurnBanner({ order, role, orderType }) {
-  const action = getPrimaryAction(order, role, orderType)
+function dispatchLabels(order) {
+  if (order.dispatchMode === 'PICKUP') {
+    return { initiate: 'Mark ready for pickup', confirm: 'Confirm I collected' }
+  }
+  if (order.dispatchMode === 'DELIVERY') {
+    return { initiate: 'Out for delivery', confirm: 'Confirm delivered' }
+  }
+  return { initiate: 'Initiate Handoff', confirm: 'Confirm Handoff' }
+}
+
+function WhosTurnBanner({ order, viewerRole }) {
+  const action = getPrimaryAction(order, viewerRole)
   if (action) return <div className="whos-turn whos-turn--yours">Your turn</div>
-  if (order.status === 'PENDING' && role !== 'FISHERMAN') return <div className="whos-turn">Waiting for fisherman to confirm</div>
-  if (order.status === 'CONFIRMED' && role !== 'VENDOR')  return <div className="whos-turn">Waiting for vendor</div>
+  if (order.status === 'PENDING'   && viewerRole === 'BUYER')  return <div className="whos-turn">Waiting for seller to confirm</div>
+  if (order.status === 'CONFIRMED' && viewerRole === 'BUYER')  return <div className="whos-turn">Waiting for seller</div>
+  if (order.status === 'CONFIRMED' && viewerRole === 'SELLER') return <div className="whos-turn">Waiting for buyer</div>
   return null
 }
 
-export default function OrderCard({ order, currentRole, orderType = 'A', onAction, mutations = {} }) {
+export default function OrderCard({ order, currentRole, viewerRole: viewerRoleProp, onAction, mutations = {} }) {
+  const viewerRole = resolveViewerRole(viewerRoleProp, currentRole)
   const [modal, setModal]           = useState(null)
   const [expanded, setExpanded]     = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const action = getPrimaryAction(order, currentRole, orderType)
+  const action = getPrimaryAction(order, viewerRole)
+  const labels = dispatchLabels(order)
 
   async function runMutation(fn) {
     setSubmitting(true)
@@ -62,45 +75,49 @@ export default function OrderCard({ order, currentRole, orderType = 'A', onActio
     <span className={`chip chip--${order.status.toLowerCase()}`}>{order.status}</span>
   )
 
-  const canCancel = orderType === 'A'
-    ? (order.status === 'PENDING' || order.status === 'CONFIRMED')
-    : (order.status === 'NEW' || order.status === 'PREPARING')
+  const dispatchChip = order.dispatchMode && (
+    <span className="chip chip--ink" style={{fontSize: 10, marginLeft: 6}}>
+      {order.dispatchMode === 'PICKUP' ? 'Pickup' : 'Delivery'}
+    </span>
+  )
+
+  const canCancel  = ['PENDING', 'CONFIRMED'].includes(order.status)
+  const canDispute = order.status === 'CONFIRMED' && (!!order.handoff || !!order.payment)
 
   return (
     <div className="card order-card">
       <div className="order-card__head" onClick={() => setExpanded(v => !v)}>
         <span className="order-card__code">{order.orderCode}</span>
         {statusChip}
+        {dispatchChip}
       </div>
 
       <div className="order-card__summary">
         <span>{order.species?.commonName ?? order.listing?.title}</span>
-        {orderType === 'A' && <span>{order.orderedQtyKg} kg · ₱{order.agreedPricePerKg}/kg</span>}
+        <span>{order.orderedQtyKg} kg · ₱{order.agreedPricePerKg}/kg</span>
       </div>
 
       {expanded && (
         <OrderTimeline
           events={order.timeline ?? []}
-          orderType={orderType}
+          orderType="A"
           currentStatus={order.status}
         />
       )}
 
-      <WhosTurnBanner order={order} role={currentRole} orderType={orderType} />
+      <WhosTurnBanner order={order} viewerRole={viewerRole} />
 
       <div className="order-card__actions">
         {action === 'CONFIRM_ORDER'    && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_ORDER')}>Confirm Order</button>}
-        {action === 'CONFIRM_HANDOFF'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_HANDOFF')}>Confirm Handoff</button>}
-        {action === 'CONFIRM_PAYMENT'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_PAYMENT')}>Confirm Payment</button>}
-        {action === 'INITIATE_HANDOFF' && <button className="btn btn--primary btn--sm" onClick={() => setModal('INITIATE_HANDOFF')}>Initiate Handoff</button>}
+        {action === 'INITIATE_HANDOFF' && <button className="btn btn--primary btn--sm" onClick={() => setModal('INITIATE_HANDOFF')}>{labels.initiate}</button>}
+        {action === 'CONFIRM_HANDOFF'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_HANDOFF')}>{labels.confirm}</button>}
         {action === 'RECORD_PAYMENT'   && <button className="btn btn--primary btn--sm" onClick={() => setModal('RECORD_PAYMENT')}>Record Payment</button>}
-        {action === 'VIEW_EARNINGS'    && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('EARNINGS')}>View in Earnings</button>}
-        {action === 'ACCEPT'           && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.accept?.(order.id))}>Accept Order</button>}
-        {action === 'MARK_READY'       && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.markReady?.(order.id))}>Mark Ready</button>}
-        {action === 'COMPLETE'         && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.complete?.(order.id))}>Complete Order</button>}
-        {action === 'CONFIRM_RECEIPT'  && <button className="btn btn--primary btn--sm" onClick={() => runMutation(() => mutations.confirmReceipt?.(order.id))}>Confirm Receipt</button>}
-        {action === 'LEAVE_REVIEW'     && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('REVIEW', order)}>Leave a Review</button>}
+        {action === 'CONFIRM_PAYMENT'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_PAYMENT')}>Confirm Payment</button>}
         {action === 'PAYOUT'           && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('PAYOUT', order)}>Initiate Payout</button>}
+        {action === 'LEAVE_REVIEW'     && <button className="btn btn--ghost btn--sm" onClick={() => onAction?.('REVIEW', order)}>Leave a Review</button>}
+        {canDispute && (
+          <button className="btn btn--ghost btn--sm" onClick={() => setModal('DISPUTE')}>Raise Dispute</button>
+        )}
         {canCancel && (
           <button className="btn btn--ghost btn--sm btn--danger" onClick={() => setModal('CANCEL')}>Cancel</button>
         )}
