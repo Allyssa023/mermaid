@@ -1,159 +1,224 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
+import { fetchListingDetail } from './api/marketplace'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
+import AddToCartModal from '../components/modals/AddToCartModal'
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const BUYER_LISTINGS = [
-  { id: 612, listingCode: 'L-612', vendorName: 'Marina Seafoods', vendorRating: 4.8, vendorTrades: 184,
-    species: { commonName: 'Yellowfin Tuna', tag: 'YT' },
-    location: 'Pinagbayanan · Quezon',
-    quantityKg: 60, pricePerKg: 400, neededBy: 'Apr 25',
-    notes: 'Export-grade, sashimi-quality. Iced at sea.',
-    tag: 'Premium', urgent: false, available: 42 },
-  { id: 611, listingCode: 'L-611', vendorName: 'Marina Seafoods', vendorRating: 4.8, vendorTrades: 184,
-    species: { commonName: 'Skipjack', tag: 'SK' },
-    location: 'Pinagbayanan · Quezon',
-    quantityKg: 100, pricePerKg: 175, neededBy: 'Apr 28',
-    notes: 'Bulk weekly contract. Excellent for canning.',
-    tag: 'Bulk', urgent: false, available: 58 },
-  { id: 609, listingCode: 'L-609', vendorName: 'Marina Seafoods', vendorRating: 4.8, vendorTrades: 184,
-    species: { commonName: 'Mahi-mahi', tag: 'MM' },
-    location: 'Pinagbayanan · Quezon',
-    quantityKg: 30, pricePerKg: 260, neededBy: 'Apr 24',
-    notes: 'Whole fish, 2kg+ pieces. Limited stock.',
-    tag: 'Limited', urgent: true, available: 21 },
+const FRESHNESS_SLOTS = [
+  { key: 'photoEyes',   label: 'Eyes',   hint: 'Clear, bright pupils' },
+  { key: 'photoGills',  label: 'Gills',  hint: 'Bright red, not brown' },
+  { key: 'photoScales', label: 'Scales', hint: 'Shiny, tight to skin' },
+  { key: 'photoBelly',  label: 'Belly',  hint: 'Firm, not swollen' },
+  { key: 'photoFlesh',  label: 'Flesh',  hint: 'Pink/white, no discoloration' },
 ]
 
-const V_REVIEWS = [
-  { id: 1, buyer: 'Sofia Mendez',   rating: 5, comment: 'Sashimi-grade for real. Iced perfectly — delivered exactly on time.', date: 'Apr 20' },
-  { id: 2, buyer: 'Carlo Aquino',   rating: 4, comment: 'Good fish. Pickup was a bit slow, maybe 20 min wait.', date: 'Apr 18' },
-  { id: 3, buyer: 'Lisa Tan',       rating: 5, comment: 'Best mahi-mahi in the bay. Will order again.', date: 'Apr 16' },
-]
-
-// ─── BuyerVendorStorefrontPage (inline) ──────────────────────────────────────
-function VendorStorefront({ setPage }) {
-  const vendorName = 'Marina Seafoods'
-  const listings = BUYER_LISTINGS.filter(l => l.vendorName === vendorName)
-  const reviews = V_REVIEWS.slice(0, 3)
-
+function FreshnessGrid({ listing }) {
   return (
-    <div className="page">
-      <button className="btn btn--ghost btn--sm" onClick={() => setPage('bbrowse')}><I.ChevL size={11} /> Back to marketplace</button>
-      <div className="card" style={{marginTop: 14, padding: 0, overflow: 'hidden'}}>
-        <div style={{height: 140, background: 'linear-gradient(135deg, oklch(0.7 0.1 220), oklch(0.6 0.12 200))'}} />
-        <div style={{padding: '0 24px 22px', marginTop: -36}}>
-          <div className="row" style={{gap: 18, alignItems: 'flex-end'}}>
-            <div style={{width: 88, height: 88, borderRadius: 16, background: 'var(--surface)', border: '3px solid var(--surface)', display: 'grid', placeItems: 'center', fontSize: 32, fontWeight: 600, color: 'var(--accent)'}}>M</div>
-            <div style={{flex: 1, paddingBottom: 8}}>
-              <h1 style={{margin: 0, fontFamily: 'var(--font-display)', fontSize: 30}}>{vendorName}</h1>
-              <div className="muted-data" style={{fontSize: 13, marginTop: 4}}>
-                <span style={{color: 'oklch(0.65 0.15 80)'}}>★ 4.8</span> · 184 trades · joined Jan 2022 · Pinagbayanan Depot
-              </div>
-            </div>
-            <button className="btn"><I.Heart size={12} /> Save</button>
-            <button className="btn btn--primary"><I.Message size={12} /> Message</button>
-          </div>
-          <p style={{margin: '14px 0 0', maxWidth: 620, lineHeight: 1.6, color: 'var(--ink-2)'}}>Family-run seafood wholesaler serving Quezon since 1998. Sashimi-grade tuna and live grouper our specialty.</p>
-        </div>
-      </div>
-
-      <div className="grid grid--2-1" style={{marginTop: 24, gap: 24, alignItems: 'flex-start'}}>
-        <div>
-          <h2 style={{margin: 0, fontFamily: 'var(--font-display)', fontSize: 22}}>Open listings <span className="muted-data" style={{fontSize: 16}}>({listings.length})</span></h2>
-          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginTop: 14}}>
-            {listings.map(l => (
-              <div key={l.id} className="card" style={{padding: 0, overflow: 'hidden', cursor: 'pointer'}} onClick={() => setPage('blisting')}>
-                <div style={{height: 120, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontSize: 36, fontWeight: 600, fontFamily: 'var(--font-display)', fontStyle: 'italic'}}>{l.species.tag}</div>
-                <div style={{padding: 12}}>
-                  <strong style={{fontSize: 14}}>{l.species.commonName}</strong>
-                  <div className="muted-data" style={{fontSize: 11, marginTop: 2}}>{l.available} kg available</div>
-                  <div style={{marginTop: 8, fontFamily: 'var(--font-mono)', fontSize: 16, color: 'var(--accent)'}}>₱{l.pricePerKg}<span style={{fontSize: 11, color: 'var(--ink-3)'}}>/ kg</span></div>
+    <div style={{ marginTop: 18 }}>
+      <div className="eyebrow" style={{ marginBottom: 8 }}>Freshness check</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {FRESHNESS_SLOTS.map(({ key, label, hint }, i) => {
+          const url = listing[key]
+          const isLast = i === FRESHNESS_SLOTS.length - 1
+          return (
+            <div
+              key={key}
+              style={{
+                gridColumn: isLast ? '1 / -1' : undefined,
+                maxWidth: isLast ? '50%' : undefined,
+                margin: isLast ? '0 auto' : undefined,
+                width: isLast ? '100%' : undefined,
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{label}</div>
+              <div className="muted-data" style={{ fontSize: 10, marginBottom: 6 }}>{hint}</div>
+              {url ? (
+                <img
+                  src={url}
+                  alt={label}
+                  style={{ width: '100%', aspectRatio: '4/3', objectFit: 'cover', borderRadius: 8, display: 'block' }}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', aspectRatio: '4/3', borderRadius: 8,
+                  background: 'var(--surface-2)', display: 'grid', placeItems: 'center',
+                  color: 'var(--ink-4)', fontSize: 11,
+                }}>
+                  Not provided
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <div className="card">
-            <div className="card__head"><div className="card__title">Pickup & hours</div></div>
-            <div style={{fontSize: 13, lineHeight: 1.7}}>
-              <div><I.MapPin size={12} /> Pinagbayanan Depot, Quezon</div>
-              <div style={{marginTop: 10, display: 'grid', gridTemplateColumns: '40px 1fr', gap: '4px 14px'}}>
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, i) => (
-                  <span key={d} style={{display: 'contents'}}>
-                    <strong>{d}</strong>
-                    <span className="muted-data">{i === 6 ? 'Closed' : '06:00 – 18:00'}</span>
-                  </span>
-                ))}
-              </div>
+              )}
             </div>
-          </div>
-
-          <div className="card" style={{marginTop: 14}}>
-            <div className="card__head"><div className="card__title">Recent reviews</div></div>
-            <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
-              {reviews.map(r => (
-                <div key={r.id}>
-                  <div className="row" style={{gap: 8, alignItems: 'center'}}>
-                    <strong style={{fontSize: 13}}>{r.buyer}</strong>
-                    <span style={{color: 'oklch(0.65 0.15 80)', fontSize: 12}}>{'★'.repeat(r.rating)}</span>
-                    <span className="muted-data" style={{fontSize: 11, marginLeft: 'auto'}}>{r.date}</span>
-                  </div>
-                  <p style={{margin: '4px 0 0', fontSize: 13, lineHeight: 1.5}}>{r.comment}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-// ─── ListingDetail (default export) ──────────────────────────────────────────
-export default function ListingDetail({ setPage, vendorView }) {
-  if (vendorView) return <VendorStorefront setPage={setPage} />
+export default function ListingDetail({ setPage, listingId, setBuyNow, setListingId }) {
+  const [showCart, setShowCart] = useState(false)
 
-  const listing = BUYER_LISTINGS[0]
-  const tag = listing.species.tag
+  const detailQ = useQuery({
+    queryKey: ['listingDetail', listingId],
+    queryFn: () => fetchListingDetail(listingId),
+    enabled: !!listingId,
+    staleTime: 10_000,
+  })
+
+  if (!listingId) return (
+    <div className="page">
+      <button className="btn btn--ghost btn--sm" onClick={() => setPage('bbrowse')}>
+        <I.ChevL size={11} /> Back to marketplace
+      </button>
+      <div className="empty" style={{ marginTop: 32 }}>No listing selected.</div>
+    </div>
+  )
+
+  if (detailQ.isLoading) return <div className="page"><TableRowSkeleton /></div>
+  if (detailQ.error)     return <div className="page"><ApiError error={detailQ.error} onRetry={detailQ.refetch} /></div>
+
+  const { listing, vendor, relatedListings = [] } = detailQ.data ?? {}
+  if (!listing) return null
+
+  const dispatchInfo = (listing.deliveryFee ?? 0) > 0
+    ? `Delivery available · ₱${listing.deliveryFee} fee`
+    : 'Pickup only · Free'
+
+  const vendorInitial = (vendor?.fullName || 'V')[0].toUpperCase()
+
   return (
     <div className="page">
-      <button className="btn btn--ghost btn--sm" onClick={() => setPage('bbrowse')}><I.ChevL size={11} /> Back to marketplace</button>
-      <div className="grid grid--2-1" style={{marginTop: 18, gap: 24, alignItems: 'flex-start'}}>
+      <button className="btn btn--ghost btn--sm" onClick={() => setPage('bbrowse')}>
+        <I.ChevL size={11} /> Back to marketplace
+      </button>
+
+      <div className="grid grid--2-1" style={{ marginTop: 18, gap: 24, alignItems: 'flex-start' }}>
+        {/* Left column */}
         <div>
-          <div style={{borderRadius: 16, height: 360, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontSize: 96, fontWeight: 600, letterSpacing: '2px', fontFamily: 'var(--font-display)', fontStyle: 'italic'}}>{tag}</div>
-          <div className="row" style={{gap: 8, marginTop: 10}}>
-            {['', '', '', ''].map((_, i) => (
-              <div key={i} style={{width: 72, height: 72, borderRadius: 8, background: 'var(--surface-2)', display: 'grid', placeItems: 'center', color: 'var(--ink-4)', fontSize: 10}}>photo</div>
-            ))}
-          </div>
+          {listing.photoUrl ? (
+            <img
+              src={listing.photoUrl}
+              alt={listing.title}
+              style={{ width: '100%', height: 360, objectFit: 'cover', borderRadius: 12, display: 'block' }}
+            />
+          ) : (
+            <div style={{
+              width: '100%', height: 360, borderRadius: 12, background: 'var(--accent-soft)',
+              color: 'var(--accent)', display: 'grid', placeItems: 'center',
+              fontSize: 72, fontWeight: 600, fontFamily: 'var(--font-display)', fontStyle: 'italic',
+            }}>
+              {listing.speciesName?.[0] ?? '?'}
+            </div>
+          )}
+          <FreshnessGrid listing={listing} />
         </div>
+
+        {/* Right column */}
         <div>
-          <div className="eyebrow">{listing.vendorName}</div>
-          <h1 className="page__title" style={{marginTop: 4, fontSize: 32}}>{listing.species.commonName}</h1>
-          <div style={{display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 14}}>
-            <span style={{fontSize: 38, fontFamily: 'var(--font-display)', fontStyle: 'italic', color: 'var(--accent)'}}>₱{listing.pricePerKg}</span>
+          <div className="eyebrow">{vendor?.fullName}</div>
+          <h1 className="page__title" style={{ marginTop: 4, fontSize: 32 }}>{listing.speciesName}</h1>
+          {listing.title && listing.title !== listing.speciesName && (
+            <div className="muted-data" style={{ marginTop: 2 }}>{listing.title}</div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 14 }}>
+            <span style={{ fontSize: 38, fontFamily: 'var(--font-display)', fontStyle: 'italic', color: 'var(--accent)' }}>
+              ₱{listing.pricePerKg}
+            </span>
             <span className="muted-data">/kg</span>
           </div>
-          <div className="muted-data" style={{marginTop: 8, fontFamily: 'var(--font-mono)', color: 'var(--safe)'}}>● {listing.available} kg available</div>
-          <p style={{marginTop: 16, lineHeight: 1.6}}>{listing.notes}</p>
 
-          <div className="card" style={{marginTop: 18, padding: 14}}>
-            <div className="row" style={{gap: 10, alignItems: 'center'}}>
-              <div style={{width: 44, height: 44, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontWeight: 600}}>{listing.vendorName[0]}</div>
-              <div style={{flex: 1}}>
-                <strong>{listing.vendorName}</strong>
-                <div className="muted-data" style={{fontSize: 12}}>★ {listing.vendorRating} · {listing.vendorTrades} trades · {listing.location}</div>
-              </div>
-              <button className="btn btn--sm" onClick={() => setPage('bvendor')}>View storefront</button>
-            </div>
+          <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span className={`chip chip--${(listing.availableKg ?? 0) > 0 ? 'safe' : 'unsafe'}`}>
+              {(listing.availableKg ?? 0) > 0 ? `${listing.availableKg} kg available` : 'Sold out'}
+            </span>
+            <span className="muted-data" style={{ fontSize: 12 }}>{dispatchInfo}</span>
           </div>
 
-          <div className="row" style={{gap: 10, marginTop: 18}}>
-            <button className="btn btn--accent" style={{flex: 2}} onClick={() => setPage('bcheckout')}>Order now</button>
-            <button className="btn" style={{flex: 1}}>Add to cart</button>
+          {listing.minQtyKg && (
+            <div className="muted-data" style={{ marginTop: 6, fontSize: 12 }}>
+              Minimum order: {listing.minQtyKg} kg
+            </div>
+          )}
+
+          {listing.description && (
+            <p style={{ marginTop: 16, lineHeight: 1.6 }}>{listing.description}</p>
+          )}
+
+          <div className="row" style={{ gap: 10, marginTop: 22 }}>
+            <button
+              className="btn btn--primary"
+              style={{ flex: 2 }}
+              disabled={(listing.availableKg ?? 0) <= 0}
+              onClick={() => { setBuyNow({ listing }); setPage('bcheckout') }}
+            >
+              Order now
+            </button>
+            <button
+              className="btn"
+              style={{ flex: 1 }}
+              disabled={(listing.availableKg ?? 0) <= 0}
+              onClick={() => setShowCart(true)}
+            >
+              Add to cart
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Vendor card */}
+      <div className="card" style={{ marginTop: 28, padding: 18 }}>
+        <div className="row" style={{ gap: 16, alignItems: 'center' }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: '50%',
+            background: 'var(--accent-soft)', color: 'var(--accent)',
+            display: 'grid', placeItems: 'center', fontWeight: 600, fontSize: 20,
+          }}>
+            {vendorInitial}
+          </div>
+          <div style={{ flex: 1 }}>
+            <strong>{vendor?.fullName}</strong>
+            {vendor?.rating && (
+              <div className="muted-data" style={{ fontSize: 12, marginTop: 2 }}>
+                ★ {vendor.rating} · {vendor.tradeCount ?? 0} trades
+              </div>
+            )}
+          </div>
+          <button className="btn btn--sm" onClick={() => setPage('bvendor')}>View storefront</button>
+        </div>
+      </div>
+
+      {/* Related listings */}
+      {relatedListings.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <div className="eyebrow" style={{ marginBottom: 10 }}>More like this</div>
+          <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 8 }}>
+            {relatedListings.map(r => (
+              <div
+                key={r.id}
+                className="buyer-card"
+                style={{ minWidth: 180, cursor: 'pointer', flexShrink: 0 }}
+                onClick={() => setListingId(r.id)}
+              >
+                <div className="buyer-card__hero" style={r.photoUrl ? { backgroundImage: `url(${r.photoUrl})` } : {}}>
+                  {!r.photoUrl && <I.Fish size={24} style={{ opacity: 0.3 }} />}
+                </div>
+                <div className="buyer-card__body">
+                  <div className="buyer-card__species">{r.title ?? r.speciesName}</div>
+                  <div className="buyer-card__vendor">{r.vendorName}</div>
+                  <div style={{ marginTop: 6, fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                    ₱{r.pricePerKg}<small>/kg</small>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showCart && <AddToCartModal listing={listing} onClose={() => setShowCart(false)} />}
     </div>
   )
 }
