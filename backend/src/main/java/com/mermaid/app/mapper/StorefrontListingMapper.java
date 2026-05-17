@@ -49,6 +49,11 @@ public class StorefrontListingMapper {
         dto.setSpeciesName(JsonNullable.of(speciesName));
         dto.setDescription(JsonNullable.of(entity.getDescription()));
         dto.setPhotoUrl(JsonNullable.of(entity.getPhotoUrl()));
+        dto.setPhotoEyes(JsonNullable.of(entity.getPhotoEyes()));
+        dto.setPhotoGills(JsonNullable.of(entity.getPhotoGills()));
+        dto.setPhotoScales(JsonNullable.of(entity.getPhotoScales()));
+        dto.setPhotoBelly(JsonNullable.of(entity.getPhotoBelly()));
+        dto.setPhotoFlesh(JsonNullable.of(entity.getPhotoFlesh()));
         dto.setAvailableKg(availableKg != null ? availableKg.doubleValue() : 0.0);
         dto.setDeliveryFee(toDouble(entity.getDeliveryFee()));
         return dto;
@@ -71,6 +76,11 @@ public class StorefrontListingMapper {
         dto.setSpeciesName(JsonNullable.of(speciesName));
         dto.setDescription(JsonNullable.of(entity.getDescription()));
         dto.setPhotoUrl(JsonNullable.of(entity.getPhotoUrl()));
+        dto.setPhotoEyes(JsonNullable.of(entity.getPhotoEyes()));
+        dto.setPhotoGills(JsonNullable.of(entity.getPhotoGills()));
+        dto.setPhotoScales(JsonNullable.of(entity.getPhotoScales()));
+        dto.setPhotoBelly(JsonNullable.of(entity.getPhotoBelly()));
+        dto.setPhotoFlesh(JsonNullable.of(entity.getPhotoFlesh()));
         dto.setMinQtyKg(toDouble(entity.getMinQtyKg()));
         dto.setDeliveryFee(toDouble(entity.getDeliveryFee()));
         return dto;

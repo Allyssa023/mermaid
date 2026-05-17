@@ -27,6 +27,21 @@ public class StorefrontListing {
     @Column(name = "photo_url", length = 500)
     private String photoUrl;
 
+    @Column(name = "photo_eyes")
+    private String photoEyes;
+
+    @Column(name = "photo_gills")
+    private String photoGills;
+
+    @Column(name = "photo_scales")
+    private String photoScales;
+
+    @Column(name = "photo_belly")
+    private String photoBelly;
+
+    @Column(name = "photo_flesh")
+    private String photoFlesh;
+
     @Column(name = "price_per_kg", nullable = false, precision = 10, scale = 2)
     private BigDecimal pricePerKg;
 
@@ -77,6 +92,21 @@ public class StorefrontListing {
 
     public String getPhotoUrl() { return photoUrl; }
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+
+    public String getPhotoEyes() { return photoEyes; }
+    public void setPhotoEyes(String photoEyes) { this.photoEyes = photoEyes; }
+
+    public String getPhotoGills() { return photoGills; }
+    public void setPhotoGills(String photoGills) { this.photoGills = photoGills; }
+
+    public String getPhotoScales() { return photoScales; }
+    public void setPhotoScales(String photoScales) { this.photoScales = photoScales; }
+
+    public String getPhotoBelly() { return photoBelly; }
+    public void setPhotoBelly(String photoBelly) { this.photoBelly = photoBelly; }
+
+    public String getPhotoFlesh() { return photoFlesh; }
+    public void setPhotoFlesh(String photoFlesh) { this.photoFlesh = photoFlesh; }
 
     public BigDecimal getPricePerKg() { return pricePerKg; }
     public void setPricePerKg(BigDecimal pricePerKg) { this.pricePerKg = pricePerKg; }
