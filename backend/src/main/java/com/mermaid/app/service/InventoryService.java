@@ -119,6 +119,13 @@ public class InventoryService {
     }
 
     @Transactional(readOnly = true)
+    public BigDecimal effectiveAvailableKg(StorefrontListing listing) {
+        BigDecimal physical = availableKg(listing.getVendorId(), listing.getSpeciesId());
+        BigDecimal reserved = orderRepo.sumActiveOrderedKgForStorefrontListing(listing.getId());
+        return physical.subtract(reserved != null ? reserved : BigDecimal.ZERO);
+    }
+
+    @Transactional(readOnly = true)
     public List<InventoryLot> lotsForVendor(Long vendorId, Long speciesId, boolean includeEmpty) {
         if (speciesId != null) {
             if (includeEmpty) {
