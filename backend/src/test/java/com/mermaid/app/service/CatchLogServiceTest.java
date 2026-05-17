@@ -79,11 +79,7 @@ class CatchLogServiceTest {
         when(tripRepo.findByIdAndFishermanId(1L, 42L)).thenReturn(Optional.of(trip));
         when(speciesRepo.findById(99L)).thenReturn(Optional.empty());
 
-<<<<<<< Updated upstream
-        CatchLogCreateRequest req = new CatchLogCreateRequest(99L, "5.0", 5.0, 100.0);
-=======
         CatchLogCreateRequest req = new CatchLogCreateRequest(99L, "5.0", 10.0, 250.0);
->>>>>>> Stashed changes
         assertThrows(ResourceNotFoundException.class,
             () -> catchLogService.create(1L, req, 42L));
     }

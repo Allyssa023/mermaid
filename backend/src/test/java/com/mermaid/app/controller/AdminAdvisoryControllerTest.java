@@ -53,6 +53,10 @@ class AdminAdvisoryControllerTest {
     @MockitoBean FishSpeciesService fishSpeciesService;
     @MockitoBean MarketLocationService marketLocationService;
     @MockitoBean AdminUserService adminUserService;
+    @MockitoBean com.mermaid.app.service.AdminMetricsService adminMetricsService;
+    @MockitoBean com.mermaid.app.service.DauService dauService;
+    @MockitoBean com.mermaid.app.service.AdminHealthService adminHealthService;
+    @MockitoBean com.mermaid.app.service.AuditLogService auditLogService;
     @MockitoBean JwtDecoder jwtDecoder;
     @MockitoBean com.mermaid.app.repository.OrderRepository orderRepository;
     @MockitoBean com.mermaid.app.mapper.BuyerOrderMapper buyerOrderMapper;

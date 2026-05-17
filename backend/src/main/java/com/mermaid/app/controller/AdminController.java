@@ -7,8 +7,12 @@ import com.mermaid.app.mapper.BuyerOrderMapper;
 import com.mermaid.app.model.*;
 import com.mermaid.app.repository.OrderRepository;
 import com.mermaid.app.security.SecurityUtils;
+import com.mermaid.app.service.AdminHealthService;
+import com.mermaid.app.service.AdminMetricsService;
 import com.mermaid.app.service.AdminUserService;
 import com.mermaid.app.service.AdvisoryService;
+import com.mermaid.app.service.AuditLogService;
+import com.mermaid.app.service.DauService;
 import com.mermaid.app.service.FishSpeciesService;
 import com.mermaid.app.service.MarketLocationService;
 import com.mermaid.app.service.OrderTimelineService;
@@ -27,6 +31,10 @@ public class AdminController implements AdminApi {
     private final AdvisoryService advisoryService;
     private final FishSpeciesService fishSpeciesService;
     private final MarketLocationService marketLocationService;
+    private final AdminMetricsService adminMetricsService;
+    private final DauService dauService;
+    private final AdminHealthService adminHealthService;
+    private final AuditLogService auditLogService;
     private final OrderRepository orderRepo;
     private final OrderTimelineService timelineService;
     private final BuyerOrderMapper buyerOrderMapper;
@@ -35,6 +43,10 @@ public class AdminController implements AdminApi {
                            AdvisoryService advisoryService,
                            FishSpeciesService fishSpeciesService,
                            MarketLocationService marketLocationService,
+                           AdminMetricsService adminMetricsService,
+                           DauService dauService,
+                           AdminHealthService adminHealthService,
+                           AuditLogService auditLogService,
                            OrderRepository orderRepo,
                            OrderTimelineService timelineService,
                            BuyerOrderMapper buyerOrderMapper) {
@@ -42,6 +54,10 @@ public class AdminController implements AdminApi {
         this.advisoryService = advisoryService;
         this.fishSpeciesService = fishSpeciesService;
         this.marketLocationService = marketLocationService;
+        this.adminMetricsService = adminMetricsService;
+        this.dauService = dauService;
+        this.adminHealthService = adminHealthService;
+        this.auditLogService = auditLogService;
         this.orderRepo = orderRepo;
         this.timelineService = timelineService;
         this.buyerOrderMapper = buyerOrderMapper;
@@ -138,46 +154,46 @@ public class AdminController implements AdminApi {
 
     @Override
     public ResponseEntity<List<FishSpecies>> adminListFishSpecies() {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(fishSpeciesService.listAll());
     }
 
     @Override
     public ResponseEntity<FishSpecies> adminReactivateFishSpecies(Long speciesId) {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(fishSpeciesService.reactivate(speciesId));
     }
 
     // --- Market locations (extended) ---
 
     @Override
     public ResponseEntity<List<MarketLocation>> adminListMarketLocations() {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(marketLocationService.listAll());
     }
 
     @Override
     public ResponseEntity<MarketLocation> adminReactivateMarketLocation(Long locationId) {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(marketLocationService.reactivate(locationId));
     }
 
     // --- Platform metrics / telemetry ---
 
     @Override
     public ResponseEntity<AdminMetrics> adminGetMetrics() {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(adminMetricsService.getMetrics());
     }
 
     @Override
     public ResponseEntity<List<AdminDauEntry>> adminGetDau() {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(dauService.getLast30Days());
     }
 
     @Override
     public ResponseEntity<List<HealthCheck>> adminGetHealth() {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(adminHealthService.getHealthChecks());
     }
 
     @Override
     public ResponseEntity<List<AuditEntry>> adminListAuditLog(String kind) {
-        throw new UnsupportedOperationException("Not yet implemented");
+        return ResponseEntity.ok(auditLogService.list(kind));
     }
 
     // --- Dispute resolution ---

@@ -66,11 +66,6 @@ public class VendorWatchlistController implements VendorWatchlistApi {
         return ResponseEntity.noContent().build();
     }
 
-    @Override
-    public ResponseEntity<VendorWatchlistEntry> updateVendorWatchlist(Long id, VendorWatchlistRequest vendorWatchlistRequest) {
-        throw new UnsupportedOperationException("Not yet implemented");
-    }
-
     private VendorWatchlistEntry toDto(VendorWatchlist w) {
         VendorWatchlistEntry dto = new VendorWatchlistEntry(w.getId(), w.getCreatedAt());
         if (w.getSpecies() != null) {
