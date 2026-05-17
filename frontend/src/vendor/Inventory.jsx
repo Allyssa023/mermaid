@@ -144,6 +144,22 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
   const [error, setError]               = useState('')
   const fileRef = useRef(null)
 
+  const [currentSlot, setCurrentSlot] = useState(null)
+  const [photoEyes,   setPhotoEyes]   = useState(null)
+  const [photoGills,  setPhotoGills]  = useState(null)
+  const [photoScales, setPhotoScales] = useState(null)
+  const [photoBelly,  setPhotoBelly]  = useState(null)
+  const [photoFlesh,  setPhotoFlesh]  = useState(null)
+
+  const SLOT_SETTERS = {
+    cover:  setPhotoUrl,
+    eyes:   setPhotoEyes,
+    gills:  setPhotoGills,
+    scales: setPhotoScales,
+    belly:  setPhotoBelly,
+    flesh:  setPhotoFlesh,
+  }
+
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -154,7 +170,8 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
     setPhotoUploading(true)
     try {
       const data = await uploadListingPhoto(file)
-      setPhotoUrl(data.url)
+      const setter = SLOT_SETTERS[currentSlot] ?? setPhotoUrl
+      setter(data.url)
     } catch {
       setPhotoError('Upload failed — try again')
     } finally {
@@ -167,12 +184,30 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
     const p = Number(price)
     const q = Number(minQty)
     if (!photoUrl)            { setError('Please upload a photo first'); return }
+    if (!photoEyes || !photoGills || !photoScales || !photoBelly || !photoFlesh) {
+      setError('Please upload all 5 freshness photos')
+      return
+    }
     if (!title.trim())        { setError('Title is required'); return }
     if (!p || p <= 0)         { setError('Enter a valid price per kg'); return }
     if (!q || q < 0.1)        { setError('Minimum qty must be at least 0.1 kg'); return }
     setBusy(true)
     try {
-      await onSubmit({ speciesId: lot.speciesId, title: title.trim(), pricePerKg: p, minQtyKg: q, description: description || null, photoUrl, lotIds: [lot.id], deliveryFee: deliveryFee ? Number(deliveryFee) : null })
+      await onSubmit({
+        speciesId: lot.speciesId,
+        title: title.trim(),
+        pricePerKg: p,
+        minQtyKg: q,
+        description: description || null,
+        photoUrl,
+        photoEyes,
+        photoGills,
+        photoScales,
+        photoBelly,
+        photoFlesh,
+        lotIds: [lot.id],
+        deliveryFee: deliveryFee ? Number(deliveryFee) : null,
+      })
     } catch (e) {
       setError(e?.message ?? 'Failed to create listing')
       setBusy(false)
@@ -181,7 +216,7 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center', zIndex: 1000}}>
-      <div className="card" onClick={e => e.stopPropagation()} style={{width: 'min(460px, 92vw)', padding: 22}}>
+      <div className="card" onClick={e => e.stopPropagation()} style={{width: 'min(520px, 92vw)', padding: 22, maxHeight: '85vh', overflowY: 'auto'}}>
         <div className="card__head">
           <div>
             <div className="eyebrow">Lot #{lot.id} · {lot.remainingKg} kg available</div>
@@ -197,17 +232,17 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
             ) : photoUrl ? (
               <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
                 <img src={photoUrl} alt="listing" style={{width: 80, height: 80, objectFit: 'cover', borderRadius: 6}} />
-                <button className="btn btn--ghost btn--sm" type="button" onClick={() => fileRef.current?.click()}>Change photo</button>
+                <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setCurrentSlot('cover'); fileRef.current?.click() }}>Change photo</button>
               </div>
             ) : (
-              <button className="btn btn--ghost btn--sm" type="button" onClick={() => fileRef.current?.click()}>
+              <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setCurrentSlot('cover'); fileRef.current?.click() }}>
                 Select photo (required)
               </button>
             )}
             {photoError && (
               <span style={{fontSize: 12, color: 'var(--unsafe)', marginTop: 4, display: 'block'}}>
                 {photoError}{' '}
-                <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setPhotoError(''); fileRef.current?.click() }}>Retry</button>
+                <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setPhotoError(''); setCurrentSlot('cover'); fileRef.current?.click() }}>Retry</button>
               </span>
             )}
           </div>
@@ -231,6 +266,44 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
           <div className="form-row" style={{gridColumn: '1 / -1'}}>
             <label>Description (optional)</label>
             <textarea className="input" rows={2} value={description} onChange={e => setDescription(e.target.value)} style={{resize: 'vertical'}} />
+          </div>
+          <div className="form-row" style={{gridColumn: '1 / -1'}}>
+            <label style={{ fontWeight: 600 }}>
+              Freshness photos <span style={{ color: 'var(--unsafe)' }}>* all 5 required</span>
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+              {[
+                { slot: 'eyes',   label: 'Eyes',   hint: 'Clear, bright pupils',           url: photoEyes   },
+                { slot: 'gills',  label: 'Gills',  hint: 'Bright red, not brown',          url: photoGills  },
+                { slot: 'scales', label: 'Scales', hint: 'Shiny, tight to skin',           url: photoScales },
+                { slot: 'belly',  label: 'Belly',  hint: 'Firm, not swollen',              url: photoBelly  },
+                { slot: 'flesh',  label: 'Flesh',  hint: 'Pink/white, no discoloration',   url: photoFlesh  },
+              ].map(({ slot, label, hint, url }, i) => {
+                const isLast = i === 4
+                return (
+                  <div key={slot} style={{ gridColumn: isLast ? '1 / -1' : undefined, maxWidth: isLast ? '50%' : undefined }}>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
+                    <div className="muted-data" style={{ fontSize: 10, marginBottom: 6 }}>{hint}</div>
+                    {url ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <img src={url} alt={label} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }} />
+                        <button className="btn btn--ghost btn--sm" type="button"
+                          onClick={() => { setCurrentSlot(slot); fileRef.current?.click() }}>Change</button>
+                      </div>
+                    ) : (
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        type="button"
+                        style={{ border: '1.5px dashed var(--line)', width: '100%', padding: '12px 0' }}
+                        onClick={() => { setCurrentSlot(slot); fileRef.current?.click() }}
+                      >
+                        Upload
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
         <input
