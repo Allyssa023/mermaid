@@ -53,4 +53,20 @@ public class FishSpeciesService {
         entity.setActive(false);
         repo.save(entity);
     }
+
+    @Transactional(readOnly = true)
+    public List<com.mermaid.app.model.FishSpecies> listAll() {
+        return repo.findAll().stream()
+            .sorted(java.util.Comparator.comparing(FishSpecies::getCommonName))
+            .map(mapper::toModel)
+            .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public com.mermaid.app.model.FishSpecies reactivate(Long id) {
+        FishSpecies entity = repo.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Fish species not found: " + id));
+        entity.setActive(true);
+        return mapper.toModel(repo.save(entity));
+    }
 }

@@ -57,4 +57,20 @@ public class MarketLocationService {
         entity.setActive(false);
         repo.save(entity);
     }
+
+    @Transactional(readOnly = true)
+    public List<com.mermaid.app.model.MarketLocation> listAll() {
+        return repo.findAll().stream()
+            .sorted(java.util.Comparator.comparing(MarketLocation::getName))
+            .map(mapper::toModel)
+            .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public com.mermaid.app.model.MarketLocation reactivate(Long id) {
+        MarketLocation entity = repo.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Market location not found: " + id));
+        entity.setActive(true);
+        return mapper.toModel(repo.save(entity));
+    }
 }
