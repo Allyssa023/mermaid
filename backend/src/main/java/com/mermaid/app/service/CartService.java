@@ -5,6 +5,7 @@ import com.mermaid.app.domain.CartItem;
 import com.mermaid.app.domain.StorefrontListing;
 import com.mermaid.app.domain.StorefrontListingStatus;
 import com.mermaid.app.domain.User;
+import com.mermaid.app.exception.InsufficientStockException;
 import com.mermaid.app.exception.ListingClosedException;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.mapper.CartMapper;
@@ -33,17 +34,20 @@ public class CartService {
     private final StorefrontListingRepository listingRepo;
     private final UserRepository userRepo;
     private final CartMapper mapper;
+    private final InventoryService inventoryService;
 
     public CartService(CartRepository cartRepo,
                        CartItemRepository itemRepo,
                        StorefrontListingRepository listingRepo,
                        UserRepository userRepo,
-                       CartMapper mapper) {
+                       CartMapper mapper,
+                       InventoryService inventoryService) {
         this.cartRepo = cartRepo;
         this.itemRepo = itemRepo;
         this.listingRepo = listingRepo;
         this.userRepo = userRepo;
         this.mapper = mapper;
+        this.inventoryService = inventoryService;
     }
 
     @Transactional(readOnly = true)
@@ -69,6 +73,11 @@ public class CartService {
         if (listing.getStatus() != StorefrontListingStatus.PUBLISHED) {
             throw new ListingClosedException("This listing is no longer accepting orders.");
         }
+        if (listing.getMinQtyKg() != null && qty.compareTo(listing.getMinQtyKg()) < 0)
+            throw new IllegalArgumentException("Minimum order is " + listing.getMinQtyKg() + " kg");
+        BigDecimal effective = inventoryService.effectiveAvailableKg(listing);
+        if (qty.compareTo(effective) > 0)
+            throw new InsufficientStockException("Only " + effective + " kg available");
 
         Cart cart = cartRepo.findByBuyerId(buyerId).orElseGet(() -> {
             Cart c = new Cart();
@@ -114,6 +123,11 @@ public class CartService {
             if (listing.isDeleted() || listing.getStatus() != StorefrontListingStatus.PUBLISHED) {
                 throw new ListingClosedException("This listing is no longer accepting orders.");
             }
+            if (listing.getMinQtyKg() != null && qty.compareTo(listing.getMinQtyKg()) < 0)
+                throw new IllegalArgumentException("Minimum order is " + listing.getMinQtyKg() + " kg");
+            BigDecimal effective = inventoryService.effectiveAvailableKg(listing);
+            if (qty.compareTo(effective) > 0)
+                throw new InsufficientStockException("Only " + effective + " kg available");
             item.setQuantityKg(qty);
         }
         if (req.getNotes() != null) {
