@@ -15,6 +15,7 @@ export default function Checkout({ setPage, buyNow, setBuyNow }) {
       listingId: buyNow.listing.id,
       speciesName: buyNow.listing.speciesName,
       unitPriceSnapshot: buyNow.listing.pricePerKg,
+      deliveryFee: buyNow.listing.deliveryFee ?? 0,
       quantityKg: 1,
       lineTotal: buyNow.listing.pricePerKg,
     }],
@@ -120,9 +121,11 @@ export default function Checkout({ setPage, buyNow, setBuyNow }) {
 
   const grandTotal = groups.reduce((sum, g) => {
     const f = forms[String(g.vendor?.id)] ?? {}
-    return sum + (g.items ?? []).reduce(
+    const subtotal = (g.items ?? []).reduce(
       (s, it) => s + (Number(f.qty) || 0) * (it.unitPriceSnapshot ?? 0), 0
     )
+    const deliveryFee = f.dispatch === 'DELIVERY' ? (g.items?.[0]?.deliveryFee ?? 0) : 0
+    return sum + subtotal + deliveryFee
   }, 0)
 
   return (
@@ -236,10 +239,19 @@ export default function Checkout({ setPage, buyNow, setBuyNow }) {
                 const liveSubtotal = (g.items ?? []).reduce(
                   (s, it) => s + (Number(f.qty) || 0) * (it.unitPriceSnapshot ?? 0), 0
                 )
+                const deliveryFee = f.dispatch === 'DELIVERY' ? (g.items?.[0]?.deliveryFee ?? 0) : 0
                 return (
-                  <div key={vid} className="row" style={{ justifyContent: 'space-between' }}>
-                    <span>{g.vendor?.fullName}</span>
-                    <span style={{ fontFamily: 'var(--font-mono)' }}>₱{liveSubtotal.toLocaleString()}</span>
+                  <div key={vid}>
+                    <div className="row" style={{ justifyContent: 'space-between' }}>
+                      <span>{g.vendor?.fullName}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)' }}>₱{liveSubtotal.toLocaleString()}</span>
+                    </div>
+                    {deliveryFee > 0 && f.dispatch === 'DELIVERY' && (
+                      <div className="row" style={{ justifyContent: 'space-between' }}>
+                        <span className="muted-data">Delivery fee</span>
+                        <span style={{ fontFamily: 'var(--font-mono)' }}>₱{deliveryFee.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 )
               })}

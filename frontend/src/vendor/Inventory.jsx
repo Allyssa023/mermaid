@@ -135,6 +135,7 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
   const [title, setTitle]               = useState(`${lot.speciesName} – Lot #${lot.id}`)
   const [price, setPrice]               = useState(lot.costPerKg ?? '')
   const [minQty, setMinQty]             = useState('0.5')
+  const [deliveryFee, setDeliveryFee]   = useState('')
   const [description, setDescription]   = useState('')
   const [photoUrl, setPhotoUrl]         = useState(null)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -171,7 +172,7 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
     if (!q || q < 0.1)        { setError('Minimum qty must be at least 0.1 kg'); return }
     setBusy(true)
     try {
-      await onSubmit({ speciesId: lot.speciesId, title: title.trim(), pricePerKg: p, minQtyKg: q, description: description || null, photoUrl, lotIds: [lot.id] })
+      await onSubmit({ speciesId: lot.speciesId, title: title.trim(), pricePerKg: p, minQtyKg: q, description: description || null, photoUrl, lotIds: [lot.id], deliveryFee: deliveryFee ? Number(deliveryFee) : null })
     } catch (e) {
       setError(e?.message ?? 'Failed to create listing')
       setBusy(false)
@@ -222,6 +223,10 @@ function ListForSaleModal({ lot, onClose, onSubmit }) {
           <div className="form-row">
             <label>Min order qty (kg)</label>
             <input className="input" inputMode="decimal" value={minQty} onChange={e => setMinQty(e.target.value)} placeholder="0.5" />
+          </div>
+          <div className="form-row">
+            <label>Delivery fee (₱, leave blank for pickup-only)</label>
+            <input className="input" inputMode="decimal" value={deliveryFee} onChange={e => setDeliveryFee(e.target.value)} placeholder="e.g. 50" />
           </div>
           <div className="form-row" style={{gridColumn: '1 / -1'}}>
             <label>Description (optional)</label>

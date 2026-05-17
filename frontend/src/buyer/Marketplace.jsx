@@ -131,6 +131,11 @@ export default function Marketplace({ setPage, setBuyNow }) {
                     {availKg > 0 ? `${availKg} kg` : 'Sold out'}
                   </span>
                 </div>
+                {l.deliveryFee > 0 && (
+                  <span className="muted-data" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
+                    + ₱{l.deliveryFee} delivery fee
+                  </span>
+                )}
               </div>
 
               <div className="buyer-card__foot">
