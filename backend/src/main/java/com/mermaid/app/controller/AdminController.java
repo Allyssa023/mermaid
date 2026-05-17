@@ -148,8 +148,7 @@ public class AdminController implements AdminApi {
         order.setStatus(outcome);
         if ("COMPLETED".equals(outcome)) order.setCompletedAt(OffsetDateTime.now());
         orderRepo.save(order);
-        String notes = (request.getNotes() != null && request.getNotes().isPresent())
-                       ? request.getNotes().get() : "";
+        String notes = request.getNotes() != null ? request.getNotes() : "";
         timelineService.recordEvent(orderId, outcome, SecurityUtils.currentUserId(),
                 "Admin resolved dispute: " + notes);
         return ResponseEntity.ok(buyerOrderMapper.toModel(order));
