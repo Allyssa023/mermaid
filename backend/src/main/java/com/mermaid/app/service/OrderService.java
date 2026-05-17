@@ -96,6 +96,7 @@ public class OrderService {
         order.setBuyerId(vendorId);
         order.setSellerId(sellerId);
         order.setCatchAlertId(catchAlertId);
+        order.setKind(OrderKind.PROCUREMENT);
         order.setDemandListingId(demandListingId);
         order.setSpecies(species);
         order.setAgreedPricePerKg(BigDecimal.valueOf(req.getAgreedPricePerKg()));
@@ -246,8 +247,12 @@ public class OrderService {
         orderRepo.findById(orderId).ifPresent(order -> {
             if ("CONFIRMED".equals(order.getStatus())) {
                 order.setStatus("COMPLETED");
+                order.setCompletedAt(OffsetDateTime.now());
+                // Copy payment method from Payment entity to Order for earnings queries
+                paymentRepo.findByOrderId(orderId).ifPresent(p ->
+                    order.setPaymentMethod(p.getMethod()));
                 orderRepo.save(order);
-                recordStatusEvent(order.getId(), "COMPLETED", null, "Payment confirmed via Xendit");
+                recordStatusEvent(order.getId(), "COMPLETED", null, "Payment confirmed — order complete");
             }
         });
     }
@@ -321,6 +326,40 @@ public class OrderService {
         return toPaymentModel(payment);
     }
 
+    @Transactional
+    public com.mermaid.app.model.PaymentRecord settleCredit(Long orderId, com.mermaid.app.model.CreditSettleRequest req, Long vendorId) {
+        Order order = orderRepo.findByIdAndParticipant(orderId, vendorId)
+            .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+        if (!order.getBuyerId().equals(vendorId)) {
+            throw new IllegalArgumentException("Only the buyer can settle credit.");
+        }
+        Payment payment = paymentRepo.findByOrderId(orderId)
+            .orElseThrow(() -> new ResourceNotFoundException("Payment not found for order: " + orderId));
+        if (!"CREDIT".equals(payment.getMethod())) {
+            throw new IllegalArgumentException("Payment is not a credit — cannot settle.");
+        }
+        if ("SETTLED".equals(payment.getStatus())) {
+            throw new IllegalArgumentException("Credit is already settled.");
+        }
+
+        payment.setStatus("SETTLED");
+        payment.setSettledMethod(req.getMethod().getValue());
+        payment.setPaidAt(OffsetDateTime.now());
+        if (req.getReference() != null && req.getReference().isPresent()) {
+            payment.setProofReference(req.getReference().get());
+        }
+        paymentRepo.save(payment);
+
+        // Update order payment method to reflect settlement
+        order.setPaymentMethod(req.getMethod().getValue());
+        orderRepo.save(order);
+
+        recordStatusEvent(orderId, "CREDIT_SETTLED", vendorId,
+            "Credit settled via " + req.getMethod().getValue());
+
+        return toPaymentModel(payment);
+    }
+
     private com.mermaid.app.model.HandoffConfirmation toHandoffModel(HandoffConfirmation h) {
         com.mermaid.app.model.HandoffConfirmation m = new com.mermaid.app.model.HandoffConfirmation(
             h.getId(), h.getOrderId(),
@@ -344,6 +383,7 @@ public class OrderService {
         m.setHandoffId(org.openapitools.jackson.nullable.JsonNullable.of(p.getHandoffId()));
         m.setProofReference(org.openapitools.jackson.nullable.JsonNullable.of(p.getProofReference()));
         m.setPaidAt(org.openapitools.jackson.nullable.JsonNullable.of(p.getPaidAt()));
+        m.setSettledMethod(org.openapitools.jackson.nullable.JsonNullable.of(p.getSettledMethod()));
         return m;
     }
 
