@@ -782,6 +782,39 @@ paths:
         '204':
           description: Advisory deleted
 
+  /admin/orders/{orderId}/resolve:
+    post:
+      tags: [Admin]
+      summary: Admin resolves a disputed order
+      operationId: adminResolveDispute
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminResolveDisputeRequest'
+      responses:
+        '200':
+          description: Dispute resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /vendor/demand-listings:
     get:
       tags: [Vendor Demand Listings]
@@ -1271,6 +1304,12 @@ paths:
           schema:
             type: integer
             format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendorCompleteOrderRequest'
       responses:
         '200':
           description: Order completed
@@ -1288,6 +1327,93 @@ paths:
           $ref: '#/components/responses/Conflict'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /vendor/orders/{orderId}/preparing:
+    post:
+      tags: [Vendor Orders]
+      summary: Mark order as preparing (packing started)
+      operationId: vendorMarkPreparing
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /vendor/orders/{orderId}/dispatch:
+    post:
+      tags: [Vendor Orders]
+      summary: Mark order as dispatched for delivery
+      operationId: vendorDispatchOrder
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /vendor/orders/{orderId}/delivered:
+    post:
+      tags: [Vendor Orders]
+      summary: Mark order as delivered (awaiting buyer receipt confirmation)
+      operationId: vendorMarkDelivered
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VendorDeliveredRequest'
+      responses:
+        '200':
+          description: Order updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorOrderSummary'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /vendor/orders/{orderId}/cancel:
     post:
@@ -4007,6 +4133,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /buyer/orders/{orderId}/confirm-receipt:
+    post:
+      tags: [Buyer Orders]
+      summary: Buyer confirms receipt of delivered order
+      operationId: buyerConfirmReceipt
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Order completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /buyer/orders/{orderId}/dispute:
+    post:
+      tags: [Buyer Orders]
+      summary: Buyer raises a dispute on a delivered order
+      operationId: buyerDisputeOrder
+      security: [{bearerAuth: []}]
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyerDisputeRequest'
+      responses:
+        '200':
+          description: Order disputed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /orders/{orderId}/credit/settle:
     put:
       tags: [Orders]
@@ -5967,6 +6153,10 @@ components:
         dispatchMode:
           type: string
           nullable: true
+        deliveryFee:
+          type: number
+          format: double
+          nullable: true
         kind:
           type: string
           enum: [RETAIL, PROCUREMENT]
@@ -6532,6 +6722,11 @@ components:
           format: double
           minimum: 0.1
           default: 0.5
+        deliveryFee:
+          type: number
+          format: double
+          default: 0
+          description: "Delivery fee in PHP. 0 means free delivery."
         lotIds:
           type: array
           items:
@@ -6563,6 +6758,11 @@ components:
           type: number
           format: double
           minimum: 0.1
+        deliveryFee:
+          type: number
+          format: double
+          default: 0
+          description: "Delivery fee in PHP. 0 means free delivery."
 
     StorefrontListingResponse:
       type: object
@@ -6645,6 +6845,10 @@ components:
         minQtyKg:
           type: number
           format: double
+        deliveryFee:
+          type: number
+          format: double
+          description: "Delivery fee in PHP. 0 means free delivery."
         availableKg:
           type: number
           format: double
@@ -6683,13 +6887,20 @@ components:
           format: double
         status:
           type: string
-          enum: [PENDING, CONFIRMED, ACCEPTED, READY, COMPLETED, CANCELLED, DISPUTED]
+          enum: [PENDING, CONFIRMED, PREPARING, READY, OUT_FOR_DELIVERY, AWAITING_RECEIPT, COMPLETED, CANCELLED, DISPUTED]
         kind:
           type: string
           enum: [RETAIL, PROCUREMENT]
         storefrontListingId:
           type: integer
           format: int64
+          nullable: true
+        deliveryFee:
+          type: number
+          format: double
+          nullable: true
+        dispatchMode:
+          type: string
           nullable: true
         createdAt:
           type: string
@@ -6699,6 +6910,42 @@ components:
       type: object
       properties:
         reason:
+          type: string
+          maxLength: 500
+
+    VendorCompleteOrderRequest:
+      type: object
+      properties:
+        codAmount:
+          type: number
+          format: double
+          description: "Cash collected from buyer. Required for COD orders; ignored when Xendit payment already exists."
+
+    VendorDeliveredRequest:
+      type: object
+      properties:
+        codAmount:
+          type: number
+          format: double
+          description: "Cash collected on delivery. Required for COD orders; ignored when Xendit payment already exists."
+
+    BuyerDisputeRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+
+    AdminResolveDisputeRequest:
+      type: object
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [COMPLETED, CANCELLED]
+        notes:
           type: string
           maxLength: 500
 
