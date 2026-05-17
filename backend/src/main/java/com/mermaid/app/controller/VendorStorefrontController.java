@@ -4,6 +4,7 @@ import com.mermaid.app.api.VendorStorefrontApi;
 import com.mermaid.app.domain.StorefrontListing;
 import com.mermaid.app.mapper.StorefrontListingMapper;
 import com.mermaid.app.model.StorefrontListingRequest;
+import com.mermaid.app.model.StorefrontListingUpdateRequest;
 import com.mermaid.app.model.StorefrontListingResponse;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.InventoryService;
@@ -67,10 +68,10 @@ public class VendorStorefrontController implements VendorStorefrontApi {
 
     @Override
     public ResponseEntity<StorefrontListingResponse> vendorUpdateStorefrontListing(
-            Long listingId, StorefrontListingRequest request) {
+            Long listingId, StorefrontListingUpdateRequest request) {
         Long vendorId = SecurityUtils.currentUserId();
-        StorefrontListing patch = fromRequest(request);
-        StorefrontListing saved = service.update(vendorId, listingId, patch, request.getLotIds());
+        StorefrontListing patch = fromUpdateRequest(request);
+        StorefrontListing saved = service.update(vendorId, listingId, patch, null);
         return ResponseEntity.ok(
                 mapper.toDto(saved, inventoryService.availableKg(vendorId, saved.getSpeciesId())));
     }
@@ -100,6 +101,20 @@ public class VendorStorefrontController implements VendorStorefrontApi {
     private StorefrontListing fromRequest(StorefrontListingRequest req) {
         StorefrontListing entity = new StorefrontListing();
         entity.setSpeciesId(req.getSpeciesId());
+        entity.setTitle(req.getTitle());
+        if (req.getDescription() != null && req.getDescription().isPresent())
+            entity.setDescription(req.getDescription().get());
+        if (req.getPhotoUrl() != null && req.getPhotoUrl().isPresent())
+            entity.setPhotoUrl(req.getPhotoUrl().get());
+        if (req.getPricePerKg() != null)
+            entity.setPricePerKg(BigDecimal.valueOf(req.getPricePerKg()));
+        if (req.getMinQtyKg() != null)
+            entity.setMinQtyKg(BigDecimal.valueOf(req.getMinQtyKg()));
+        return entity;
+    }
+
+    private StorefrontListing fromUpdateRequest(StorefrontListingUpdateRequest req) {
+        StorefrontListing entity = new StorefrontListing();
         entity.setTitle(req.getTitle());
         if (req.getDescription() != null && req.getDescription().isPresent())
             entity.setDescription(req.getDescription().get());
