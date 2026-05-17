@@ -54,6 +54,12 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "last_login_at")
+    private OffsetDateTime lastLoginAt;
+
+    public OffsetDateTime getLastLoginAt() { return lastLoginAt; }
+    public void setLastLoginAt(OffsetDateTime lastLoginAt) { this.lastLoginAt = lastLoginAt; }
+
     // ── Auth verification fields (Phase 3) ──────────────────────────────────────
 
     @Column(name = "email_verified", nullable = false)
