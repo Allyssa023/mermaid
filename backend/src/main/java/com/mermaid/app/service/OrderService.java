@@ -77,6 +77,7 @@ public class OrderService {
         Long sellerId;
         Long catchAlertId = null;
         Long demandListingId = null;
+        OrderKind orderKind = OrderKind.RETAIL;
 
         if (req.getCatchAlertId() != null && req.getCatchAlertId().isPresent() && req.getCatchAlertId().get() != null) {
             final Long alertId = req.getCatchAlertId().get();
@@ -84,6 +85,7 @@ public class OrderService {
             CatchAlert alert = alertRepo.findById(alertId)
                 .orElseThrow(() -> new ResourceNotFoundException("CatchAlert not found: " + alertId));
             sellerId = alert.getFishermanId();
+            orderKind = OrderKind.PROCUREMENT;
         } else {
             throw new IllegalArgumentException("catchAlertId is required to create an order.");
         }
@@ -96,7 +98,7 @@ public class OrderService {
         order.setBuyerId(vendorId);
         order.setSellerId(sellerId);
         order.setCatchAlertId(catchAlertId);
-        order.setKind(OrderKind.PROCUREMENT);
+        order.setKind(orderKind);
         order.setDemandListingId(demandListingId);
         order.setSpecies(species);
         order.setAgreedPricePerKg(BigDecimal.valueOf(req.getAgreedPricePerKg()));
