@@ -95,7 +95,10 @@ public class BuyerOrderController implements BuyerOrdersApi {
             throw new ResourceNotFoundException("Order not found: " + orderId);
         }
 
-        if (paymentRepo.findByOrderId(orderId).isPresent()) {
+        // Check for existing payment — allow re-payment for CREDIT (settlement)
+        Payment existingPayment = paymentRepo.findByOrderId(orderId).orElse(null);
+        boolean isCreditSettlement = existingPayment != null && "CREDIT".equals(existingPayment.getMethod());
+        if (existingPayment != null && !isCreditSettlement) {
             return ResponseEntity.status(409).build();
         }
 
@@ -121,23 +124,32 @@ public class BuyerOrderController implements BuyerOrdersApi {
             gatewayService.createPaymentRequest(amountCentavos, paymentMethod,
                 "Order #" + orderId, idempotencyKey, returnUrl);
 
-        // Persist payment method on the order
-        order.setPaymentMethod(paymentMethod);
-        orderRepo.save(order);
+        if (isCreditSettlement) {
+            // Reuse existing CREDIT payment — update with Xendit intent for settlement
+            existingPayment.setPaymentIntentId(result.paymentRequestId());
+            existingPayment.setIdempotencyKey(idempotencyKey);
+            existingPayment.setGateway(gatewayService.getGatewayName());
+            existingPayment.setSettledMethod(paymentMethod);
+            paymentRepo.save(existingPayment);
+        } else {
+            // Persist payment method on the order
+            order.setPaymentMethod(paymentMethod);
+            orderRepo.save(order);
 
-        Payment payment = new Payment();
-        payment.setOrderId(orderId);
-        if (handoff != null) {
-            payment.setHandoffId(handoff.getId());
+            Payment payment = new Payment();
+            payment.setOrderId(orderId);
+            if (handoff != null) {
+                payment.setHandoffId(handoff.getId());
+            }
+            payment.setPayerId(buyerId);
+            payment.setPayeeId(order.getSellerId());
+            payment.setAmount(amount);
+            payment.setMethod(paymentMethod);
+            payment.setPaymentIntentId(result.paymentRequestId());
+            payment.setIdempotencyKey(idempotencyKey);
+            payment.setGateway(gatewayService.getGatewayName());
+            paymentRepo.save(payment);
         }
-        payment.setPayerId(buyerId);
-        payment.setPayeeId(order.getSellerId());
-        payment.setAmount(amount);
-        payment.setMethod(paymentMethod);
-        payment.setPaymentIntentId(result.paymentRequestId());
-        payment.setIdempotencyKey(idempotencyKey);
-        payment.setGateway(gatewayService.getGatewayName());
-        paymentRepo.save(payment);
 
         PaymentIntentResponse response = new PaymentIntentResponse(
             PaymentIntentResponse.GatewayEnum.fromValue(gatewayService.getGatewayName())
@@ -153,6 +165,18 @@ public class BuyerOrderController implements BuyerOrdersApi {
         Long buyerId = SecurityUtils.currentUserId();
         int cap = (limit != null) ? limit : 20;
         return ResponseEntity.ok(activityService.getActivity(buyerId, cap));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('BUYER')")
+    public ResponseEntity<Order> buyerConfirmReceipt(Long orderId) {
+        return ResponseEntity.ok(buyerOrderService.confirmReceipt(orderId, SecurityUtils.currentUserId()));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('BUYER')")
+    public ResponseEntity<Order> buyerDisputeOrder(Long orderId, BuyerDisputeRequest request) {
+        return ResponseEntity.ok(buyerOrderService.disputeOrder(orderId, SecurityUtils.currentUserId(), request.getReason()));
     }
 
     @Override
