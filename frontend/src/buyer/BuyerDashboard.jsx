@@ -107,13 +107,13 @@ function Topbar({ page }) {
 }
 
 // ─── Page renderer ───────────────────────────────────────────────────────────
-function renderPage(page, setPage, buyNow, setBuyNow, user, onLogout) {
+function renderPage(page, setPage, buyNow, setBuyNow, user, onLogout, listingId, setListingId) {
   switch (page) {
     case 'bhome':     return <Home setPage={setPage} user={user} />
-    case 'bbrowse':   return <Marketplace setPage={setPage} setBuyNow={setBuyNow} />
+    case 'bbrowse':   return <Marketplace setPage={setPage} setBuyNow={setBuyNow} setListingId={setListingId} />
     case 'bcart':     return <Cart setPage={setPage} />
     case 'bcheckout': return <Checkout setPage={setPage} buyNow={buyNow} setBuyNow={setBuyNow} />
-    case 'blisting':  return <ListingDetail setPage={setPage} />
+    case 'blisting':  return <ListingDetail setPage={setPage} listingId={listingId} setBuyNow={setBuyNow} setListingId={setListingId} />
     case 'bvendor':   return <ListingDetail setPage={setPage} vendorView />
     case 'borders':   return <Orders setPage={setPage} />
     case 'bsaved':    return <Favorites setPage={setPage} />
@@ -127,6 +127,7 @@ function renderPage(page, setPage, buyNow, setBuyNow, user, onLogout) {
 export default function BuyerDashboard({ user, onLogout }) {
   const [page, setPage] = useState('bhome')
   const [buyNow, setBuyNow] = useState(null)
+  const [listingId, setListingId] = useState(null)
 
   return (
     <div className="app" data-accent="sage" data-density="balanced">
@@ -134,7 +135,7 @@ export default function BuyerDashboard({ user, onLogout }) {
       <div className="main">
         <Topbar page={page} />
         <div className="content">
-          {renderPage(page, setPage, buyNow, setBuyNow, user, onLogout)}
+          {renderPage(page, setPage, buyNow, setBuyNow, user, onLogout, listingId, setListingId)}
         </div>
       </div>
     </div>
