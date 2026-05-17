@@ -17,8 +17,8 @@ export default function StorefrontEditor() {
   const qc = useQueryClient()
   const listingsQ = useQuery({ queryKey: ['vendor', 'storefront'], queryFn: listListings })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['vendor', 'storefront'] })
-  const updateMut = useMutation({ mutationFn: ({ id, ...body }) => updateListing(id, body), onSuccess: () => { invalidate(); setModal(null) } })
-  const deleteMut = useMutation({ mutationFn: deleteListing, onSuccess: invalidate })
+  const updateMut = useMutation({ mutationFn: ({ id, ...body }) => updateListing(id, body), onSuccess: () => { invalidate(); setModal(null) }, onError: (err) => setSaveError(err.message || 'Save failed') })
+  const deleteMut = useMutation({ mutationFn: deleteListing, onSuccess: () => { invalidate(); setDeleteConfirmId(null) } })
   const publishMut = useMutation({ mutationFn: publishListing, onSuccess: invalidate })
   const unpubMut = useMutation({ mutationFn: unpublishListing, onSuccess: invalidate })
 
@@ -40,12 +40,15 @@ export default function StorefrontEditor() {
     if (!form.title?.trim()) { setSaveError('Title is required'); return }
     const p = Number(form.pricePerKg)
     if (!p || p <= 0) { setSaveError('Enter a valid price per kg'); return }
+    const mStr = form.minQtyKg
+    const m = mStr !== '' && mStr != null ? Number(mStr) : undefined
+    if (m !== undefined && (isNaN(m) || m < 0.1)) { setSaveError('Minimum order qty must be at least 0.1 kg'); return }
     setSaveError('')
     updateMut.mutate({
       id: form.id,
       title: form.title.trim(),
       pricePerKg: Number(form.pricePerKg),
-      minQtyKg: Number(form.minQtyKg) || undefined,
+      minQtyKg: m,
       description: form.description ?? null,
       photoUrl: form.photoUrl ?? null,
     })
@@ -111,7 +114,7 @@ export default function StorefrontEditor() {
                     {deleteConfirmId === l.id ? (
                       <>
                         <span className="muted-data" style={{fontSize: 12}}>Delete this listing?</span>
-                        <button className="btn btn--sm btn--unsafe" onClick={() => { deleteMut.mutate(l.id); setDeleteConfirmId(null) }}>Confirm</button>
+                        <button className="btn btn--sm btn--danger" onClick={() => { deleteMut.mutate(l.id); setDeleteConfirmId(null) }}>Confirm</button>
                         <button className="btn btn--sm" onClick={() => setDeleteConfirmId(null)}>Cancel</button>
                       </>
                     ) : (
@@ -172,7 +175,7 @@ export default function StorefrontEditor() {
                   <button className="btn btn--ghost btn--sm" type="button" onClick={() => fileRef.current?.click()}>Select photo</button>
                 )}
                 {photoError && (
-                  <span style={{fontSize: 12, color: 'var(--color-unsafe)', marginTop: 4, display: 'block'}}>
+                  <span style={{fontSize: 12, color: 'var(--unsafe)', marginTop: 4, display: 'block'}}>
                     {photoError}{' '}
                     <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setPhotoError(''); fileRef.current?.click() }}>Retry</button>
                   </span>
@@ -188,7 +191,7 @@ export default function StorefrontEditor() {
               onChange={handlePhotoChange}
             />
             <div className="modal__foot">
-              {saveError && <span style={{fontSize: 12, color: 'var(--color-unsafe)', marginRight: 'auto'}}>{saveError}</span>}
+              {saveError && <span style={{fontSize: 12, color: 'var(--unsafe)', marginRight: 'auto'}}>{saveError}</span>}
               <button className="btn" onClick={() => setModal(null)}>Cancel</button>
               <button className="btn btn--primary" onClick={handleSave} disabled={photoUploading}>Save listing</button>
             </div>
