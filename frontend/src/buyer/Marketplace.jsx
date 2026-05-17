@@ -1,31 +1,20 @@
 import { useState, useMemo } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
 import { fetchListings } from './api/marketplace'
-import { useCart } from '../context/CartContext'
 import { TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
+import AddToCartModal from '../components/modals/AddToCartModal'
 
-export default function Marketplace({ setPage, setBuyNow }) {
+export default function Marketplace({ setPage, setBuyNow, setListingId }) {
   const [selectedSpeciesId, setSelectedSpeciesId] = useState(null)
   const [search, setSearch]   = useState('')
   const [cartModal, setCartModal] = useState(null)
-  const [qty, setQty]         = useState(1)
-  const [notes, setNotes]     = useState('')
-  const [addErr, setAddErr]   = useState('')
-
-  const { addItem } = useCart()
 
   const listingsQ = useQuery({
     queryKey: ['buyerListings'],
     queryFn: () => fetchListings({ size: 100 }),
-    staleTime: 30_000,
-  })
-
-  const addToCartMut = useMutation({
-    mutationFn: () => addItem({ listingId: cartModal?.id, quantityKg: Number(qty), notes: notes || null }),
-    onSuccess: () => { setCartModal(null); setAddErr('') },
-    onError: (e) => setAddErr(e?.message ?? 'Could not add to cart'),
+    staleTime: 10_000,
   })
 
   const allListings = useMemo(
@@ -44,9 +33,9 @@ export default function Marketplace({ setPage, setBuyNow }) {
     return Array.from(map.values())
   }, [allListings])
 
-  // Filtered listings for display
+  // Filtered listings for display — always exclude sold-out items
   const listings = useMemo(() => {
-    let r = allListings
+    let r = allListings.filter(l => (l.availableKg ?? 0) > 0)
     if (selectedSpeciesId) r = r.filter(l => l.speciesId === selectedSpeciesId)
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -115,7 +104,12 @@ export default function Marketplace({ setPage, setBuyNow }) {
         {listings.map(l => {
           const availKg = l.availableKg ?? 0
           return (
-            <div key={l.id} className="buyer-card">
+            <div
+              key={l.id}
+              className="buyer-card"
+              style={{ cursor: 'pointer' }}
+              onClick={() => { setListingId(l.id); setPage('blisting') }}
+            >
               <div className="buyer-card__hero" style={l.photoUrl ? {backgroundImage: `url(${l.photoUrl})`} : {}}>
                 {!l.photoUrl && <I.Fish size={32} style={{opacity:0.3}} />}
               </div>
@@ -142,14 +136,14 @@ export default function Marketplace({ setPage, setBuyNow }) {
                 <button
                   className="btn btn--ghost btn--sm"
                   disabled={availKg <= 0}
-                  onClick={() => { setCartModal(l); setQty(l.minQtyKg ?? 1); setNotes(''); setAddErr('') }}
+                  onClick={e => { e.stopPropagation(); setCartModal(l) }}
                 >
                   Add to cart
                 </button>
                 <button
                   className="btn btn--primary btn--sm"
                   disabled={availKg <= 0}
-                  onClick={() => { setBuyNow({ listing: l }); setPage('bcheckout') }}
+                  onClick={e => { e.stopPropagation(); setBuyNow({ listing: l }); setPage('bcheckout') }}
                 >
                   Order now
                 </button>
@@ -163,61 +157,7 @@ export default function Marketplace({ setPage, setBuyNow }) {
         )}
       </div>
 
-      {/* Add to cart modal */}
-      {cartModal && (
-        <div className="modal-overlay" onClick={() => setCartModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
-            <div className="modal__head">
-              <div>
-                <div className="eyebrow">{cartModal.vendorName}</div>
-                <h2 className="modal__title" style={{ marginTop: 4 }}>{cartModal.title ?? cartModal.speciesName}</h2>
-              </div>
-              <button className="btn btn--ghost btn--sm" onClick={() => setCartModal(null)}>
-                <I.X size={14} />
-              </button>
-            </div>
-
-            <div className="form-grid" style={{ marginTop: 12 }}>
-              <div className="form-row form-row--2col">
-                <div>
-                  <label>Quantity (kg)</label>
-                  <input
-                    className="input"
-                    type="number"
-                    step="0.1"
-                    min={cartModal.minQtyKg ?? 0.1}
-                    value={qty}
-                    onChange={e => setQty(e.target.value)}
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <label>Notes (optional)</label>
-                <textarea
-                  className="input"
-                  rows={2}
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  style={{ resize: 'vertical' }}
-                />
-              </div>
-            </div>
-
-            {addErr && <p style={{ color: 'var(--unsafe)', fontSize: 12, marginTop: 8 }}>{addErr}</p>}
-
-            <div className="modal__foot">
-              <button className="btn" onClick={() => setCartModal(null)}>Cancel</button>
-              <button
-                className="btn btn--primary"
-                disabled={addToCartMut.isPending}
-                onClick={() => addToCartMut.mutate()}
-              >
-                {addToCartMut.isPending ? 'Adding…' : 'Add to cart'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {cartModal && <AddToCartModal listing={cartModal} onClose={() => setCartModal(null)} />}
     </div>
   )
 }
