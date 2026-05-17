@@ -941,19 +941,6 @@ function AdminAuditPage() {
   )
 }
 
-function AdminBfarPage() {
-  return (
-    <div className="page">
-      <div className="page__head">
-        <div>
-          <div className="eyebrow">BFAR</div>
-          <h1 className="page__title" style={{marginTop: 4}}>BFAR <em>Reference</em></h1>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── BFAR Prices Page ─────────────────────────────────────────────────────────
 
 function AdminBfarPage() {
