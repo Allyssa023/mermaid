@@ -121,6 +121,7 @@ export default function Inventory() {
           onSubmit={async (body) => {
             await createListing(body)
             invalidateStore()
+            invalidate()
             setListLot(null)
           }}
         />
