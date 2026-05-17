@@ -6702,7 +6702,7 @@ components:
 
     StorefrontListingRequest:
       type: object
-      required: [speciesId, title, pricePerKg, lotIds]
+      required: [speciesId, title, pricePerKg, lotIds, photoEyes, photoGills, photoScales, photoBelly, photoFlesh]
       properties:
         speciesId:
           type: integer
@@ -6719,6 +6719,26 @@ components:
           type: string
           nullable: true
           maxLength: 500
+        photoEyes:
+          type: string
+          minLength: 1
+          maxLength: 512
+        photoGills:
+          type: string
+          minLength: 1
+          maxLength: 512
+        photoScales:
+          type: string
+          minLength: 1
+          maxLength: 512
+        photoBelly:
+          type: string
+          minLength: 1
+          maxLength: 512
+        photoFlesh:
+          type: string
+          minLength: 1
+          maxLength: 512
         pricePerKg:
           type: number
           format: double
@@ -6756,6 +6776,26 @@ components:
           type: string
           nullable: true
           maxLength: 500
+        photoEyes:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoGills:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoScales:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoBelly:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoFlesh:
+          type: string
+          nullable: true
+          maxLength: 512
         pricePerKg:
           type: number
           format: double
@@ -6794,6 +6834,26 @@ components:
         photoUrl:
           type: string
           nullable: true
+        photoEyes:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoGills:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoScales:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoBelly:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoFlesh:
+          type: string
+          nullable: true
+          maxLength: 512
         pricePerKg:
           type: number
           format: double
@@ -6849,6 +6909,26 @@ components:
         photoUrl:
           type: string
           nullable: true
+        photoEyes:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoGills:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoScales:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoBelly:
+          type: string
+          nullable: true
+          maxLength: 512
+        photoFlesh:
+          type: string
+          nullable: true
+          maxLength: 512
         pricePerKg:
           type: number
           format: double
