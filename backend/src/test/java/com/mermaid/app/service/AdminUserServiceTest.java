@@ -21,6 +21,7 @@ class AdminUserServiceTest {
 
     @Mock UserRepository userRepository;
     @Mock org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    @Mock AuditLogService auditLog;
     @InjectMocks AdminUserService service;
 
     @Test

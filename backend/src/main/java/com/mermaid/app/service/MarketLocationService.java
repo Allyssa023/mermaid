@@ -16,10 +16,12 @@ public class MarketLocationService {
 
     private final MarketLocationRepository repo;
     private final MarketLocationMapper mapper;
+    private final AuditLogService auditLog;
 
-    public MarketLocationService(MarketLocationRepository repo, MarketLocationMapper mapper) {
+    public MarketLocationService(MarketLocationRepository repo, MarketLocationMapper mapper, AuditLogService auditLog) {
         this.repo = repo;
         this.mapper = mapper;
+        this.auditLog = auditLog;
     }
 
     @Transactional(readOnly = true)
@@ -36,7 +38,9 @@ public class MarketLocationService {
         entity.setMunicipality(request.getMunicipality().trim());
         entity.setProvince(request.getProvince() != null && request.getProvince().isPresent()
             ? request.getProvince().get() : null);
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.MarketLocation result = mapper.toModel(repo.save(entity));
+        auditLog.write(null, "Admin", "lookup", "created location", request.getName());
+        return result;
     }
 
     @Transactional
@@ -47,7 +51,9 @@ public class MarketLocationService {
         entity.setMunicipality(request.getMunicipality().trim());
         entity.setProvince(request.getProvince() != null && request.getProvince().isPresent()
             ? request.getProvince().get() : null);
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.MarketLocation result = mapper.toModel(repo.save(entity));
+        auditLog.write(null, "Admin", "lookup", "updated location", request.getName());
+        return result;
     }
 
     @Transactional
@@ -56,6 +62,7 @@ public class MarketLocationService {
             .orElseThrow(() -> new ResourceNotFoundException("Market location not found: " + id));
         entity.setActive(false);
         repo.save(entity);
+        auditLog.write(null, "Admin", "lookup", "deactivated location", entity.getName());
     }
 
     @Transactional(readOnly = true)
@@ -71,6 +78,8 @@ public class MarketLocationService {
         MarketLocation entity = repo.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Market location not found: " + id));
         entity.setActive(true);
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.MarketLocation result = mapper.toModel(repo.save(entity));
+        auditLog.write(null, "Admin", "lookup", "reactivated location", entity.getName());
+        return result;
     }
 }

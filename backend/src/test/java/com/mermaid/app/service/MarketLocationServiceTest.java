@@ -23,6 +23,7 @@ class MarketLocationServiceTest {
 
     @Mock MarketLocationRepository repo;
     @Mock MarketLocationMapper mapper;
+    @Mock AuditLogService auditLog;
     @InjectMocks MarketLocationService service;
 
     @Test

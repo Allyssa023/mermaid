@@ -19,10 +19,12 @@ public class AdvisoryService {
 
     private final AdvisoryRepository repo;
     private final AdvisoryMapper mapper;
+    private final AuditLogService auditLog;
 
-    public AdvisoryService(AdvisoryRepository repo, AdvisoryMapper mapper) {
+    public AdvisoryService(AdvisoryRepository repo, AdvisoryMapper mapper, AuditLogService auditLog) {
         this.repo = repo;
         this.mapper = mapper;
+        this.auditLog = auditLog;
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +66,9 @@ public class AdvisoryService {
         entity.setActiveTo(request.getActiveTo());
         entity.setActive(request.getIsActive() != null ? request.getIsActive() : true);
         entity.setCreatedByUserId(adminUserId);
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.Advisory result = mapper.toModel(repo.save(entity));
+        auditLog.write(adminUserId, "Admin", "advisory", "created advisory", request.getTitle());
+        return result;
     }
 
     @Transactional
@@ -78,7 +82,9 @@ public class AdvisoryService {
         if (request.getActiveFrom() != null)  entity.setActiveFrom(request.getActiveFrom());
         if (request.getActiveTo() != null)    entity.setActiveTo(request.getActiveTo());
         if (request.getIsActive() != null)    entity.setActive(request.getIsActive());
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.Advisory result = mapper.toModel(repo.save(entity));
+        auditLog.write(null, "Admin", "advisory", "updated advisory", entity.getTitle());
+        return result;
     }
 
     @Transactional
@@ -87,5 +93,6 @@ public class AdvisoryService {
             .orElseThrow(() -> new ResourceNotFoundException("Advisory not found: " + id));
         entity.setActive(false);
         repo.save(entity);
+        auditLog.write(null, "Admin", "advisory", "deactivated advisory", entity.getTitle());
     }
 }

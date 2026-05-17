@@ -23,10 +23,12 @@ public class AdminUserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLog;
 
-    public AdminUserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AdminUserService(UserRepository userRepository, PasswordEncoder passwordEncoder, AuditLogService auditLog) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.auditLog = auditLog;
     }
 
     @Transactional(readOnly = true)
@@ -69,7 +71,12 @@ public class AdminUserService {
             user.setRole(request.getRole());
         }
         if (request.getActive() != null) {
+            boolean wasActive = user.isActive();
             user.setActive(request.getActive());
+            if (wasActive != request.getActive()) {
+                String action = request.getActive() ? "reactivated user" : "deactivated user";
+                auditLog.write(null, "Admin", "user", action, user.getFullName() + " (id " + userId + ")");
+            }
         }
         user = userRepository.save(user);
         return toUserSummary(user);

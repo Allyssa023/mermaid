@@ -16,10 +16,12 @@ public class FishSpeciesService {
 
     private final FishSpeciesRepository repo;
     private final FishSpeciesMapper mapper;
+    private final AuditLogService auditLog;
 
-    public FishSpeciesService(FishSpeciesRepository repo, FishSpeciesMapper mapper) {
+    public FishSpeciesService(FishSpeciesRepository repo, FishSpeciesMapper mapper, AuditLogService auditLog) {
         this.repo = repo;
         this.mapper = mapper;
+        this.auditLog = auditLog;
     }
 
     @Transactional(readOnly = true)
@@ -34,7 +36,9 @@ public class FishSpeciesService {
         FishSpecies entity = new FishSpecies();
         entity.setCommonName(request.getCommonName().trim());
         entity.setScientificName(request.getScientificName().orElse(null));
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.FishSpecies result = mapper.toModel(repo.save(entity));
+        auditLog.write(null, "Admin", "lookup", "created species", request.getCommonName());
+        return result;
     }
 
     @Transactional
@@ -43,7 +47,9 @@ public class FishSpeciesService {
             .orElseThrow(() -> new ResourceNotFoundException("Fish species not found: " + id));
         entity.setCommonName(request.getCommonName().trim());
         entity.setScientificName(request.getScientificName().orElse(null));
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.FishSpecies result = mapper.toModel(repo.save(entity));
+        auditLog.write(null, "Admin", "lookup", "updated species", request.getCommonName());
+        return result;
     }
 
     @Transactional
@@ -52,6 +58,7 @@ public class FishSpeciesService {
             .orElseThrow(() -> new ResourceNotFoundException("Fish species not found: " + id));
         entity.setActive(false);
         repo.save(entity);
+        auditLog.write(null, "Admin", "lookup", "deactivated species", entity.getCommonName());
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +74,8 @@ public class FishSpeciesService {
         FishSpecies entity = repo.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Fish species not found: " + id));
         entity.setActive(true);
-        return mapper.toModel(repo.save(entity));
+        com.mermaid.app.model.FishSpecies result = mapper.toModel(repo.save(entity));
+        auditLog.write(null, "Admin", "lookup", "reactivated species", entity.getCommonName());
+        return result;
     }
 }

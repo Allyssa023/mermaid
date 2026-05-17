@@ -26,6 +26,7 @@ class AdvisoryServiceTest {
 
     @Mock AdvisoryRepository repo;
     @Mock AdvisoryMapper mapper;
+    @Mock AuditLogService auditLog;
     @InjectMocks AdvisoryService service;
 
     @Test
