@@ -30,7 +30,7 @@ public class StorefrontListingService {
 
     @Transactional
     public StorefrontListing create(Long vendorId, StorefrontListing draft, List<Long> lotIds) {
-        validateLots(vendorId, draft.getSpeciesId(), lotIds, false);
+        validateLots(vendorId, draft.getSpeciesId(), lotIds, false, null);
         draft.setVendorId(vendorId);
         draft.setStatus(StorefrontListingStatus.DRAFT);
         StorefrontListing saved = listingRepo.save(draft);
@@ -49,7 +49,7 @@ public class StorefrontListingService {
         if (patch.getSpeciesId() != null) listing.setSpeciesId(patch.getSpeciesId());
         StorefrontListing saved = listingRepo.save(listing);
         if (lotIds != null && !lotIds.isEmpty()) {
-            validateLots(vendorId, saved.getSpeciesId(), lotIds, false);
+            validateLots(vendorId, saved.getSpeciesId(), lotIds, false, listingId);
             listingLotRepo.deleteAll(listingLotRepo.findByIdListingId(listingId));
             saveLotLinks(listingId, lotIds);
         }
@@ -122,7 +122,7 @@ public class StorefrontListingService {
         return listing;
     }
 
-    private void validateLots(Long vendorId, Long speciesId, List<Long> lotIds, boolean allowEmpty) {
+    private void validateLots(Long vendorId, Long speciesId, List<Long> lotIds, boolean allowEmpty, Long excludeListingId) {
         for (Long lotId : lotIds) {
             InventoryLot lot = lotRepo.findById(lotId)
                     .orElseThrow(() -> new IllegalArgumentException("Lot not found: " + lotId));
@@ -135,8 +135,14 @@ public class StorefrontListingService {
             if (!allowEmpty && lot.getRemainingKg().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Lot " + lotId + " has no remaining stock");
             }
-            if (listingLotRepo.existsByLotIdInActiveListing(lotId)) {
-                throw new IllegalStateException("Lot " + lotId + " is already assigned to an existing listing");
+            if (excludeListingId == null) {
+                if (listingLotRepo.existsByLotIdInActiveListing(lotId)) {
+                    throw new IllegalStateException("Lot " + lotId + " is already assigned to an existing listing");
+                }
+            } else {
+                if (listingLotRepo.existsByLotIdInActiveListingExcluding(lotId, excludeListingId)) {
+                    throw new IllegalStateException("Lot " + lotId + " is already assigned to an existing listing");
+                }
             }
         }
     }

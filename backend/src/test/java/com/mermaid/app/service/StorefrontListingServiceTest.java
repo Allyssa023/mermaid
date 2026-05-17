@@ -81,6 +81,19 @@ class StorefrontListingServiceTest {
         verify(listingLotRepo, never()).save(any());
     }
 
+    @Test
+    void create_lotAlreadyInADifferentListing_throws() {
+        // Same lot used in create — should still throw even with excludeListingId=null
+        InventoryLot lot = lot(1L, 10L, 5L, bd("20.00"));
+        when(lotRepo.findById(1L)).thenReturn(Optional.of(lot));
+        when(listingLotRepo.existsByLotIdInActiveListing(1L)).thenReturn(true);
+
+        assertThatThrownBy(() ->
+                service.create(10L, listing(null, null, 5L), List.of(1L)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already assigned");
+    }
+
     // ---- publish ----
 
     @Test
