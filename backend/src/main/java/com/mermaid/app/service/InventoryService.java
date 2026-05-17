@@ -31,6 +31,7 @@ public class InventoryService {
     private final OrderRepository orderRepo;
     private final FishSpeciesRepository speciesRepo;
     private final NotificationRepository notificationRepo;
+    private final HandoffConfirmationRepository handoffRepo;
 
     public InventoryService(InventoryLotRepository lotRepo,
                             InventoryMovementRepository moveRepo,
@@ -39,7 +40,8 @@ public class InventoryService {
                             StorefrontListingLotRepository listingLotRepo,
                             OrderRepository orderRepo,
                             FishSpeciesRepository speciesRepo,
-                            NotificationRepository notificationRepo) {
+                            NotificationRepository notificationRepo,
+                            HandoffConfirmationRepository handoffRepo) {
         this.lotRepo = lotRepo;
         this.moveRepo = moveRepo;
         this.notifications = notifications;
@@ -48,6 +50,7 @@ public class InventoryService {
         this.orderRepo = orderRepo;
         this.speciesRepo = speciesRepo;
         this.notificationRepo = notificationRepo;
+        this.handoffRepo = handoffRepo;
     }
 
     @Transactional
@@ -55,18 +58,26 @@ public class InventoryService {
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
 
+        HandoffConfirmation handoff = handoffRepo.findByOrderId(orderId).orElse(null);
+        BigDecimal qty   = (handoff != null && handoff.getActualQtyKg() != null)
+                ? handoff.getActualQtyKg()
+                : order.getOrderedQtyKg();
+        BigDecimal price = (handoff != null && handoff.getFinalPricePerKg() != null)
+                ? handoff.getFinalPricePerKg()
+                : order.getAgreedPricePerKg();
+
         InventoryLot lot = new InventoryLot();
         lot.setVendorId(order.getBuyerId());
         lot.setSpeciesId(order.getSpecies().getId());
         lot.setSourceProcurementOrderId(orderId);
-        lot.setInitialKg(order.getOrderedQtyKg());
-        lot.setRemainingKg(order.getOrderedQtyKg());
-        lot.setCostPerKg(order.getAgreedPricePerKg());
+        lot.setInitialKg(qty);
+        lot.setRemainingKg(qty);
+        lot.setCostPerKg(price);
         lot = lotRepo.save(lot);
 
         InventoryMovement movement = new InventoryMovement();
         movement.setLotId(lot.getId());
-        movement.setDeltaKg(order.getOrderedQtyKg());
+        movement.setDeltaKg(qty);
         movement.setReason(MovementReason.PROCUREMENT_RECEIVED);
         movement.setRefOrderId(orderId);
         moveRepo.save(movement);
