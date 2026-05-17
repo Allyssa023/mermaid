@@ -46,6 +46,7 @@ public class StorefrontListingService {
         if (patch.getPhotoUrl() != null) listing.setPhotoUrl(patch.getPhotoUrl());
         if (patch.getPricePerKg() != null) listing.setPricePerKg(patch.getPricePerKg());
         if (patch.getMinQtyKg() != null) listing.setMinQtyKg(patch.getMinQtyKg());
+        if (patch.getDeliveryFee() != null) listing.setDeliveryFee(patch.getDeliveryFee());
         if (patch.getSpeciesId() != null) listing.setSpeciesId(patch.getSpeciesId());
         StorefrontListing saved = listingRepo.save(listing);
         // lotIds is always null today (StorefrontListingUpdateRequest omits it);
