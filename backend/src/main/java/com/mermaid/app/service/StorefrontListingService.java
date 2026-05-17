@@ -48,6 +48,8 @@ public class StorefrontListingService {
         if (patch.getMinQtyKg() != null) listing.setMinQtyKg(patch.getMinQtyKg());
         if (patch.getSpeciesId() != null) listing.setSpeciesId(patch.getSpeciesId());
         StorefrontListing saved = listingRepo.save(listing);
+        // lotIds is always null today (StorefrontListingUpdateRequest omits it);
+        // kept for when the API is extended to allow lot reassignment.
         if (lotIds != null && !lotIds.isEmpty()) {
             validateLots(vendorId, saved.getSpeciesId(), lotIds, false, listingId);
             listingLotRepo.deleteAll(listingLotRepo.findByIdListingId(listingId));
