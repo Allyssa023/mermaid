@@ -107,12 +107,12 @@ function Topbar({ page }) {
 }
 
 // ─── Page renderer ───────────────────────────────────────────────────────────
-function renderPage(page, setPage, user, onLogout) {
+function renderPage(page, setPage, buyNow, setBuyNow, user, onLogout) {
   switch (page) {
     case 'bhome':     return <Home setPage={setPage} user={user} />
-    case 'bbrowse':   return <Marketplace setPage={setPage} />
+    case 'bbrowse':   return <Marketplace setPage={setPage} setBuyNow={setBuyNow} />
     case 'bcart':     return <Cart setPage={setPage} />
-    case 'bcheckout': return <Checkout setPage={setPage} />
+    case 'bcheckout': return <Checkout setPage={setPage} buyNow={buyNow} setBuyNow={setBuyNow} />
     case 'blisting':  return <ListingDetail setPage={setPage} />
     case 'bvendor':   return <ListingDetail setPage={setPage} vendorView />
     case 'borders':   return <Orders setPage={setPage} />
@@ -126,6 +126,7 @@ function renderPage(page, setPage, user, onLogout) {
 // ─── BuyerDashboard ──────────────────────────────────────────────────────────
 export default function BuyerDashboard({ user, onLogout }) {
   const [page, setPage] = useState('bhome')
+  const [buyNow, setBuyNow] = useState(null)
 
   return (
     <div className="app" data-accent="sage" data-density="balanced">
@@ -133,7 +134,7 @@ export default function BuyerDashboard({ user, onLogout }) {
       <div className="main">
         <Topbar page={page} />
         <div className="content">
-          {renderPage(page, setPage, user, onLogout)}
+          {renderPage(page, setPage, buyNow, setBuyNow, user, onLogout)}
         </div>
       </div>
     </div>
