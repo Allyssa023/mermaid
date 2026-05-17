@@ -3,6 +3,8 @@ package com.mermaid.app.controller;
 import com.mermaid.app.api.FishermanEarningsApi;
 import com.mermaid.app.model.EarningsLedgerRow;
 import com.mermaid.app.model.EarningsSummary;
+import com.mermaid.app.model.FishermanAnalytics;
+import com.mermaid.app.model.TripAnalyticsSummary;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.EarningsService;
 import org.springframework.http.ResponseEntity;
@@ -32,5 +34,15 @@ public class EarningsController implements FishermanEarningsApi {
     public ResponseEntity<List<EarningsLedgerRow>> getFishermanEarningsLedger(LocalDate from, LocalDate to) {
         Long fid = SecurityUtils.currentUserId();
         return ResponseEntity.ok(earningsService.getLedger(fid, from, to));
+    }
+
+    @Override
+    public ResponseEntity<TripAnalyticsSummary> getFishermanTripSummary(Long tripId) {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    @Override
+    public ResponseEntity<FishermanAnalytics> getFishermanAnalytics() {
+        throw new UnsupportedOperationException("Not yet implemented");
     }
 }

@@ -82,4 +82,10 @@ public class OrderController implements OrdersApi {
         return ResponseEntity.ok(
             timelineService.getTimelineForParticipant(orderId, SecurityUtils.currentUserId()));
     }
+
+    @Override
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<PaymentRecord> settleCredit(Long orderId, CreditSettleRequest creditSettleRequest) {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
 }

@@ -62,6 +62,9 @@ public class Payment {
     @Column(length = 20)
     private String gateway = "CASH";
 
+    @Column(name = "settled_method", length = 20)
+    private String settledMethod;
+
     @PrePersist
     protected void onCreate() {
         createdAt = OffsetDateTime.now();
@@ -103,4 +106,6 @@ public class Payment {
     public void setPayoutId(String payoutId) { this.payoutId = payoutId; }
     public String getGateway() { return gateway; }
     public void setGateway(String gateway) { this.gateway = gateway; }
+    public String getSettledMethod() { return settledMethod; }
+    public void setSettledMethod(String settledMethod) { this.settledMethod = settledMethod; }
 }

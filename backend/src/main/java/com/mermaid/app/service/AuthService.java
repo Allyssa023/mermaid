@@ -6,6 +6,7 @@ import com.mermaid.app.exception.EmailNotVerifiedException;
 import com.mermaid.app.exception.InvalidCredentialsException;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.model.*;
+import com.mermaid.app.repository.LoginEventRepository;
 import com.mermaid.app.repository.UserRepository;
 import com.mermaid.app.security.JwtTokenService;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +31,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final EmailService emailService;
+    private final LoginEventRepository loginEventRepo;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.skip-email-verification:false}")
@@ -38,11 +40,13 @@ public class AuthService {
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenService jwtTokenService,
-                       EmailService emailService) {
+                       EmailService emailService,
+                       LoginEventRepository loginEventRepo) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.emailService = emailService;
+        this.loginEventRepo = loginEventRepo;
     }
 
     /**
@@ -67,6 +71,7 @@ public class AuthService {
 
         // E2E / test mode: skip OTP, issue JWT directly
         if (skipEmailVerification) {
+            recordLogin(user);
             String token = jwtTokenService.issueToken(user);
             UserProfile profile = toUserProfile(user);
             LoginResponse response = new LoginResponse(token, "Bearer", profile);
@@ -107,7 +112,7 @@ public class AuthService {
         // Clear OTP
         user.setOtpCode(null);
         user.setOtpCodeExp(null);
-        userRepository.save(user);
+        recordLogin(user);
 
         // Issue JWT
         String token = jwtTokenService.issueToken(user);
@@ -134,6 +139,7 @@ public class AuthService {
         user.setVerificationToken(null);
         user.setVerificationTokenExp(null);
         userRepository.save(user);
+        recordLogin(user);
 
         // Issue JWT (auto-login after verification)
         String jwt = jwtTokenService.issueToken(user);
@@ -288,6 +294,14 @@ public class AuthService {
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
+
+    private void recordLogin(User user) {
+        user.setLastLoginAt(OffsetDateTime.now());
+        userRepository.save(user);
+        com.mermaid.app.domain.LoginEvent event = new com.mermaid.app.domain.LoginEvent();
+        event.setUserId(user.getId());
+        loginEventRepo.save(event);
+    }
 
     private String generateOtp() {
         int otp = 100000 + secureRandom.nextInt(900000); // 100000-999999

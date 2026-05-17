@@ -23,6 +23,7 @@ class FishSpeciesServiceTest {
 
     @Mock FishSpeciesRepository repo;
     @Mock FishSpeciesMapper mapper;
+    @Mock AuditLogService auditLog;
     @InjectMocks FishSpeciesService service;
 
     @Test
