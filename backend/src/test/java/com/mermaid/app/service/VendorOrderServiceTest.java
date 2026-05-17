@@ -6,6 +6,7 @@ import com.mermaid.app.event.OrderStatusChangeEvent;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.repository.OrderRepository;
 import com.mermaid.app.repository.OrderStatusEventRepository;
+import com.mermaid.app.repository.PaymentRepository;
 import com.mermaid.app.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,7 @@ class VendorOrderServiceTest {
     @Mock NotificationService notificationService;
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock UserRepository userRepo;
+    @Mock PaymentRepository paymentRepo;
     @InjectMocks VendorOrderService service;
 
     // ---- accept ----
@@ -44,26 +46,14 @@ class VendorOrderServiceTest {
 
         Order result = service.accept(10L, 1L);
 
-        assertThat(result.getStatus()).isEqualTo("ACCEPTED");
-    }
-
-    @Test
-    void accept_confirmedOrder_transitions() {
-        Order order = order(1L, 10L, 20L, "CONFIRMED");
-        when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
-        when(orderRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-        when(eventRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-
-        Order result = service.accept(10L, 1L);
-
-        assertThat(result.getStatus()).isEqualTo("ACCEPTED");
+        assertThat(result.getStatus()).isEqualTo("CONFIRMED");
     }
 
     // ---- markReady ----
 
     @Test
-    void markReady_acceptedOrder_transitions() {
-        Order order = order(1L, 10L, 20L, "ACCEPTED");
+    void markReady_preparingOrder_transitions() {
+        Order order = order(1L, 10L, 20L, "PREPARING");
         when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         when(eventRepo.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -117,8 +107,8 @@ class VendorOrderServiceTest {
     }
 
     @Test
-    void cancel_acceptedOrder_transitions() {
-        Order order = order(1L, 10L, 20L, "ACCEPTED");
+    void cancel_confirmedOrder_transitions() {
+        Order order = order(1L, 10L, 20L, "CONFIRMED");
         when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         when(eventRepo.save(any())).thenAnswer(i -> i.getArgument(0));

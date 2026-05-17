@@ -2,6 +2,7 @@ package com.mermaid.app.service;
 
 import com.mermaid.app.domain.Order;
 import com.mermaid.app.domain.OrderKind;
+import com.mermaid.app.domain.Payment;
 import com.mermaid.app.repository.OrderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
@@ -23,10 +25,14 @@ import static org.mockito.Mockito.when;
 class EarningsServiceTest {
 
     @Mock OrderRepository orderRepo;
+    @Mock com.mermaid.app.repository.HandoffConfirmationRepository handoffRepo;
+    @Mock com.mermaid.app.repository.PaymentRepository paymentRepo;
+    @Mock com.mermaid.app.repository.UserRepository userRepo;
     @InjectMocks EarningsService service;
 
-    private Order makeOrder(String paymentMethod, BigDecimal qty, BigDecimal price) {
+    private Order makeOrder(Long id, String paymentMethod, BigDecimal qty, BigDecimal price) {
         Order o = new Order();
+        o.setId(id);
         o.setKind(OrderKind.PROCUREMENT);
         o.setStatus("COMPLETED");
         o.setPaymentMethod(paymentMethod);
@@ -36,13 +42,23 @@ class EarningsServiceTest {
         return o;
     }
 
+    private Payment makePayment(String method, String status) {
+        Payment p = new Payment();
+        p.setMethod(method);
+        p.setStatus(status);
+        return p;
+    }
+
     @Test
     void summary_splits_cash_and_credit_correctly() {
-        Order cash   = makeOrder("CASH",   new BigDecimal("10"), new BigDecimal("50"));
-        Order credit = makeOrder("CREDIT", new BigDecimal("5"),  new BigDecimal("80"));
-        when(orderRepo.findBySellerIdAndKindAndStatusAndCompletedAtBetween(
-            eq(1L), eq(OrderKind.PROCUREMENT), eq("COMPLETED"), any(), any()))
+        Order cash   = makeOrder(1L, "CASH",   new BigDecimal("10"), new BigDecimal("50"));
+        Order credit = makeOrder(2L, "CREDIT", new BigDecimal("5"),  new BigDecimal("80"));
+        when(orderRepo.findBySellerIdAndStatusAndCompletedAtBetween(
+            eq(1L), eq("COMPLETED"), any(), any()))
             .thenReturn(List.of(cash, credit));
+        when(handoffRepo.findByOrderId(any())).thenReturn(Optional.empty());
+        when(paymentRepo.findByOrderId(1L)).thenReturn(Optional.of(makePayment("CASH", "CONFIRMED")));
+        when(paymentRepo.findByOrderId(2L)).thenReturn(Optional.of(makePayment("CREDIT", "PENDING")));
 
         var summary = service.getSummary(1L, null, null);
 

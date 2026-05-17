@@ -29,6 +29,10 @@ class TripServiceTest {
     @Mock TripRepository tripRepo;
     @Mock TripMapper tripMapper;
     @Mock UserRepository userRepo;
+    @Mock SmsService smsService;
+    @Mock com.mermaid.app.repository.CatchLogRepository catchLogRepo;
+    @Mock com.mermaid.app.repository.CatchAlertRepository catchAlertRepo;
+    @Mock org.springframework.context.ApplicationEventPublisher eventPublisher;
     @InjectMocks TripService tripService;
 
     // --- listTrips ---

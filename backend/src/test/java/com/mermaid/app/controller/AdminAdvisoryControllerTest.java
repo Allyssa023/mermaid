@@ -54,6 +54,9 @@ class AdminAdvisoryControllerTest {
     @MockitoBean MarketLocationService marketLocationService;
     @MockitoBean AdminUserService adminUserService;
     @MockitoBean JwtDecoder jwtDecoder;
+    @MockitoBean com.mermaid.app.repository.OrderRepository orderRepository;
+    @MockitoBean com.mermaid.app.mapper.BuyerOrderMapper buyerOrderMapper;
+    @MockitoBean com.mermaid.app.service.OrderTimelineService orderTimelineService;
 
     // --- Advisory CRUD ---
 

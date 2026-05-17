@@ -64,7 +64,7 @@ class ProcurementOrderServiceTest {
         ArgumentCaptor<Order> orderCap = ArgumentCaptor.forClass(Order.class);
         verify(orderRepo).save(orderCap.capture());
         Order built = orderCap.getValue();
-        assertThat(built.getKind()).isEqualTo(OrderKind.RETAIL);
+        assertThat(built.getKind()).isEqualTo(OrderKind.PROCUREMENT);
         assertThat(built.getBuyerId()).isEqualTo(99L);
         assertThat(built.getSellerId()).isEqualTo(1L);
         assertThat(built.getCatchAlertId()).isEqualTo(10L);

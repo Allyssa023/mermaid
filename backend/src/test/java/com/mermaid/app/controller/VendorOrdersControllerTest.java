@@ -68,7 +68,7 @@ class VendorOrdersControllerTest {
     @Test
     void listOrders_happyPath_returns200() throws Exception {
         Order order = order(1L, 10L, 20L, "PENDING");
-        when(service.listInbox(10L, null, null)).thenReturn(List.of(order));
+        when(service.listInbox(10L, null, null, null, null)).thenReturn(List.of(order));
         when(userRepo.findById(20L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/vendor/orders").with(asVendor(10L)))
@@ -78,7 +78,7 @@ class VendorOrdersControllerTest {
 
     @Test
     void listOrders_withBucketFilter_returns200() throws Exception {
-        when(service.listInbox(10L, "NEW", null)).thenReturn(List.of());
+        when(service.listInbox(10L, "NEW", null, null, null)).thenReturn(List.of());
 
         mockMvc.perform(get("/vendor/orders")
                 .param("bucket", "NEW")
@@ -97,13 +97,13 @@ class VendorOrdersControllerTest {
 
     @Test
     void acceptOrder_happyPath_returns200() throws Exception {
-        Order accepted = order(1L, 10L, 20L, "ACCEPTED");
+        Order accepted = order(1L, 10L, 20L, "CONFIRMED");
         when(service.accept(10L, 1L)).thenReturn(accepted);
         when(userRepo.findById(20L)).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/vendor/orders/1/accept").with(asVendor(10L)))
                .andExpect(status().isOk())
-               .andExpect(jsonPath("$.status").value("ACCEPTED"));
+               .andExpect(jsonPath("$.status").value("CONFIRMED"));
     }
 
     @Test
@@ -129,7 +129,7 @@ class VendorOrdersControllerTest {
     @Test
     void completeOrder_happyPath_returns200() throws Exception {
         Order completed = order(1L, 10L, 20L, "COMPLETED");
-        when(service.complete(10L, 1L)).thenReturn(completed);
+        when(service.completePickup(eq(10L), eq(1L), any())).thenReturn(completed);
         when(userRepo.findById(20L)).thenReturn(Optional.empty());
 
         mockMvc.perform(post("/vendor/orders/1/complete").with(asVendor(10L)))
@@ -139,7 +139,7 @@ class VendorOrdersControllerTest {
 
     @Test
     void completeOrder_insufficientStock_returns409() throws Exception {
-        when(service.complete(10L, 1L))
+        when(service.completePickup(eq(10L), eq(1L), any()))
                 .thenThrow(new com.mermaid.app.exception.InsufficientStockException("insufficient"));
 
         mockMvc.perform(post("/vendor/orders/1/complete").with(asVendor(10L)))

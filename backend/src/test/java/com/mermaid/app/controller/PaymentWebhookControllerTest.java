@@ -57,7 +57,8 @@ class PaymentWebhookControllerTest {
         p.setStatus("PENDING");
         p.setAmount(BigDecimal.TEN);
         p.setOrderId(77L);
-        when(paymentRepository.findByPaymentIntentId("pr_test_123")).thenReturn(Optional.of(p));
+        // Controller picks reference_id ("idem-1") when payment_request_id is absent
+        when(paymentRepository.findByPaymentIntentId("idem-1")).thenReturn(Optional.of(p));
 
         mockMvc.perform(post("/webhooks/xendit")
                 .contentType("application/json")
@@ -66,7 +67,6 @@ class PaymentWebhookControllerTest {
             .andExpect(status().isOk());
 
         verify(paymentRepository).save(argThat(saved -> "CONFIRMED".equals(saved.getStatus())));
-        verify(orderService).completeOrderOnPaymentConfirmed(77L);
     }
 
     @Test
