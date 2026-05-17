@@ -31,8 +31,8 @@ public class VendorOrderService {
         "PENDING",          Set.of("CONFIRMED", "CANCELLED"),
         "CONFIRMED",        Set.of("PREPARING", "CANCELLED"),
         "PREPARING",        Set.of("READY", "OUT_FOR_DELIVERY", "CANCELLED"),
-        "READY",            Set.of("COMPLETED"),
-        "OUT_FOR_DELIVERY", Set.of("AWAITING_RECEIPT"),
+        "READY",            Set.of("AWAITING_RECEIPT"),
+        "OUT_FOR_DELIVERY", Set.of("CANCELLED"),
         "AWAITING_RECEIPT", Set.of("COMPLETED", "DISPUTED"),
         "COMPLETED",        Set.of(),
         "CANCELLED",        Set.of(),
@@ -162,29 +162,10 @@ public class VendorOrderService {
 
     @Transactional
     public Order markDelivered(Long vendorId, Long orderId, Double codAmount) {
-        Order order = transition(vendorId, orderId, "AWAITING_RECEIPT", "Order delivered — awaiting buyer confirmation");
+        Order order = transition(vendorId, orderId, "COMPLETED", "Vendor confirmed delivery — order complete");
         if (!paymentRepo.existsByOrderId(orderId)) {
             if (codAmount == null) {
                 throw new IllegalArgumentException("codAmount is required for COD delivery orders");
-            }
-            Payment payment = new Payment();
-            payment.setOrderId(orderId);
-            payment.setPayerId(order.getBuyerId());
-            payment.setPayeeId(order.getSellerId());
-            payment.setAmount(java.math.BigDecimal.valueOf(codAmount));
-            payment.setMethod("COD");
-            payment.setStatus("PENDING");
-            paymentRepo.save(payment);
-        }
-        return order;
-    }
-
-    @Transactional
-    public Order completePickup(Long vendorId, Long orderId, Double codAmount) {
-        Order order = transition(vendorId, orderId, "COMPLETED", "Order picked up by buyer");
-        if (!paymentRepo.existsByOrderId(orderId)) {
-            if (codAmount == null) {
-                throw new IllegalArgumentException("codAmount is required for COD pickup orders");
             }
             Payment payment = new Payment();
             payment.setOrderId(orderId);
@@ -198,6 +179,26 @@ public class VendorOrderService {
         }
         if (OrderKind.RETAIL.equals(order.getKind()) && order.getStorefrontListingId() != null) {
             inventoryService.deductForOrder(orderId);
+        }
+        return order;
+    }
+
+    @Transactional
+    public Order completePickup(Long vendorId, Long orderId, Double codAmount) {
+        Order order = transition(vendorId, orderId, "AWAITING_RECEIPT", "Order handed to buyer — awaiting receipt confirmation");
+        if (!paymentRepo.existsByOrderId(orderId)) {
+            if (codAmount == null) {
+                throw new IllegalArgumentException("codAmount is required for COD pickup orders");
+            }
+            Payment payment = new Payment();
+            payment.setOrderId(orderId);
+            payment.setPayerId(order.getBuyerId());
+            payment.setPayeeId(order.getSellerId());
+            payment.setAmount(java.math.BigDecimal.valueOf(codAmount));
+            payment.setMethod("COD");
+            payment.setStatus("CONFIRMED");
+            payment.setPaidAt(OffsetDateTime.now());
+            paymentRepo.save(payment);
         }
         return order;
     }

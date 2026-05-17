@@ -187,7 +187,16 @@ public class OrderService {
         handoff.setFinalPricePerKg(price);
         handoff.setTotalAmount(qty.multiply(price));
 
-        return toHandoffModel(handoffRepo.save(handoff));
+        // Initiating the handoff counts as the initiator's confirmation
+        if (userId.equals(order.getSellerId())) {
+            handoff.setConfirmedBySeller(true);
+        } else if (userId.equals(order.getBuyerId())) {
+            handoff.setConfirmedByBuyer(true);
+        }
+
+        HandoffConfirmation saved = handoffRepo.save(handoff);
+        checkBothConfirmed(saved, order);
+        return toHandoffModel(handoffRepo.save(saved));
     }
 
     @Transactional

@@ -7,6 +7,7 @@ import com.mermaid.app.model.FishermanAnalytics;
 import com.mermaid.app.model.TripAnalyticsSummary;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.EarningsService;
+import com.mermaid.app.service.TripAnalyticsService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,9 +20,11 @@ import java.util.List;
 public class EarningsController implements FishermanEarningsApi {
 
     private final EarningsService earningsService;
+    private final TripAnalyticsService tripAnalyticsService;
 
-    public EarningsController(EarningsService earningsService) {
-        this.earningsService = earningsService;
+    public EarningsController(EarningsService earningsService, TripAnalyticsService tripAnalyticsService) {
+        this.earningsService      = earningsService;
+        this.tripAnalyticsService = tripAnalyticsService;
     }
 
     @Override
@@ -38,11 +41,13 @@ public class EarningsController implements FishermanEarningsApi {
 
     @Override
     public ResponseEntity<TripAnalyticsSummary> getFishermanTripSummary(Long tripId) {
-        throw new UnsupportedOperationException("Not yet implemented");
+        Long fid = SecurityUtils.currentUserId();
+        return ResponseEntity.ok(tripAnalyticsService.getTripSummary(tripId, fid));
     }
 
     @Override
     public ResponseEntity<FishermanAnalytics> getFishermanAnalytics() {
-        throw new UnsupportedOperationException("Not yet implemented");
+        Long fid = SecurityUtils.currentUserId();
+        return ResponseEntity.ok(tripAnalyticsService.getFishermanAnalytics(fid));
     }
 }

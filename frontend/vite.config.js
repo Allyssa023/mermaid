@@ -23,9 +23,6 @@ export default defineConfig({
       '/api': {
         target: API_TARGET,
         changeOrigin: true,
-      },
-      '/ws-chat': {
-        target: API_TARGET,
         ws: true,
       },
     },

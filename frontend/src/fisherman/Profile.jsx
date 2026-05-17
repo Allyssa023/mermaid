@@ -10,6 +10,8 @@ import ApiError from '../components/ApiError'
 export default function FishermanProfilePage() {
   const [saved, setSaved] = useState(false)
   const [form, setForm] = useState(null)
+  const [walletModal, setWalletModal] = useState(false)
+  const [walletDraft, setWalletDraft] = useState({ gcashNumber: '', mayaNumber: '' })
 
   const qc = useQueryClient()
   const profileQ = useQuery({ queryKey: ['fisherman', 'profile'], queryFn: getProfile })
@@ -112,7 +114,18 @@ export default function FishermanProfilePage() {
             <div className="card__title">E-wallet for payouts</div>
             <div className="card__sub">Vendors pay you here when settling cash orders or utang.</div>
           </div>
-          <button className="btn btn--sm"><I.Wallet size={12} /> Change</button>
+          <button
+            className="btn btn--sm"
+            onClick={() => {
+              setWalletDraft({
+                gcashNumber: resolvedForm.gcashNumber ?? '',
+                mayaNumber:  resolvedForm.mayaNumber ?? '',
+              })
+              setWalletModal(true)
+            }}
+          >
+            <I.Wallet size={12} /> Change
+          </button>
         </div>
         {profile.gcashNumber ? (
           <div className="row" style={{gap: 16, alignItems: 'center'}}>
@@ -136,6 +149,67 @@ export default function FishermanProfilePage() {
           <div className="muted-data">No e-wallet connected yet.</div>
         )}
       </div>
+
+      {walletModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !updateMut.isPending && setWalletModal(false)}
+          style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'grid', placeItems: 'center', zIndex: 1000}}
+        >
+          <div
+            className="card"
+            onClick={(e) => e.stopPropagation()}
+            style={{width: 'min(440px, 92vw)', padding: 22}}
+          >
+            <div className="card__head">
+              <div>
+                <div className="card__title">E-wallet for payouts</div>
+                <div className="card__sub">Add or update your GCash and Maya numbers.</div>
+              </div>
+            </div>
+            <div className="form-grid" style={{marginTop: 8}}>
+              <div className="form-row" style={{gridColumn: '1 / -1'}}>
+                <label>GCash number</label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  placeholder="09xx xxx xxxx"
+                  value={walletDraft.gcashNumber}
+                  onChange={(e) => setWalletDraft(d => ({...d, gcashNumber: e.target.value}))}
+                />
+              </div>
+              <div className="form-row" style={{gridColumn: '1 / -1'}}>
+                <label>Maya number</label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  placeholder="09xx xxx xxxx"
+                  value={walletDraft.mayaNumber}
+                  onChange={(e) => setWalletDraft(d => ({...d, mayaNumber: e.target.value}))}
+                />
+              </div>
+            </div>
+            <div className="row" style={{marginTop: 18, gap: 8, justifyContent: 'flex-end'}}>
+              <button className="btn" onClick={() => setWalletModal(false)} disabled={updateMut.isPending}>Cancel</button>
+              <button
+                className="btn btn--primary"
+                disabled={updateMut.isPending}
+                onClick={() => {
+                  const next = {
+                    ...resolvedForm,
+                    gcashNumber: walletDraft.gcashNumber.trim(),
+                    mayaNumber:  walletDraft.mayaNumber.trim(),
+                  }
+                  setForm(next)
+                  updateMut.mutate(next, { onSuccess: () => setWalletModal(false) })
+                }}
+              >
+                {updateMut.isPending ? 'Saving…' : 'Save e-wallet'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="row" style={{marginTop: 18, gap: 8, justifyContent: 'flex-end'}}>
         <button className="btn">Cancel</button>

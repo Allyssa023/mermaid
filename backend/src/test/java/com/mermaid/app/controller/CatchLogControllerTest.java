@@ -63,7 +63,7 @@ class CatchLogControllerTest {
 
     @Test
     void createCatchLog_asFisherman_returns201() throws Exception {
-        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 5.0, 100.0);
+        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 10.0, 250.0);
         when(catchLogService.create(eq(1L), any(), any())).thenReturn(catchLogModel());
 
         mockMvc.perform(post("/trips/1/catches")
@@ -87,7 +87,7 @@ class CatchLogControllerTest {
 
     @Test
     void createCatchLog_completedTrip_returns409() throws Exception {
-        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 5.0, 100.0);
+        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 10.0, 250.0);
         when(catchLogService.create(eq(1L), any(), any()))
             .thenThrow(new TripNotActiveException(1L));
 

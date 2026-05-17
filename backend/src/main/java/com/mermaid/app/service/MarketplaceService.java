@@ -250,7 +250,7 @@ public class MarketplaceService {
 
         List<StorefrontListingSummary> content = slice.stream()
                 .map(l -> storefrontMapper.toBuyerSummary(l,
-                        inventoryService.availableKg(l.getVendorId(), l.getSpeciesId()),
+                        inventoryService.effectiveAvailableKg(l),
                         vendorNames.getOrDefault(l.getVendorId(), "Unknown Vendor")))
                 .collect(Collectors.toList());
 
@@ -265,7 +265,7 @@ public class MarketplaceService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Vendor not found for listing: " + listingId));
 
-        BigDecimal available = inventoryService.availableKg(entity.getVendorId(), entity.getSpeciesId());
+        BigDecimal available = inventoryService.effectiveAvailableKg(entity);
         StorefrontListingSummary listingModel = storefrontMapper.toBuyerSummary(
                 entity, available, vendor.getFullName());
         com.mermaid.app.model.BuyerVendorProfile vendorModel = mapper.toVendorProfile(vendor);
@@ -283,7 +283,7 @@ public class MarketplaceService {
 
         List<StorefrontListingSummary> relatedModels = related.stream()
                 .map(l -> storefrontMapper.toBuyerSummary(l,
-                        inventoryService.availableKg(l.getVendorId(), l.getSpeciesId()),
+                        inventoryService.effectiveAvailableKg(l),
                         relatedVendorNames.getOrDefault(l.getVendorId(), "Unknown Vendor")))
                 .collect(Collectors.toList());
 

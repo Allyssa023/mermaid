@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
 import { useAuth } from '../context/AuthContext'
 import { fetchAllConditions, fetchAdvisories } from './api/marine'
+import { listTrips, listCatchLogs } from './api/trips'
 import { listProcurementOrders } from './api/procurement'
 import { CardSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
@@ -15,31 +16,67 @@ function degToCompass(deg) {
   return dirs[Math.round(deg / 22.5) % 16]
 }
 
-// ── Risk dot ─────────────────────────────────────────────────────────────────
-
 function RiskDot({ risk }) {
   return <span className={`chip chip--dot chip--${risk}`} />
 }
 
 // ── Home page ─────────────────────────────────────────────────────────────────
 
-export default function FishermanHomePage({ setPage }) {
+export default function FishermanHomePage({ setPage, onStartTrip }) {
   const { user } = useAuth()
-  const [zoneIdx, setZoneIdx] = useState(0)
+  const qc = useQueryClient()
 
-  const condQ = useQuery({ queryKey: ['marine', 'conditions'], queryFn: fetchAllConditions })
-  const advQ  = useQuery({ queryKey: ['advisories', 'active'], queryFn: () => fetchAdvisories(true) })
-  const procQ = useQuery({ queryKey: ['fisherman', 'procurement', 'active'], queryFn: () => listProcurementOrders() })
+  const [selectedZoneIdx, setSelectedZoneIdx] = useState(0)
+  const condQ  = useQuery({ queryKey: ['marine', 'conditions'], queryFn: () => fetchAllConditions() })
+  const advQ   = useQuery({ queryKey: ['advisories', 'active'], queryFn: () => fetchAdvisories(true) })
+  const procQ  = useQuery({ queryKey: ['fisherman', 'procurement', 'active'], queryFn: () => listProcurementOrders() })
+  const tripsQ = useQuery({ queryKey: ['trips'], queryFn: () => listTrips() })
+
+  const activeTrip = (tripsQ.data ?? []).find(t => t.status === 'ACTIVE') ?? null
+
+  const catchLogsQ = useQuery({
+    queryKey: ['catchLogs', activeTrip?.id],
+    queryFn: () => listCatchLogs(activeTrip.id),
+    enabled: !!activeTrip,
+  })
+
+  const startedAt = activeTrip?.startedAt ?? null
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!startedAt) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [startedAt])
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      qc.invalidateQueries({ queryKey: ['marine', 'conditions'] })
+      qc.invalidateQueries({ queryKey: ['advisories', 'active'] })
+      qc.invalidateQueries({ queryKey: ['fisherman', 'procurement', 'active'] })
+      qc.invalidateQueries({ queryKey: ['trips'] })
+      qc.invalidateQueries({ queryKey: ['catchLogs'] })
+    }, 30000)
+    return () => clearInterval(id)
+  }, [qc])
+
+  const { durationH, durationM, durationS } = useMemo(() => {
+    if (!startedAt) return { durationH: 0, durationM: 0, durationS: 0 }
+    const elapsed = Math.max(0, now - new Date(startedAt).getTime())
+    return {
+      durationH: Math.floor(elapsed / 3600000),
+      durationM: Math.floor((elapsed % 3600000) / 60000),
+      durationS: Math.floor((elapsed % 60000) / 1000),
+    }
+  }, [startedAt, now])
 
   if (condQ.isLoading) return <div className="page"><CardSkeleton /><CardSkeleton /></div>
   if (condQ.error)     return <div className="page"><ApiError error={condQ.error} onRetry={condQ.refetch} /></div>
 
+  // ── Marine conditions ──────────────────────────────────────────────────────
   const zones = condQ.data?.zones ?? []
-  const zone  = zones[zoneIdx] ?? {}
+  const activeZoneIdx = Math.min(selectedZoneIdx, Math.max(0, zones.length - 1))
+  const zone = zones[activeZoneIdx] ?? {}
 
-  // Map API zone fields to what the JSX expects
-  const zoneName    = zone.zoneName ?? ''
-  const zoneRegion  = zone.region ?? ''
   const waveH       = zone.marine?.waveHeightM ?? 0
   const swellH      = zone.marine?.swellHeightM ?? null
   const swellPeriod = zone.marine?.swellPeriodS ?? null
@@ -49,16 +86,16 @@ export default function FishermanHomePage({ setPage }) {
   const rain        = zone.weather?.precipitationMm ?? 0
   const temp        = zone.weather?.temperatureC ?? 0
   const cloud       = zone.weather?.cloudCoverPct ?? 0
-  const riskLevel   = (zone.risk?.level ?? 'SAFE').toLowerCase()  // 'safe'|'caution'|'unsafe'
+  const riskLevel   = (zone.risk?.level ?? 'SAFE').toLowerCase()
   const zoneAdvisory = zone.risk?.advisory ?? ''
+  const zoneName    = zone.zoneName ?? ''
+  const zoneRegion  = zone.region ?? ''
 
-  // Derive KPIs from all zones
   const safeZones    = zones.filter(z => z.risk?.level === 'SAFE').length
   const cautionZones = zones.filter(z => z.risk?.level === 'CAUTION').length
   const avgWave      = zones.length ? +(zones.reduce((s, z) => s + (z.marine?.waveHeightM ?? 0), 0) / zones.length).toFixed(1) : 0
   const maxWind      = zones.length ? Math.max(...zones.map(z => z.weather?.windGustsKmh ?? 0)) : 0
 
-  // Overall risk tone from worst zone
   const overallTone  = zones.some(z => z.risk?.level === 'UNSAFE') ? 'unsafe'
                      : zones.some(z => z.risk?.level === 'CAUTION') ? 'caution'
                      : 'safe'
@@ -71,7 +108,6 @@ export default function FishermanHomePage({ setPage }) {
                        ? new Date(condQ.data.generatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                        : '—'
 
-  // Advisories from API — severity → CSS level mapping
   const apiAdvisories = advQ.data ?? []
   const advisories    = apiAdvisories.map(a => ({
     id: a.id,
@@ -79,14 +115,15 @@ export default function FishermanHomePage({ setPage }) {
     text: a.message,
   }))
 
-  // Pending procurement orders
-  const pendingOrders = (procQ.data ?? []).filter(o => o.status === 'PENDING' || o.status === 'ACCEPTED').slice(0, 3)
+  // ── Active trip stats ──────────────────────────────────────────────────────
+  const catches      = catchLogsQ.data ?? []
+  const totalKg      = catches.reduce((s, c) => s + (c.quantityKg ?? 0), 0)
+  const speciesCount = new Set(catches.map(c => c.speciesId).filter(Boolean)).size
 
-  // Active trip stays as mock for now (wired in Trips task)
-  const activeTrip = {
-    code: 'TR-2218', vessel: user?.vesselName ?? 'My Vessel', departedAt: '04:12', expectedReturn: '~13:00',
-    landingSite: 'Verde Passage', catchSoFar: '38 kg', alerts: 1,
-  }
+  // ── Pending procurement ────────────────────────────────────────────────────
+  const pendingOrders = (procQ.data ?? [])
+    .filter(o => o.status === 'PENDING' || o.status === 'ACCEPTED')
+    .slice(0, 3)
 
   const firstName  = user?.fullName?.split(' ')[0] ?? 'Fisherman'
   const vesselName = user?.vesselName ?? ''
@@ -99,11 +136,11 @@ export default function FishermanHomePage({ setPage }) {
           <h1 className="page__title" style={{marginTop: 4}}>
             Good morning, <em>{firstName}</em>
           </h1>
-          <p className="page__sub">{vesselName} · Open-Meteo via Marine Service</p>
+          <p className="page__sub">{vesselName ? `${vesselName} · ` : ''}Open-Meteo via Marine Service</p>
         </div>
         <div className="page__actions">
-          <button className="btn" onClick={() => condQ.refetch()}><I.Refresh size={13} /> Refresh</button>
-          <button className="btn btn--primary" onClick={() => setPage('planner')}><I.Anchor size={13} /> Start a trip</button>
+          <button className="btn" onClick={() => qc.invalidateQueries()}><I.Refresh size={13} /> Refresh</button>
+          <button className="btn btn--primary" onClick={() => activeTrip ? setPage('trips') : onStartTrip?.()}><I.Anchor size={13} /> {activeTrip ? 'View trip' : 'Start a trip'}</button>
         </div>
       </div>
 
@@ -126,22 +163,22 @@ export default function FishermanHomePage({ setPage }) {
           </div>
         </div>
 
-        {/* Zone carousel */}
+        {/* Zone detail */}
         <div style={{padding: '20px 28px'}}>
           <div className="row" style={{justifyContent: 'space-between', alignItems: 'center', marginBottom: 14}}>
             <div>
               <div className="eyebrow">Fishing grounds</div>
               <div style={{display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4}}>
-                <h3 style={{margin: 0, fontSize: 20, fontFamily: 'var(--font-display)'}}>{zoneName}</h3>
+                <h3 style={{margin: 0, fontSize: 20, fontFamily: 'var(--font-display)'}}>{zoneName || '—'}</h3>
                 <span className="muted-data" style={{fontSize: 12}}>{zoneRegion}</span>
                 <RiskDot risk={riskLevel} />
               </div>
             </div>
             <div className="row" style={{gap: 4}}>
               {zones.map((z, i) => (
-                <button key={z.zoneId} className={`btn btn--ghost btn--sm${i === zoneIdx ? ' btn--accent' : ''}`}
+                <button key={z.zoneId} className={`btn btn--sm ${i === activeZoneIdx ? 'btn--accent' : 'btn--ghost'}`}
                         style={{padding: '4px 10px', fontSize: 11}}
-                        onClick={() => setZoneIdx(i)}>
+                        onClick={() => setSelectedZoneIdx(i)}>
                   {z.zoneName.split(' ')[0]}
                 </button>
               ))}
@@ -162,12 +199,11 @@ export default function FishermanHomePage({ setPage }) {
       </div>
 
       {/* Quick actions */}
-      <div className="grid grid--kpi" style={{marginTop: 18, gridTemplateColumns: 'repeat(6, 1fr)'}}>
+      <div className="grid grid--kpi" style={{marginTop: 18, gridTemplateColumns: 'repeat(5, 1fr)'}}>
         {[
-          { id: 'planner',     icon: 'Anchor',    label: 'Start trip' },
-          { id: 'market',      icon: 'Store',     label: 'Marketplace' },
-          { id: 'alerts',      icon: 'Bell',      label: 'Catch alerts' },
-          { id: 'orders',      icon: 'Clipboard', label: 'My orders' },
+          { id: 'trips',       icon: 'Anchor',    label: 'My Trips' },
+          { id: 'alerts',      icon: 'Bell',      label: 'Catch Alerts' },
+          { id: 'orders',      icon: 'Clipboard', label: 'My Orders' },
           { id: 'procurement', icon: 'Receipt',   label: 'Procurement' },
           { id: 'earnings',    icon: 'Trend',     label: 'Earnings' },
         ].map(qa => {
@@ -177,42 +213,72 @@ export default function FishermanHomePage({ setPage }) {
               <div style={{width: 32, height: 32, borderRadius: 8, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center'}}>
                 <Icon size={15} />
               </div>
-              <div>
-                <div style={{fontSize: 13, fontWeight: 500}}>{qa.label}</div>
-              </div>
+              <div style={{fontSize: 13, fontWeight: 500}}>{qa.label}</div>
             </button>
           )
         })}
       </div>
 
-      {/* Active trip + advisories + pending orders */}
+      {/* Active trip + advisories */}
       <div className="grid grid--2-1" style={{marginTop: 18}}>
-        <div className="card">
-          <div className="card__head">
-            <div>
-              <div className="card__title">Active trip</div>
-              <div className="card__sub">{activeTrip.vessel} · departed {activeTrip.departedAt}</div>
+        {activeTrip ? (
+          <div className="card">
+            <div className="card__head">
+              <div>
+                <div className="card__title">Active trip</div>
+                <div className="card__sub">
+                  {activeTrip.vesselName ?? '—'} · departed {new Date(activeTrip.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <span className="status status--active"><span className="status__dot" /> At sea</span>
             </div>
-            <span className="status status--active"><span className="status__dot" /> At sea</span>
+            <div className="grid grid--kpi" style={{marginTop: 4}}>
+              <div className="kpi">
+                <div className="kpi__label">Code</div>
+                <div className="kpi__value" style={{fontFamily: 'var(--font-mono)', fontSize: 18}}>T-{activeTrip.id}</div>
+                <div className="kpi__foot">{activeTrip.targetArea ?? activeTrip.departurePoint ?? '—'}</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi__label">Catch so far</div>
+                <div className="kpi__value">{catchLogsQ.isLoading ? '…' : `${totalKg.toFixed(1)} kg`}</div>
+                <div className="kpi__foot">{catchLogsQ.isLoading ? '' : `${speciesCount} species logged`}</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi__label">Catch entries</div>
+                <div className="kpi__value">{catchLogsQ.isLoading ? '…' : catches.length}</div>
+                <div className="kpi__foot">logged this trip</div>
+              </div>
+              <div className="kpi">
+                <div className="kpi__label">Duration</div>
+                <div className="kpi__value">{durationH}h {durationM}m {durationS}s</div>
+                <div className="kpi__foot">elapsed</div>
+              </div>
+            </div>
+            <div className="row" style={{gap: 8, marginTop: 14}}>
+              <button className="btn btn--sm" onClick={() => setPage('trips')}>Open trip <I.Arrow size={11} /></button>
+              <button className="btn btn--accent btn--sm" onClick={() => setPage('alerts')}><I.Plus size={11} /> Post catch alert</button>
+            </div>
           </div>
-          <div className="grid grid--kpi" style={{marginTop: 4}}>
-            <div className="kpi"><div className="kpi__label">Code</div><div className="kpi__value" style={{fontFamily: 'var(--font-mono)', fontSize: 18}}>{activeTrip.code}</div><div className="kpi__foot">{activeTrip.landingSite}</div></div>
-            <div className="kpi"><div className="kpi__label">Catch so far</div><div className="kpi__value">{activeTrip.catchSoFar}</div><div className="kpi__foot">3 species logged</div></div>
-            <div className="kpi"><div className="kpi__label">Posted alerts</div><div className="kpi__value">{activeTrip.alerts}</div><div className="kpi__foot">2 interested vendors</div></div>
-            <div className="kpi"><div className="kpi__label">ETA return</div><div className="kpi__value">{activeTrip.expectedReturn}</div><div className="kpi__foot">tide turning</div></div>
+        ) : (
+          <div className="card" style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', gap: 12, textAlign: 'center'}}>
+            <div style={{width: 48, height: 48, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center'}}>
+              <I.Anchor size={22} />
+            </div>
+            <div>
+              <div style={{fontWeight: 600, fontSize: 15}}>No active trip</div>
+              <div className="muted-data" style={{fontSize: 13, marginTop: 4}}>Start a trip to begin logging catches and posting alerts.</div>
+            </div>
+            <button className="btn btn--primary btn--sm" onClick={() => onStartTrip?.()}><I.Plus size={12} /> Start a trip</button>
           </div>
-          <div className="row" style={{gap: 8, marginTop: 14}}>
-            <button className="btn btn--sm" onClick={() => setPage('trips')}>Open trip <I.Arrow size={11} /></button>
-            <button className="btn btn--accent btn--sm" onClick={() => setPage('alerts')}><I.Plus size={11} /> Post catch alert</button>
-          </div>
-        </div>
+        )}
 
         <div className="card">
           <div className="card__head">
             <div className="card__title">Advisories</div>
           </div>
           <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
-            {advisories.length === 0 && (
+            {advQ.isLoading && <p style={{fontSize: 13, color: 'var(--ink-3)', margin: 0}}>Loading…</p>}
+            {!advQ.isLoading && advisories.length === 0 && (
               <p style={{fontSize: 13, color: 'var(--ink-3)', margin: 0}}>No active advisories.</p>
             )}
             {advisories.map(a => (
@@ -225,33 +291,39 @@ export default function FishermanHomePage({ setPage }) {
         </div>
       </div>
 
-      {/* Pending orders strip */}
-      <div className="card" style={{marginTop: 18}}>
-        <div className="card__head">
-          <div>
-            <div className="card__title">Pending procurement orders</div>
-            <div className="card__sub">{pendingOrders.length} awaiting action</div>
+      {/* Pending procurement orders */}
+      {(procQ.data ?? []).length > 0 && (
+        <div className="card" style={{marginTop: 18}}>
+          <div className="card__head">
+            <div>
+              <div className="card__title">Pending procurement orders</div>
+              <div className="card__sub">{pendingOrders.length} awaiting action</div>
+            </div>
+            <button className="btn btn--sm" onClick={() => setPage('procurement')}>Open procurement <I.Arrow size={11} /></button>
           </div>
-          <button className="btn btn--sm" onClick={() => setPage('procurement')}>Open procurement <I.Arrow size={11} /></button>
+          {pendingOrders.length === 0 ? (
+            <div className="muted-data" style={{padding: '12px 0', fontSize: 13}}>No pending orders.</div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr><th>ID</th><th>Species</th><th>Qty</th><th>Total</th><th>Payment</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {pendingOrders.map(o => (
+                  <tr key={o.id}>
+                    <td><span className="kbd">#{o.id}</span></td>
+                    <td>{o.speciesName ?? '—'}</td>
+                    <td>{o.qtyKg != null ? `${o.qtyKg} kg` : '—'}</td>
+                    <td>{o.qtyKg && o.pricePerKg ? `₱${(o.qtyKg * o.pricePerKg).toLocaleString('en-PH')}` : '—'}</td>
+                    <td><span className={`chip ${o.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{o.paymentMethod ?? '—'}</span></td>
+                    <td><span className={`status status--${o.status === 'PENDING' ? 'pending' : 'confirmed'}`}><span className="status__dot" /> {o.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
-        <table className="tbl">
-          <thead>
-            <tr><th>ID</th><th>Species</th><th>Qty</th><th>Total</th><th>Payment</th><th>Status</th></tr>
-          </thead>
-          <tbody>
-            {pendingOrders.map(o => (
-              <tr key={o.id}>
-                <td><span className="kbd">#{o.id}</span></td>
-                <td>{o.speciesName}</td>
-                <td>{o.qtyKg != null ? `${o.qtyKg} kg` : '—'}</td>
-                <td>{o.qtyKg && o.pricePerKg ? `₱${(o.qtyKg * o.pricePerKg).toLocaleString('en-PH')}` : '—'}</td>
-                <td><span className={`chip ${o.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{o.paymentMethod ?? '—'}</span></td>
-                <td><span className={`status status--${o.status === 'PENDING' ? 'pending' : 'confirmed'}`}><span className="status__dot" /> {o.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      )}
     </div>
   )
 }

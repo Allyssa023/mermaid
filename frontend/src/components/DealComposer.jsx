@@ -6,7 +6,7 @@
 // When `initial.qtyKg` is set (Counter mode), the composer opens in the
 // Propose tab with the values pre-filled.
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 function intOnly(v) {
   return String(v ?? '').replace(/[^0-9]/g, '')
@@ -17,10 +17,23 @@ export default function DealComposer({ onSendText, onSendProposal, initial, disa
   const [text, setText] = useState('')
   const [qty, setQty] = useState(initial?.qtyKg != null ? String(initial.qtyKg) : '')
   const [price, setPrice] = useState(initial?.pricePerKg != null ? String(initial.pricePerKg) : '')
+  const [cooldown, setCooldown] = useState(0)
+  const cooldownRef = useRef(null)
+
+  useEffect(() => {
+    if (cooldown <= 0) return
+    cooldownRef.current = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(cooldownRef.current)
+  }, [cooldown > 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const qtyNum = parseInt(qty, 10) || 0
   const priceNum = parseInt(price, 10) || 0
-  const proposeBlocked = disabled || qtyNum <= 0 || priceNum <= 0
+  const proposeBlocked = disabled || qtyNum <= 0 || priceNum <= 0 || cooldown > 0
   const textBlocked = disabled || text.trim().length === 0
 
   function handleSendText() {
@@ -34,6 +47,7 @@ export default function DealComposer({ onSendText, onSendProposal, initial, disa
     onSendProposal?.({ qtyKg: qtyNum, pricePerKg: priceNum })
     setQty('')
     setPrice('')
+    setCooldown(10)
   }
 
   return (
@@ -94,7 +108,7 @@ export default function DealComposer({ onSendText, onSendProposal, initial, disa
             className="btn btn--accent btn--sm"
             disabled={proposeBlocked}
             onClick={handleSendProposal}
-          >Send Proposal</button>
+          >{cooldown > 0 ? `Wait ${cooldown}s` : 'Send Proposal'}</button>
         </div>
       )}
     </div>

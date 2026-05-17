@@ -151,21 +151,39 @@ public class BuyerOrderService {
         if (!buyerId.equals(order.getBuyerId())) {
             throw new org.springframework.security.access.AccessDeniedException("Not your order");
         }
-        if (!"AWAITING_RECEIPT".equals(order.getStatus())) {
-            throw new IllegalStateException("Order is not awaiting receipt confirmation");
-        }
-        // Settle COD payment if pending
-        paymentRepo.findByOrderId(orderId).ifPresent(payment -> {
-            if ("COD".equals(payment.getMethod()) && "PENDING".equals(payment.getStatus())) {
-                payment.setStatus("CONFIRMED");
-                payment.setPaidAt(OffsetDateTime.now());
-                paymentRepo.save(payment);
+
+        boolean isDelivery = "DELIVERY".equals(order.getDispatchMode());
+        if (isDelivery) {
+            // For delivery: buyer confirms receipt while rider is still out → moves to AWAITING_RECEIPT
+            // Vendor then finalises with markDelivered → COMPLETED
+            if (!"OUT_FOR_DELIVERY".equals(order.getStatus())) {
+                throw new IllegalStateException("Delivery order is not out for delivery");
             }
-        });
-        order.setStatus("COMPLETED");
-        order.setCompletedAt(OffsetDateTime.now());
-        orderRepository.save(order);
-        timelineService.recordEvent(orderId, "COMPLETED", buyerId, "Buyer confirmed receipt");
+            order.setStatus("AWAITING_RECEIPT");
+            orderRepository.save(order);
+            timelineService.recordEvent(orderId, "AWAITING_RECEIPT", buyerId, "Buyer confirmed receipt — awaiting vendor confirmation");
+        } else {
+            // For pickup: vendor already handed off (AWAITING_RECEIPT), buyer confirms → COMPLETED
+            if (!"AWAITING_RECEIPT".equals(order.getStatus())) {
+                throw new IllegalStateException("Order is not awaiting receipt confirmation");
+            }
+            // Settle COD payment if pending
+            paymentRepo.findByOrderId(orderId).ifPresent(payment -> {
+                if ("COD".equals(payment.getMethod()) && "PENDING".equals(payment.getStatus())) {
+                    payment.setStatus("CONFIRMED");
+                    payment.setPaidAt(OffsetDateTime.now());
+                    paymentRepo.save(payment);
+                }
+            });
+            order.setStatus("COMPLETED");
+            order.setCompletedAt(OffsetDateTime.now());
+            orderRepository.save(order);
+            timelineService.recordEvent(orderId, "COMPLETED", buyerId, "Buyer confirmed receipt");
+            if (order.getStorefrontListingId() != null) {
+                inventoryService.deductForOrder(orderId);
+            }
+        }
+
         return buyerOrderMapper.toModel(order);
     }
 

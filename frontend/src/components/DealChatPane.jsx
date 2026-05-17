@@ -60,6 +60,7 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
     queryKey: ['deal', dealId],
     queryFn: () => apiClient.getDeal(dealId),
     enabled: dealId != null,
+    refetchInterval: 5000,
   })
 
   const { data: messagesPage } = useQuery({
@@ -157,6 +158,36 @@ export default function DealChatPane({ dealId, currentUserId, apiClient }) {
           )}
         </div>
       </div>
+
+      {/* Waiting for fisherman confirmation banner */}
+      {deal?.status === 'NEGOTIATING' && !deal.fishermanEngagedAt && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8,
+          background: 'var(--warn-soft, rgba(255,193,7,0.1))',
+          border: '1px solid var(--warn, #ffc107)',
+          fontSize: 13, textAlign: 'center',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 16 }}>⏳</span>
+          <span style={{ color: 'var(--ink-2)' }}>
+            Waiting for fisherman to accept this deal…
+          </span>
+        </div>
+      )}
+
+      {/* Deal rejected/cancelled banner */}
+      {deal?.status && deal.status !== 'NEGOTIATING' && deal.status !== 'AGREED' && (
+        <div style={{
+          padding: '10px 14px', borderRadius: 8,
+          background: 'var(--unsafe-soft, rgba(220,53,69,0.08))',
+          border: '1px solid var(--unsafe, #dc3545)',
+          fontSize: 13, textAlign: 'center',
+        }}>
+          <strong style={{ color: 'var(--unsafe)' }}>
+            {deal.status === 'REJECTED' ? '❌ Deal rejected by fisherman' : `Deal ${deal.status.toLowerCase()}`}
+          </strong>
+        </div>
+      )}
 
       {/* Pinned latest proposal */}
       {latestProposal && (

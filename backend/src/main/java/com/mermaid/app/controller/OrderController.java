@@ -85,7 +85,7 @@ public class OrderController implements OrdersApi {
 
     @Override
     @PreAuthorize("hasRole('VENDOR')")
-    public ResponseEntity<PaymentRecord> settleCredit(Long orderId, CreditSettleRequest creditSettleRequest) {
-        throw new UnsupportedOperationException("Not yet implemented");
+    public ResponseEntity<PaymentRecord> settleCredit(Long orderId, CreditSettleRequest request) {
+        return ResponseEntity.ok(service.settleCredit(orderId, request, SecurityUtils.currentUserId()));
     }
 }

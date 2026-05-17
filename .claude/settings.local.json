@@ -14,11 +14,18 @@
       "Bash(./mvnw test:*)",
       "Bash(xargs cat:*)",
       "Bash(xargs grep:*)",
-      "Bash(jar tf:*)"
+      "Bash(jar tf:*)",
+      "Skill(superpowers:brainstorming)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Skill(brainstorming)",
+      "Skill(writing-plans)",
+      "Skill(subagent-driven-development)",
+      "Skill(using-git-worktrees)"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "claude-flow"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

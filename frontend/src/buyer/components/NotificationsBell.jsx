@@ -1,47 +1,48 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGet, apiPut } from '../../api'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../../icons'
 import { timeAgo } from '../utils/format'
+import { getNotifications, markRead, markAllRead, getUnreadCount } from '../../api/notifications'
 
 export default function NotificationsBell() {
   const navigate = useNavigate()
-  const [open, setOpen]         = useState(false)
-  const [items, setItems]       = useState([])
-  const [unread, setUnread]     = useState(0)
-  const [loading, setLoading]   = useState(false)
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
-  async function refreshCount() {
-    try {
-      const r = await apiGet('/notifications/unread-count')
-      setUnread(r?.count || 0)
-    } catch { /* ignore */ }
-  }
+  const countQ = useQuery({
+    queryKey: ['notifCount'],
+    queryFn: getUnreadCount,
+    refetchInterval: 30000,
+    staleTime: 0,
+  })
+  const unread = countQ.data?.count ?? 0
 
-  async function loadList() {
-    setLoading(true)
-    try {
-      const list = await apiGet('/notifications?size=10')
-      setItems(Array.isArray(list) ? list : [])
-    } catch {
-      setItems([])
-    } finally {
-      setLoading(false)
-    }
-  }
+  const listQ = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => getNotifications({ size: 10 }),
+    enabled: open,
+    staleTime: 0,
+  })
+  const items = Array.isArray(listQ.data) ? listQ.data : []
 
-  useEffect(() => {
-    refreshCount()
-    const t = setInterval(refreshCount, 60000)
-    return () => clearInterval(t)
-  }, [])
+  const markReadMut = useMutation({
+    mutationFn: (id) => markRead(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifCount'] })
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
 
-  useEffect(() => {
-    if (open) loadList()
-  }, [open])
+  const markAllMut = useMutation({
+    mutationFn: markAllRead,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifCount'] })
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
 
-  // Click-outside to close
   useEffect(() => {
     function onDocClick(e) {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
@@ -50,24 +51,10 @@ export default function NotificationsBell() {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [open])
 
-  async function handleClickItem(n) {
-    if (!n.readAt) {
-      try {
-        await apiPut(`/notifications/${n.id}/read`)
-        setItems(prev => prev.map(x => x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x))
-        setUnread(c => Math.max(0, c - 1))
-      } catch { /* ignore */ }
-    }
+  function handleClickItem(n) {
+    if (!n.readAt) markReadMut.mutate(n.id)
     if (n.link) navigate(n.link)
     setOpen(false)
-  }
-
-  async function handleMarkAll() {
-    try {
-      await apiPut('/notifications/read-all')
-      setItems(prev => prev.map(x => ({ ...x, readAt: x.readAt || new Date().toISOString() })))
-      setUnread(0)
-    } catch { /* ignore */ }
   }
 
   return (
@@ -100,13 +87,13 @@ export default function NotificationsBell() {
           }}>
             <strong style={{ fontSize: 14 }}>Notifications</strong>
             {unread > 0 && (
-              <button className="btn btn--ghost btn--sm" onClick={handleMarkAll}>
+              <button className="btn btn--ghost btn--sm" onClick={() => markAllMut.mutate()}>
                 Mark all read
               </button>
             )}
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {loading && items.length === 0 ? (
+            {listQ.isLoading && items.length === 0 ? (
               <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 48 }} />)}
               </div>

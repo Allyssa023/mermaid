@@ -41,6 +41,7 @@ const ROLE_NAV = {
       { id: 'aadvisories', icon: 'Alert',     label: 'Advisories' },
       { id: 'aspecies',    icon: 'Fish',      label: 'Fish Species' },
       { id: 'alocations',  icon: 'MapPin',    label: 'Market Locations' },
+      { id: 'abfar',       icon: 'Receipt',   label: 'BFAR Prices' },
       { id: 'aaudit',      icon: 'Clock',     label: 'Audit Log' },
     ],
     crumbLabel: 'Admin',
@@ -50,6 +51,7 @@ const ROLE_NAV = {
       aadvisories: 'Advisories',
       aspecies:    'Fish Species',
       alocations:  'Market Locations',
+      abfar:       'BFAR Reference Prices',
       aaudit:      'Audit Log',
     },
   },
@@ -947,6 +949,121 @@ function AdminBfarPage() {
           <div className="eyebrow">BFAR</div>
           <h1 className="page__title" style={{marginTop: 4}}>BFAR <em>Reference</em></h1>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── BFAR Prices Page ─────────────────────────────────────────────────────────
+
+function AdminBfarPage() {
+  const [showAdd, setShowAdd] = useState(false)
+  const [editRow, setEditRow] = useState(null)
+  const [form, setForm]       = useState({ speciesId: '', minPricePerKg: '', maxPricePerKg: '', source: 'BFAR Region 1 NCPMR', effectiveDate: new Date().toISOString().slice(0, 10) })
+  const [err, setErr]         = useState(null)
+
+  const { data: prices = [], isLoading, refetch } = useQuery({
+    queryKey: ['bfar-all'],
+    queryFn: () => fetch('/api/bfar-prices/all', { credentials: 'include' }).then(r => r.json()),
+  })
+  const { data: species = [] } = useQuery({
+    queryKey: ['species'],
+    queryFn: () => fetch('/api/species', { credentials: 'include' }).then(r => r.json()),
+  })
+
+  function openAdd() { setEditRow(null); setForm({ speciesId: '', minPricePerKg: '', maxPricePerKg: '', source: 'BFAR Region 1 NCPMR', effectiveDate: new Date().toISOString().slice(0, 10) }); setErr(null); setShowAdd(true) }
+  function openEdit(p) {
+    setEditRow(p)
+    setForm({ speciesId: p.species.id, minPricePerKg: p.minPricePerKg, maxPricePerKg: p.maxPricePerKg, source: p.source, effectiveDate: p.effectiveDate })
+    setErr(null)
+    setShowAdd(true)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setErr(null)
+    try {
+      const url = editRow ? `/api/admin/bfar-prices/${editRow.id}` : '/api/admin/bfar-prices'
+      const method = editRow ? 'PUT' : 'POST'
+      const res = await fetch(url, { method, credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, speciesId: Number(form.speciesId), minPricePerKg: Number(form.minPricePerKg), maxPricePerKg: Number(form.maxPricePerKg) }) })
+      if (!res.ok) throw new Error((await res.json())?.message || 'Failed')
+      setShowAdd(false); refetch()
+    } catch (e) { setErr(e.message) }
+  }
+
+  return (
+    <div className="page">
+      {showAdd && (
+        <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
+          <div className="trip-modal">
+            <div className="trip-modal__header">
+              <h2 className="trip-modal__title">{editRow ? 'Edit BFAR Price' : 'Add BFAR Price'}</h2>
+              <button className="trip-modal__close" onClick={() => setShowAdd(false)}>✕</button>
+            </div>
+            <form className="trip-form" onSubmit={handleSubmit}>
+              {err && <p style={{ color: 'var(--unsafe)', fontSize: 13 }}>{err}</p>}
+              <label className="trip-form__label">Species *
+                <select className="trip-form__input" value={form.speciesId} onChange={e => setForm(f => ({...f, speciesId: e.target.value}))} required>
+                  <option value="">Select species…</option>
+                  {species.map(s => <option key={s.id} value={s.id}>{s.commonName}</option>)}
+                </select>
+              </label>
+              <label className="trip-form__label">Min price/kg (₱) *
+                <input type="number" min="0" step="0.01" className="trip-form__input" value={form.minPricePerKg} onChange={e => setForm(f => ({...f, minPricePerKg: e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Max price/kg (₱) *
+                <input type="number" min="0" step="0.01" className="trip-form__input" value={form.maxPricePerKg} onChange={e => setForm(f => ({...f, maxPricePerKg: e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Source
+                <input className="trip-form__input" value={form.source} onChange={e => setForm(f => ({...f, source: e.target.value}))} maxLength={200} />
+              </label>
+              <label className="trip-form__label">Effective date *
+                <input type="date" className="trip-form__input" value={form.effectiveDate} onChange={e => setForm(f => ({...f, effectiveDate: e.target.value}))} required />
+              </label>
+              <div className="trip-form__actions">
+                <button type="button" className="trip-btn trip-btn--ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+                <button type="submit" className="trip-btn trip-btn--primary">{editRow ? 'Save changes' : 'Add price'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">Reference Data</div>
+          <h1 className="page__title" style={{ marginTop: 4 }}>BFAR <em>Reference Prices</em></h1>
+          <p className="page__sub">Weekly benchmark prices per species. Displayed to fishermen when settling catches.</p>
+        </div>
+        <div className="page__actions">
+          <button className="btn btn--primary" onClick={openAdd}><I.Plus size={14} /> Add price</button>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 18 }}>
+        {isLoading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>Loading…</div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr><th>Species</th><th>Min/kg</th><th>Max/kg</th><th>Source</th><th>Effective</th><th></th></tr>
+            </thead>
+            <tbody>
+              {prices.map(p => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 500 }}>{p.species?.commonName}</td>
+                  <td className="data">₱{Number(p.minPricePerKg).toFixed(2)}</td>
+                  <td className="data">₱{Number(p.maxPricePerKg).toFixed(2)}</td>
+                  <td style={{ color: 'var(--ink-3)', fontSize: 12 }}>{p.source}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{p.effectiveDate}</td>
+                  <td><button className="btn btn--ghost btn--sm" onClick={() => openEdit(p)}>Edit</button></td>
+                </tr>
+              ))}
+              {prices.length === 0 && (
+                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 24 }}>No BFAR prices set yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

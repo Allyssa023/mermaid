@@ -35,55 +35,32 @@ export function CartProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Mutations throw on failure — callers own their error display.
+  // Only refresh() writes to context.error (warranting a full-page block).
+
   const addItem = useCallback(async ({ listingId, quantityKg, notes }) => {
-    setError(null);
-    try {
-      const data = await apiPost('/buyer/cart/items', null, { listingId, quantityKg, notes });
-      setCart(data || EMPTY);
-      // Safety-net refresh to guarantee sidebar badge + cart views are in sync
-      // even if the POST response shape doesn't match the expected cart envelope.
-      refresh();
-      return { ok: true };
-    } catch (e) {
-      setError(e?.message || 'Could not add to cart.');
-      return { ok: false, error: e?.message };
-    }
+    const data = await apiPost('/buyer/cart/items', null, { listingId, quantityKg, notes });
+    setCart(data || EMPTY);
+    refresh();
+    return data;
   }, [refresh]);
 
   const updateItem = useCallback(async (itemId, { quantityKg, notes }) => {
-    setError(null);
-    try {
-      const data = await apiPatch(`/buyer/cart/items/${itemId}`, null, { quantityKg, notes });
-      setCart(data || EMPTY);
-      return { ok: true };
-    } catch (e) {
-      setError(e?.message || 'Could not update item.');
-      return { ok: false, error: e?.message };
-    }
+    const data = await apiPatch(`/buyer/cart/items/${itemId}`, null, { quantityKg, notes });
+    setCart(data || EMPTY);
+    return data;
   }, []);
 
   const removeItem = useCallback(async (itemId) => {
-    setError(null);
-    try {
-      const data = await apiDelete(`/buyer/cart/items/${itemId}`);
-      setCart(data || EMPTY);
-      return { ok: true };
-    } catch (e) {
-      setError(e?.message || 'Could not remove item.');
-      return { ok: false, error: e?.message };
-    }
+    const data = await apiDelete(`/buyer/cart/items/${itemId}`);
+    setCart(data || EMPTY);
+    return data;
   }, []);
 
   const clearCart = useCallback(async () => {
-    setError(null);
-    try {
-      const data = await apiDelete('/buyer/cart');
-      setCart(data || EMPTY);
-      return { ok: true };
-    } catch (e) {
-      setError(e?.message || 'Could not clear cart.');
-      return { ok: false, error: e?.message };
-    }
+    const data = await apiDelete('/buyer/cart');
+    setCart(data || EMPTY);
+    return data;
   }, []);
 
   return (

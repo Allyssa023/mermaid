@@ -5,10 +5,12 @@ import {
   getFeed, getCart, addToCart, removeCartItem, startDealFromCartItem,
   listMySupplierOrders,
   initiateHandoff, confirmHandoff,
-  recordPayment, confirmPayment,
+  recordPayment,
   cancelOrder,
   createOrderPaymentIntent,
+  settleCredit,
 } from './api/procurement'
+import SettleCreditModal from '../components/modals/SettleCreditModal'
 import { TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
 import { I } from '../icons'
@@ -20,6 +22,8 @@ const STATUS_FILTERS = ['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'DISPUTED', 
 export default function ProcurementFeed({ pageState }) {
   const [tab, setTab] = useState('feed')
   const [statusFilter, setStatusFilter] = useState(null)
+  const [settleModal, setSettleModal] = useState(null)
+  const [settleLoading, setSettleLoading] = useState(false)
   const watchlistFilter = pageState?.watchlistFilter ?? null
 
   const qc = useQueryClient()
@@ -34,7 +38,9 @@ export default function ProcurementFeed({ pageState }) {
   const ordersQ = useQuery({
     queryKey: ['vendor', 'supplierOrders', statusFilter],
     queryFn: () => listMySupplierOrders(statusFilter),
-    enabled: tab === 'orders',
+    enabled: tab === 'orders' || tab === 'credits',
+    refetchOnWindowFocus: true,
+    refetchInterval: tab === 'credits' ? 10000 : false,
   })
 
   const invalidateOrders = () => qc.invalidateQueries({ queryKey: ['vendor', 'supplierOrders'] })
@@ -75,7 +81,6 @@ export default function ProcurementFeed({ pageState }) {
   // Vendor is BUYER of these procurement orders — handoff confirm + payment confirm are buyer actions.
   const orderMutations = {
     confirmHandoff:  (id)            => confirmHandoff(id).then(invalidateOrders),
-    confirmPayment:  (id)            => confirmPayment(id).then(invalidateOrders),
     initiateHandoff: (id, body)      => initiateHandoff(id, body).then(invalidateOrders),
     recordPayment:   (id, body)      => recordPayment(id, body).then(invalidateOrders),
     cancelOrder:     (id, r)         => cancelOrder(id, r).then(invalidateOrders),
@@ -90,11 +95,15 @@ export default function ProcurementFeed({ pageState }) {
 
   const allOrders = ordersQ.data ?? []
   const supplierOrders = allOrders.filter(o => (o.buyer?.id ?? o.buyerId) === user?.id)
+  const creditOrders = supplierOrders.filter(o =>
+    o.status === 'COMPLETED' && o.payment?.method === 'CREDIT' && o.payment?.status !== 'SETTLED'
+  )
 
   const tabs = [
     { id: 'feed',   label: 'Live feed' },
     { id: 'cart',   label: `Cart (${cartItems.length})` },
     { id: 'orders', label: 'My orders' },
+    { id: 'credits', label: ordersQ.data ? `Credits (${creditOrders.length})` : 'Credits' },
   ]
 
   return (
@@ -265,6 +274,66 @@ export default function ProcurementFeed({ pageState }) {
           {supplierOrders.map(order => (
             <OrderCard key={order.id} order={order} viewerRole="BUYER" mutations={orderMutations} />
           ))}
+        </div>
+      )}
+
+      {tab === 'credits' && (
+        <div style={{marginTop: 18}}>
+          {ordersQ.isLoading && <TableRowSkeleton rows={3} />}
+          {!ordersQ.isLoading && creditOrders.length === 0 ? (
+            <div className="empty">
+              <div className="empty__title">No outstanding credits</div>
+              <p>All credits have been settled. 🎉</p>
+            </div>
+          ) : (
+            <div className="card">
+              <div className="card__head"><div className="card__title">Outstanding credits</div><div className="card__sub">{creditOrders.length} unpaid</div></div>
+              <table className="tbl">
+                <thead><tr><th>Order</th><th>Fisherman</th><th>Species</th><th>Amount</th><th>Date</th><th></th></tr></thead>
+                <tbody>
+                  {creditOrders.map(o => (
+                    <tr key={o.id}>
+                      <td className="muted-data">#{o.id}</td>
+                      <td>{o.seller?.fullName ?? o.sellerName ?? '—'}</td>
+                      <td>{o.speciesName ?? '—'}</td>
+                      <td><span className="data" style={{fontFamily: 'var(--font-mono)'}}>₱{(o.payment?.amount ?? 0).toLocaleString()}</span></td>
+                      <td className="muted-data">{o.completedAt ? String(o.completedAt).split('T')[0] : '—'}</td>
+                      <td style={{textAlign: 'right'}}>
+                        <button className="btn btn--accent btn--sm" onClick={() => setSettleModal(o)}>Settle</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {settleModal && (
+            <SettleCreditModal
+              order={settleModal}
+              payment={settleModal.payment}
+              loading={settleLoading}
+              onClose={() => setSettleModal(null)}
+              onSubmit={async (body) => {
+                setSettleLoading(true)
+                try {
+                  if (body.isXendit) {
+                    // GCash/Maya — create Xendit payment intent and redirect
+                    const result = await createOrderPaymentIntent(settleModal.id, body.method)
+                    if (result?.redirectUrl) window.location = result.redirectUrl
+                  } else {
+                    // Cash — settle directly
+                    await settleCredit(settleModal.id, { method: body.method, reference: body.reference })
+                    invalidateOrders()
+                    setSettleModal(null)
+                  }
+                } catch (e) {
+                  window.alert(e?.message ?? 'Failed to settle credit')
+                } finally {
+                  setSettleLoading(false)
+                }
+              }}
+            />
+          )}
         </div>
       )}
 

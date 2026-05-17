@@ -120,7 +120,13 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public BigDecimal effectiveAvailableKg(StorefrontListing listing) {
-        BigDecimal physical = availableKg(listing.getVendorId(), listing.getSpeciesId());
+        // Physical stock = sum of remaining_kg for lots actually linked to this listing
+        List<Long> lotIds = listingLotRepo.findByIdListingId(listing.getId())
+                .stream().map(StorefrontListingLot::getLotId).toList();
+        BigDecimal physical = lotIds.isEmpty() ? ZERO
+                : lotRepo.findAllById(lotIds).stream()
+                        .map(InventoryLot::getRemainingKg)
+                        .reduce(ZERO, BigDecimal::add);
         BigDecimal reserved = orderRepo.sumActiveOrderedKgForStorefrontListing(listing.getId());
         return physical.subtract(reserved != null ? reserved : BigDecimal.ZERO);
     }

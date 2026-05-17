@@ -2,6 +2,7 @@ package com.mermaid.app.mapper;
 
 import com.mermaid.app.domain.HandoffConfirmation;
 import com.mermaid.app.domain.Order;
+import com.mermaid.app.domain.OrderKind;
 import com.mermaid.app.domain.Payment;
 import com.mermaid.app.model.UserRef;
 import org.openapitools.jackson.nullable.JsonNullable;
@@ -40,6 +41,9 @@ public class OrderMapper {
             com.mermaid.app.model.Order.StatusEnum.fromValue(entity.getStatus()),
             entity.getCreatedAt()
         );
+        m.setKind(JsonNullable.of(OrderKind.PROCUREMENT.equals(entity.getKind())
+            ? com.mermaid.app.model.Order.KindEnum.PROCUREMENT
+            : com.mermaid.app.model.Order.KindEnum.RETAIL));
         m.setCatchAlertId(JsonNullable.of(entity.getCatchAlertId()));
         m.setDemandListingId(JsonNullable.of(entity.getDemandListingId()));
         m.setOrderedQtyEstimate(JsonNullable.of(entity.getOrderedQtyEstimate()));

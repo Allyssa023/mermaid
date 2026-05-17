@@ -68,7 +68,7 @@ class CatchLogServiceTest {
         when(catchLogRepo.save(any())).thenReturn(saved);
         when(catchLogMapper.toModel(saved)).thenReturn(new com.mermaid.app.model.CatchLog());
 
-        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 5.0, 100.0);
+        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 10.0, 250.0);
         assertDoesNotThrow(() -> catchLogService.create(1L, req, 42L));
         verify(catchLogRepo).save(any());
     }
@@ -79,7 +79,11 @@ class CatchLogServiceTest {
         when(tripRepo.findByIdAndFishermanId(1L, 42L)).thenReturn(Optional.of(trip));
         when(speciesRepo.findById(99L)).thenReturn(Optional.empty());
 
+<<<<<<< Updated upstream
         CatchLogCreateRequest req = new CatchLogCreateRequest(99L, "5.0", 5.0, 100.0);
+=======
+        CatchLogCreateRequest req = new CatchLogCreateRequest(99L, "5.0", 10.0, 250.0);
+>>>>>>> Stashed changes
         assertThrows(ResourceNotFoundException.class,
             () -> catchLogService.create(1L, req, 42L));
     }
@@ -92,7 +96,7 @@ class CatchLogServiceTest {
         when(speciesRepo.findById(3L)).thenReturn(Optional.of(species));
         when(listingRepo.findById(999L)).thenReturn(Optional.empty());
 
-        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 5.0, 100.0);
+        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 10.0, 250.0);
         req.setMatchedListingId(
             org.openapitools.jackson.nullable.JsonNullable.of(999L));
         assertThrows(ResourceNotFoundException.class,
@@ -109,7 +113,7 @@ class CatchLogServiceTest {
         when(catchLogRepo.save(any())).thenReturn(saved);
         when(catchLogMapper.toModel(saved)).thenReturn(new com.mermaid.app.model.CatchLog());
 
-        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 5.0, 100.0);
+        CatchLogCreateRequest req = new CatchLogCreateRequest(3L, "5.0", 10.0, 250.0);
         // matchedListingId left as undefined/null — validation must not be attempted
         catchLogService.create(1L, req, 42L);
 
@@ -122,7 +126,7 @@ class CatchLogServiceTest {
         when(tripRepo.findByIdAndFishermanId(1L, 42L)).thenReturn(Optional.of(trip));
 
         assertThrows(TripNotActiveException.class,
-            () -> catchLogService.create(1L, new CatchLogCreateRequest(3L, "5.0", 5.0, 100.0), 42L));
+            () -> catchLogService.create(1L, new CatchLogCreateRequest(3L, "5.0", 10.0, 250.0), 42L));
     }
 
     // --- update ---

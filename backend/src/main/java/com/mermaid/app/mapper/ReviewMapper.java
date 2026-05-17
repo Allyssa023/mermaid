@@ -1,5 +1,6 @@
 package com.mermaid.app.mapper;
 
+import com.mermaid.app.domain.Order;
 import com.mermaid.app.domain.Review;
 import com.mermaid.app.domain.User;
 import org.openapitools.jackson.nullable.JsonNullable;
@@ -34,6 +35,10 @@ public class ReviewMapper {
     }
 
     public com.mermaid.app.model.ReviewWithReply toReviewWithReply(Review entity, User reviewer) {
+        return toReviewWithReply(entity, reviewer, null);
+    }
+
+    public com.mermaid.app.model.ReviewWithReply toReviewWithReply(Review entity, User reviewer, Order order) {
         com.mermaid.app.model.ReviewWithReply m = new com.mermaid.app.model.ReviewWithReply(
                 entity.getId(),
                 entity.getOrderId(),
@@ -45,6 +50,13 @@ public class ReviewMapper {
         m.setComment(JsonNullable.of(entity.getComment()));
         m.setVendorReply(JsonNullable.of(entity.getVendorReply()));
         m.setVendorReplyAt(JsonNullable.of(entity.getVendorReplyAt()));
+
+        if (order != null) {
+            m.setOrderCode(JsonNullable.of("ORD-" + order.getId()));
+            m.setSpeciesName(JsonNullable.of(order.getSpecies() != null ? order.getSpecies().getCommonName() : null));
+            m.setQuantityKg(JsonNullable.of(order.getOrderedQtyKg() != null ? order.getOrderedQtyKg().doubleValue() : null));
+            m.setOrderDate(JsonNullable.of(order.getCreatedAt()));
+        }
         return m;
     }
 

@@ -88,7 +88,7 @@ public class ProcurementOrderService {
         alertRepo.save(alert);
 
         Order order = new Order();
-        order.setKind(OrderKind.RETAIL);
+        order.setKind(OrderKind.PROCUREMENT);
         order.setBuyerId(deal.getVendorId());
         order.setSellerId(deal.getFishermanId());
         order.setSpecies(alert.getSpecies());
@@ -110,7 +110,7 @@ public class ProcurementOrderService {
         FishSpecies species = speciesRepo.findById(speciesId)
                 .orElseThrow(() -> new ResourceNotFoundException("Species not found: " + speciesId));
         Order order = new Order();
-        order.setKind(OrderKind.RETAIL);
+        order.setKind(OrderKind.PROCUREMENT);
         order.setBuyerId(vendorId);
         order.setSellerId(fishermanId);
         order.setSpecies(species);

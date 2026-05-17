@@ -26,8 +26,8 @@ export default function EarningsPage() {
   if (summaryQ.error) return <div className="page"><ApiError error={summaryQ.error} onRetry={summaryQ.refetch} /></div>
   if (ledgerQ.error) return <div className="page"><ApiError error={ledgerQ.error} onRetry={ledgerQ.refetch} /></div>
 
-  const e      = summaryQ.data ?? {}
-  const ledger = ledgerQ.data ?? []
+  const e        = summaryQ.data ?? {}
+  const ledger   = ledgerQ.data ?? []
 
   const rangeLabel = range === '7' ? 'Last 7 days' : range === '30' ? 'Last 30 days' : range === '90' ? 'Last 90 days' : 'Last year'
 
@@ -37,7 +37,7 @@ export default function EarningsPage() {
         <div>
           <div className="eyebrow">Money</div>
           <h1 className="page__title" style={{marginTop: 4}}>Your <em>earnings</em></h1>
-          <p className="page__sub">Track every kilo sold and what's still on utang.</p>
+          <p className="page__sub">Track every kilo sold and what you've collected.</p>
         </div>
         <div className="seg" style={{alignSelf: 'flex-end'}}>
           {ranges.map(r => (
@@ -49,34 +49,35 @@ export default function EarningsPage() {
       <div className="grid grid--kpi" style={{marginTop: 18}}>
         <div className="kpi"><div className="kpi__label">Total gross</div><div className="kpi__value">₱{(e.totalGross ?? 0).toLocaleString()}</div><div className="kpi__foot">{rangeLabel}</div></div>
         <div className="kpi"><div className="kpi__label">Cash collected</div><div className="kpi__value" style={{color: 'var(--safe)'}}>₱{(e.cashCollected ?? 0).toLocaleString()}</div><div className="kpi__foot">{e.totalGross ? Math.round(e.cashCollected / e.totalGross * 100) : 0}% of gross</div></div>
-        <div className="kpi"><div className="kpi__label">Outstanding utang</div><div className="kpi__value" style={{color: 'var(--caution)'}}>₱{(e.creditOutstanding ?? 0).toLocaleString()}</div><div className="kpi__foot">outstanding</div></div>
-        <div className="kpi"><div className="kpi__label">Orders</div><div className="kpi__value">{e.orderCount ?? 0}</div><div className="kpi__foot">{e.orderCount ? Math.round(e.totalGross / e.orderCount).toLocaleString() : 0} avg</div></div>
+        <div className="kpi"><div className="kpi__label">Outstanding</div><div className="kpi__value" style={{color: 'var(--caution)'}}>₱{(e.creditOutstanding ?? 0).toLocaleString()}</div><div className="kpi__foot">unpaid</div></div>
+        <div className="kpi"><div className="kpi__label">Orders</div><div className="kpi__value">{e.orderCount ?? 0}</div><div className="kpi__foot">{e.orderCount ? `₱${Math.round(e.totalGross / e.orderCount).toLocaleString()} avg` : '—'}</div></div>
       </div>
 
       <div className="card" style={{marginTop: 18}}>
         <div className="card__head">
           <div className="card__title">Order ledger</div>
-          <div className="row" style={{gap: 8}}>
-            <button className="btn btn--sm"><I.Filter size={12} /> Payment</button>
-            <button className="btn btn--sm"><I.Filter size={12} /> Species</button>
-          </div>
         </div>
-        <table className="tbl">
-          <thead><tr><th>Date</th><th>Vendor</th><th>Species</th><th>Qty</th><th>Gross</th><th>Payment</th><th></th></tr></thead>
-          <tbody>
-            {ledger.map(r => (
-              <tr key={r.orderId}>
-                <td className="muted-data">{r.date ? String(r.date).split('T')[0] : '—'}</td>
-                <td>{r.vendorName}</td>
-                <td>{r.speciesName}</td>
-                <td>{r.qtyKg} kg</td>
-                <td><span className="data" style={{fontFamily: 'var(--font-mono)'}}>₱{(r.gross ?? 0).toLocaleString()}</span></td>
-                <td><span className={`chip ${r.paymentMethod === 'CASH' ? 'chip--safe' : 'chip--caution'}`}>{r.paymentMethod}</span></td>
-                <td style={{textAlign: 'right'}}><button className="btn btn--ghost btn--sm">Details</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {ledger.length === 0 ? (
+          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
+            No completed orders in this period. Complete an order to see your earnings here.
+          </div>
+        ) : (
+          <table className="tbl">
+            <thead><tr><th>Date</th><th>Vendor</th><th>Species</th><th>Qty</th><th>Gross</th><th>Payment</th></tr></thead>
+            <tbody>
+              {ledger.map(r => (
+                <tr key={r.orderId}>
+                  <td className="muted-data">{r.date ? String(r.date).split('T')[0] : '—'}</td>
+                  <td>{r.vendorName ?? '—'}</td>
+                  <td>{r.speciesName ?? '—'}</td>
+                  <td>{r.qtyKg != null ? `${r.qtyKg} kg` : '—'}</td>
+                  <td><span className="data" style={{fontFamily: 'var(--font-mono)'}}>₱{(r.gross ?? 0).toLocaleString()}</span></td>
+                  <td><span className={`chip ${r.paymentMethod === 'CREDIT' ? 'chip--caution' : 'chip--safe'}`}>{r.paymentMethod === 'CREDIT' ? 'Credit' : r.paymentMethod ?? '—'}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )

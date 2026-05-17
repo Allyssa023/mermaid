@@ -47,6 +47,19 @@ public class VendorWatchlistController implements VendorWatchlistApi {
     }
 
     @Override
+    public ResponseEntity<VendorWatchlistEntry> updateVendorWatchlist(Long id, VendorWatchlistRequest req) {
+        Long vendorId = SecurityUtils.currentUserId();
+        Long speciesId = req.getSpeciesId() != null && req.getSpeciesId().isPresent()
+            ? req.getSpeciesId().get() : null;
+        Long locationId = req.getMarketLocationId() != null && req.getMarketLocationId().isPresent()
+            ? req.getMarketLocationId().get() : null;
+        BigDecimal radius = req.getRadiusKm() != null && req.getRadiusKm().isPresent() && req.getRadiusKm().get() != null
+            ? BigDecimal.valueOf(req.getRadiusKm().get()) : null;
+        VendorWatchlist saved = watchlistService.update(vendorId, id, speciesId, locationId, radius);
+        return ResponseEntity.ok(toDto(saved));
+    }
+
+    @Override
     public ResponseEntity<Void> deleteVendorWatchlist(Long id) {
         Long vendorId = SecurityUtils.currentUserId();
         watchlistService.remove(vendorId, id);

@@ -32,4 +32,7 @@ public interface CatchAlertRepository extends JpaRepository<CatchAlert, Long> {
 
     @Query("SELECT a FROM CatchAlert a WHERE a.status = 'ACTIVE' AND a.expiresAt > :now AND a.species.id = :speciesId ORDER BY a.createdAt DESC")
     List<CatchAlert> findActiveFeedBySpecies(OffsetDateTime now, Long speciesId);
+
+    @Query("SELECT a.catchLogId FROM CatchAlert a WHERE a.catchLogId IN :logIds AND a.status IN ('ACTIVE','MATCHED')")
+    List<Long> findAlertedCatchLogIds(@org.springframework.data.repository.query.Param("logIds") java.util.Collection<Long> logIds);
 }

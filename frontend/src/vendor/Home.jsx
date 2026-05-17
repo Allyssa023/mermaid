@@ -25,7 +25,7 @@ export default function Home({ setPage }) {
           <p className="page__sub">{user?.business ?? ''}</p>
         </div>
         <div className="page__actions">
-          <button className="btn"><I.Plus size={12} /> New listing</button>
+          <button className="btn" onClick={() => setPage('vstore')}><I.Plus size={12} /> New listing</button>
           <button className="btn btn--primary" onClick={() => setPage('vprocurement')}><I.Fish size={12} /> Browse catch</button>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function Home({ setPage }) {
         <div className="card__head">
           <div>
             <div className="card__title">Recent matched catch alerts</div>
-            <div className="card__sub">Based on your watchlist</div>
+            <div className="card__sub">Recent activity from the procurement feed</div>
           </div>
           <button className="btn btn--sm" onClick={() => setPage('vprocurement')}>Browse all <I.Arrow size={11} /></button>
         </div>

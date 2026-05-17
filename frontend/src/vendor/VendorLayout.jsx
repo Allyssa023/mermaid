@@ -9,11 +9,9 @@ const NAV = [
   { to: 'orders',       label: 'Orders',       icon: 'Clipboard' },
   { to: 'procurement',  label: 'Procurement',  icon: 'Fish' },
   { to: 'inventory',    label: 'Inventory',    icon: 'Box' },
-  { to: 'watchlist',    label: 'Watchlist',    icon: 'Star' },
   { to: 'shop-profile', label: 'Shop profile', icon: 'Settings' },
   { to: 'analytics',    label: 'Analytics',    icon: 'Waves' },
   { to: 'reviews',      label: 'Reviews',      icon: 'Message' },
-  { to: 'payouts',      label: 'Payouts',      icon: 'Receipt' },
 ]
 
 export default function VendorLayout({ user, onLogout }) {

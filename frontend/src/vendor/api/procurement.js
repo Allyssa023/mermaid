@@ -52,3 +52,7 @@ export const initiateOrderPayout = (orderId, channel) =>
 // the redirectUrl to complete payment.
 export const createOrderPaymentIntent = (orderId, method) =>
   apiPost(`/buyer/orders/${orderId}/payment-intent?method=${encodeURIComponent(method)}`, null, {})
+
+// Credit settlement — vendor pays off an outstanding credit (utang)
+export const settleCredit = (orderId, body) =>
+  apiPut(`/orders/${orderId}/credit/settle`, null, body)

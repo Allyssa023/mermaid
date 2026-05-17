@@ -118,9 +118,7 @@ export default function StartTripModal({ token, initialDate, initialStatus = 'AC
   function handleNext(e) {
     e.preventDefault()
     setError(null)
-    if (!municipality)   { setError('Please select a municipality'); return }
-    if (!departurePoint) { setError('Please select a departure point'); return }
-    if (!targetArea)     { setError('Please select a target area'); return }
+    if (!municipality) { setError('Please select a municipality'); return }
     setStep(2)
   }
 
@@ -134,11 +132,11 @@ export default function StartTripModal({ token, initialDate, initialStatus = 'AC
     setError(null)
     try {
       const payload = {
-        departurePoint: `${departurePoint}, ${municipality}`,
-        targetArea,
-        vesselName: vesselName.trim() || null,
-        notes:      notes.trim() || null,
-        status:     initialStatus,
+        departurePoint: departurePoint ? `${departurePoint}, ${municipality}` : municipality || null,
+        targetArea:     targetArea || null,
+        vesselName:     vesselName.trim() || null,
+        notes:          notes.trim() || null,
+        status:         initialStatus,
       }
       if (initialDate) payload.startedAt = initialDate.toISOString()
 
@@ -248,15 +246,14 @@ export default function StartTripModal({ token, initialDate, initialStatus = 'AC
             </label>
 
             <label className="trip-form__label">
-              Departure Point *
+              Departure Point
               <select
                 className="trip-form__input"
                 value={departurePoint}
                 onChange={e => setDeparturePoint(e.target.value)}
                 disabled={!municipality}
-                required
               >
-                <option value="">{municipality ? 'Select departure point…' : 'Select municipality first'}</option>
+                <option value="">{municipality ? 'Select departure point… (optional)' : 'Select municipality first'}</option>
                 {departureOptions.map(dp => (
                   <option key={dp} value={dp}>{dp}</option>
                 ))}
@@ -264,15 +261,14 @@ export default function StartTripModal({ token, initialDate, initialStatus = 'AC
             </label>
 
             <label className="trip-form__label">
-              Target Area *
+              Target Area
               <select
                 className="trip-form__input"
                 value={targetArea}
                 onChange={e => setTargetArea(e.target.value)}
                 disabled={!municipality}
-                required
               >
-                <option value="">{municipality ? 'Select target area…' : 'Select municipality first'}</option>
+                <option value="">{municipality ? 'Select target area… (optional)' : 'Select municipality first'}</option>
                 {targetOptions.map(ta => (
                   <option key={ta} value={ta}>{ta}</option>
                 ))}

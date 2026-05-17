@@ -34,20 +34,30 @@ export default function Reviews() {
         {reviews.map(r => (
           <div key={r.id} className="card">
             <div className="row" style={{alignItems: 'flex-start', gap: 12}}>
-              <div style={{width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontWeight: 600}}>{r.buyerName[0]}</div>
+              <div style={{width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontWeight: 600}}>{(r.reviewerName ?? '?')[0]}</div>
               <div style={{flex: 1}}>
                 <div className="row" style={{justifyContent: 'space-between', alignItems: 'center'}}>
-                  <strong>{r.buyerName}</strong>
-                  <span className="muted-data" style={{fontSize: 12}}>{r.createdAt}</span>
+                  <div>
+                    <strong>{r.reviewerName ?? 'Buyer'}</strong>
+                  </div>
+                  <span className="muted-data" style={{fontSize: 12}}>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ''}</span>
                 </div>
+                {(r.orderCode || r.speciesName || r.quantityKg) && (
+                  <div className="row" style={{gap: 12, marginTop: 4, fontSize: 12, color: 'var(--ink-3)'}}>
+                    {r.orderCode && <span className="kbd" style={{fontSize: 11}}>{r.orderCode}</span>}
+                    {r.speciesName && <span>{r.speciesName}</span>}
+                    {r.quantityKg && <span>{r.quantityKg}<small> kg</small></span>}
+                    {r.orderDate && <span>{new Date(r.orderDate).toLocaleDateString()}</span>}
+                  </div>
+                )}
                 <div style={{color: 'oklch(0.65 0.15 80)', fontFamily: 'var(--font-mono)', fontSize: 13, marginTop: 2}}>
                   {'★'.repeat(r.rating)}<span style={{opacity: 0.3}}>{'★'.repeat(5 - r.rating)}</span>
                 </div>
-                <p style={{margin: '8px 0 0', fontSize: 14, lineHeight: 1.55}}>{r.content}</p>
-                {r.replyText ? (
+                <p style={{margin: '8px 0 0', fontSize: 14, lineHeight: 1.55}}>{r.comment}</p>
+                {r.vendorReply ? (
                   <div style={{marginTop: 10, padding: '10px 12px', background: 'var(--safe-soft)', borderLeft: '3px solid var(--safe)', borderRadius: 4, fontSize: 13}}>
                     <div className="eyebrow" style={{color: 'var(--safe)', marginBottom: 4}}>Your reply</div>
-                    {r.replyText}
+                    {r.vendorReply}
                     <button className="btn btn--ghost btn--sm" style={{marginTop: 6, padding: '2px 8px', fontSize: 11}} onClick={() => { setReplyOpen(r.id); setReplyText('') }}>Edit</button>
                   </div>
                 ) : replyOpen === r.id ? (

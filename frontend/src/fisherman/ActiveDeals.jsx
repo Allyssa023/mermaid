@@ -37,10 +37,11 @@ export default function ActiveDeals({ setPage }) {
 
   const rejectMut = useMutation({
     mutationFn: ({ id, reason }) => rejectDeal(id, reason),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       setRejectingId(null)
       setReasonText('')
-      qc.invalidateQueries({ queryKey: ['deals', 'mine', 'NEGOTIATING'] })
+      qc.invalidateQueries({ queryKey: ['deals'] })
+      qc.invalidateQueries({ queryKey: ['deal', id] })
     },
   })
 

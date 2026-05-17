@@ -1,38 +1,57 @@
 package com.mermaid.app.service;
 
+import com.mermaid.app.domain.CatchAlert;
+import com.mermaid.app.domain.CatchLog;
 import com.mermaid.app.domain.Trip;
 import com.mermaid.app.domain.User;
+import com.mermaid.app.event.CatchAlertCreatedEvent;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.exception.TripNotActiveException;
 import com.mermaid.app.mapper.TripMapper;
 import com.mermaid.app.model.*;
+import com.mermaid.app.repository.CatchAlertRepository;
+import com.mermaid.app.repository.CatchLogRepository;
 import com.mermaid.app.repository.TripRepository;
 import com.mermaid.app.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class TripService {
 
     private static final Logger log = LoggerFactory.getLogger(TripService.class);
+    private static final int DEFAULT_ALERT_EXPIRY_HOURS = 4;
 
     private final TripRepository tripRepo;
     private final TripMapper tripMapper;
     private final UserRepository userRepo;
     private final SmsService smsService;
+    private final CatchLogRepository catchLogRepo;
+    private final CatchAlertRepository catchAlertRepo;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TripService(TripRepository tripRepo, TripMapper tripMapper,
-                       UserRepository userRepo, SmsService smsService) {
+                       UserRepository userRepo, SmsService smsService,
+                       CatchLogRepository catchLogRepo,
+                       CatchAlertRepository catchAlertRepo,
+                       ApplicationEventPublisher eventPublisher) {
         this.tripRepo = tripRepo;
         this.tripMapper = tripMapper;
         this.userRepo = userRepo;
         this.smsService = smsService;
+        this.catchLogRepo = catchLogRepo;
+        this.catchAlertRepo = catchAlertRepo;
+        this.eventPublisher = eventPublisher;
     }
 
     private String resolveFishermanName(Long fishermanId) {
@@ -146,8 +165,50 @@ public class TripService {
             trip.setNotes(req.getNotes().get());
         }
         Trip saved = tripRepo.save(trip);
+
+        // Auto-create catch alerts for all un-alerted catch logs
+        autoCreateCatchAlerts(tripId, fishermanId, trip.getDeparturePoint());
+
         sendReturnSms(fishermanId);
         return tripMapper.toModel(saved, resolveFishermanName(fishermanId));
+    }
+
+    private void autoCreateCatchAlerts(Long tripId, Long fishermanId, String landingSite) {
+        List<CatchLog> catches = catchLogRepo.findAllByTripIdOrderByLoggedAtDesc(tripId);
+        if (catches.isEmpty()) return;
+
+        // Find catch log IDs that already have an active/matched alert
+        List<Long> logIds = catches.stream().map(CatchLog::getId).toList();
+        Set<Long> alreadyAlerted = new HashSet<>(catchAlertRepo.findAlertedCatchLogIds(logIds));
+
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusHours(DEFAULT_ALERT_EXPIRY_HOURS);
+        int created = 0;
+
+        for (CatchLog c : catches) {
+            if (alreadyAlerted.contains(c.getId())) continue;
+
+            CatchAlert alert = new CatchAlert();
+            alert.setFishermanId(fishermanId);
+            alert.setSpecies(c.getSpecies());
+            alert.setCatchLogId(c.getId());
+            alert.setQuantityEstimate(c.getQuantityEstimate());
+            if (c.getQuantityKg() != null) {
+                alert.setQuantityKg(c.getQuantityKg());
+            }
+            if (c.getEstimatedPricePerKg() != null) {
+                alert.setAskingPricePerKg(c.getEstimatedPricePerKg());
+            }
+            if (landingSite != null) {
+                alert.setLandingSite(landingSite);
+            }
+            alert.setNotes(c.getNotes());
+            alert.setExpiresAt(expiresAt);
+
+            CatchAlert saved = catchAlertRepo.save(alert);
+            eventPublisher.publishEvent(new CatchAlertCreatedEvent(saved.getId()));
+            created++;
+        }
+        log.info("Trip {} ended: auto-created {} catch alerts from {} catch logs", tripId, created, catches.size());
     }
 
     private void sendDepartureSms(Long fishermanId, Trip trip) {

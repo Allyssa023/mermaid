@@ -79,6 +79,30 @@ public class WatchlistService {
     }
 
     @Transactional
+    public VendorWatchlist update(Long vendorId, Long watchlistId,
+                                  Long speciesId, Long marketLocationId, BigDecimal radiusKm) {
+        VendorWatchlist entry = watchlistRepo.findById(watchlistId)
+            .orElseThrow(() -> new ResourceNotFoundException("Watchlist entry not found: " + watchlistId));
+        if (!entry.getVendorId().equals(vendorId) || entry.isDeleted()) {
+            throw new ResourceNotFoundException("Watchlist entry not found: " + watchlistId);
+        }
+        if (speciesId != null) {
+            FishSpecies species = speciesRepo.findById(speciesId)
+                .orElseThrow(() -> new ResourceNotFoundException("FishSpecies not found: " + speciesId));
+            entry.setSpecies(species);
+        }
+        if (marketLocationId != null) {
+            MarketLocation location = locationRepo.findById(marketLocationId)
+                .orElseThrow(() -> new ResourceNotFoundException("MarketLocation not found: " + marketLocationId));
+            entry.setMarketLocation(location);
+        }
+        if (radiusKm != null) {
+            entry.setRadiusKm(radiusKm);
+        }
+        return watchlistRepo.save(entry);
+    }
+
+    @Transactional
     public void remove(Long vendorId, Long watchlistId) {
         VendorWatchlist entry = watchlistRepo.findById(watchlistId)
             .orElseThrow(() -> new ResourceNotFoundException("Watchlist entry not found: " + watchlistId));

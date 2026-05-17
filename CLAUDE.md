@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **MERMAID** — Marine Early-warning, Risk Monitoring & Advisory Information for Demand. A fisheries safety and market coordination platform for small-scale fishermen and wet market vendors.
 
-**Two user personas:** Isidro (fisherman) and Rosario (wet market vendor).
+**Four user roles:** `FISHERMAN`, `VENDOR`, `BUYER`, `ADMIN`. Isidro is the fisherman persona; Rosario is the wet market vendor persona.
 
 ## Architecture
 
@@ -39,6 +39,7 @@ cd backend
 ./mvnw test                         # Run all tests
 ./mvnw test -Dtest=FooServiceTest   # Run a single test class
 ./mvnw test -Dtest=FooServiceTest#myMethodName  # Run a single test method
+./mvnw generate-sources             # Regenerate OpenAPI interfaces and DTOs only
 ```
 
 ### Frontend
@@ -47,6 +48,7 @@ cd frontend
 npm run dev      # Dev server on port 5173
 npm run build    # Production build to dist/
 npm run lint     # ESLint
+npm test         # Run Vitest unit tests (vitest run)
 ```
 
 ### Marine Service
@@ -61,6 +63,7 @@ uvicorn app.main:app --reload    # Dev server on port 8081
 - DB: PostgreSQL on `localhost:5432/mermaid_db` (default user: `postgres`, pass: `1234`)
 - JWT: HS256, secret and expiry configurable via env vars; secret must be ≥ 32 bytes
 - Runs on `/api` context path
+- **Xendit** (optional): set `xendit.secret-key`, `xendit.public-key`, `xendit.webhook-token`, and `xendit.return-url` to activate the payment gateway. `XenditPaymentGatewayService` is `@ConditionalOnExpression` — if the key is blank a no-op stub is used.
 
 **Marine Service** (`marine-service/.env`, see `.env.example`):
 - `MARINE_API_KEY` — shared secret used by the Java backend (`X-API-Key` header)
@@ -81,21 +84,30 @@ service/FooService       — business logic, all writes are @Transactional
 
 Service methods use `@Transactional(readOnly = true)` for reads and `@Transactional` for writes. `GlobalExceptionHandler` maps domain exceptions to HTTP responses:
 
-| Exception | HTTP |
-|-----------|------|
-| `ResourceNotFoundException` | 404 |
-| `IllegalArgumentException` | 400 |
-| `EmailAlreadyExistsException` | 409 |
-| `ListingClosedException` | 409 |
-| `TripNotActiveException` | 409 |
-| `MarineServiceUnavailableException` | 503 |
-| `InvalidCredentialsException` | 401 |
+| Exception | HTTP | Error Code |
+|-----------|------|------------|
+| `ResourceNotFoundException` | 404 | — |
+| `IllegalArgumentException` | 400 | — |
+| `EmailAlreadyExistsException` | 409 | — |
+| `EmailNotVerifiedException` | 403 | — |
+| `AccessDeniedException` | 403 | — |
+| `ListingClosedException` | 409 | `LISTING_CLOSED` |
+| `InsufficientStockException` | 409 | `INSUFFICIENT_STOCK` |
+| `IllegalStateException` | 409 | `ILLEGAL_STATE` |
+| `DuplicateInterestException` | 409 | `DUPLICATE_INTEREST` |
+| `DealConflictException` | 409 | `DEAL_CONFLICT` |
+| `TripNotActiveException` | 409 | — |
+| `MarineServiceUnavailableException` | 503 | — |
+| `InvalidCredentialsException` | 401 | — |
+| `UnsupportedOperationException` | 501 | — |
 
 ### Soft delete
 All domain entities use soft delete — never call `deleteById()`. Set the boolean active flag to `false` and call `save()`. The `fish_species` and `market_locations` tables index on `active = true`; the `advisories` table uses `is_active`.
 
 ### Security
-Spring Security is an OAuth2 resource server (stateless, no sessions). JWT roles are extracted from the `roles` claim as a list of strings (e.g. `["ROLE_ADMIN"]`) by `JwtAuthenticationConverter`. Public endpoints: `/auth/login`, `/auth/register`, `/error`. Everything else requires a valid Bearer token. Admin-only controllers carry `@PreAuthorize("hasRole('ADMIN')")` at class level.
+Spring Security is an OAuth2 resource server (stateless, no sessions). JWT roles are extracted from the `roles` claim as a list of strings (e.g. `["ROLE_VENDOR"]`) by `JwtAuthenticationConverter`. Public endpoints: `/auth/login`, `/auth/register`, `/error`. Everything else requires a valid Bearer token. Admin-only controllers carry `@PreAuthorize("hasRole('ADMIN')")` at class level. Role-based guards on individual methods use `hasRole('VENDOR')`, `hasRole('FISHERMAN')`, `hasRole('BUYER')` etc.
+
+`SecurityUtils.currentUserId()` extracts the authenticated user's ID from the JWT for use in service calls.
 
 ### Adding new endpoints
 1. Define the path, request/response schemas, and `required` fields (with `minLength`/`maxLength`) in `api.yaml`.
@@ -105,6 +117,29 @@ Spring Security is an OAuth2 resource server (stateless, no sessions). JWT roles
 
 ### Controller tests
 Use `@WebMvcTest(FooController.class)` + `MockMvc`. Mock all service dependencies with `@MockitoBean`. Authenticate with `SecurityMockMvcRequestPostProcessors.jwt()` and set `.claim("roles", List.of("ROLE_ADMIN"))` for admin tests. `@MockitoBean JwtDecoder jwtDecoder` is required in every controller test slice to satisfy the security auto-configuration.
+
+### WebSocket / Real-time
+`WebSocketConfig` sets up STOMP over SockJS at `/ws`. Three per-user queues used across the app:
+- `/user/queue/messages` — deal chat messages (carry `dealId` in `ChatMessage`)
+- `/user/queue/deals` — deal lifecycle events (NEGOTIATING → AGREED/EXPIRED/CANCELLED)
+- `/user/queue/notifications` — bell pings (new order, proposal, etc.)
+
+`ChatController` handles `@MessageMapping("/chat.send")` and broadcasts via `SimpMessagingTemplate`. `NotificationEventListener` listens for Spring `ApplicationEvent`s (e.g., `OrderStatusChangeEvent`) and pushes to `/user/queue/notifications`.
+
+### Order lifecycle
+All orders use a single RETAIL flow (no separate procurement-order kind in practice). Status progression:
+
+```
+PENDING → CONFIRMED → COMPLETED
+```
+
+Sub-steps overlaid on this: handoff confirmation (seller then buyer), then payment recording (vendor records, fisherman confirms). `OrderService` publishes `OrderStatusChangeEvent` on every transition so `NotificationEventListener` can push real-time bell pings.
+
+### CatchAlert flow
+Fisherman posts a `CatchAlert` (ACTIVE) with species, kg, landing site, and asking price. Vendors browse the procurement feed, add alerts to a `ProcurementCart`, then start a `Deal` to negotiate. On deal acceptance a RETAIL `Order` is created; `claimedKg` on the alert is incremented and the alert flips to SOLD when fully claimed.
+
+### Deal negotiation
+Vendor starts a deal from a procurement cart row → `Deal` (NEGOTIATING) + opening `DealProposal`. Either party counters via `POST /deals/{id}/proposals`; a partial unique index `uq_deal_proposals_pending` enforces one pending proposal per deal. Accepting a proposal row-locks the alert, creates an `Order`, transitions the deal to AGREED, and sweeps competing peer deals (OVERCOMMIT → SUPERSEDED; sold-out alert → CANCELLED with reason `ALERT_SOLD_OUT`). `DealExpirySweeper` runs every 60 s and expires stale NEGOTIATING deals.
 
 ## Marine Service Structure
 
@@ -120,12 +155,40 @@ marine-service/app/
 
 Risk levels (`SAFE`/`CAUTION`/`UNSAFE`) are computed by `risk_engine.py` from wave height, wind speed, gusts, and precipitation thresholds.
 
+## Frontend Structure
+
+The frontend is a multi-role SPA. `App.jsx` reads the JWT role and mounts the appropriate dashboard. Role dispatch:
+
+| Role | Root component |
+|------|---------------|
+| `FISHERMAN` | `fisherman/FishermanDashboard.jsx` |
+| `VENDOR` | `vendor/VendorDashboard.jsx` |
+| `BUYER` | `buyer/BuyerDashboard.jsx` |
+| `ADMIN` | `AdminDashboard.jsx` |
+
+Each role has its own layout, page files, and `api/` module directory. Shared infrastructure:
+
+- **`src/context/AuthContext.jsx`** — JWT storage, user object, login/logout
+- **`src/context/StompContext.jsx`** — single STOMP client (SockJS); all pages share this connection. Deal chat, deal events, and notification bell subscribe here.
+- **`src/lib/queryClient.js`** — global React Query client (TanStack Query v5)
+- **`src/api.js`** — Axios instance with `/api` base URL and auth header injection
+- **`src/components/DealChatPane.jsx`** — shared deal chat pane used by both vendor and fisherman Messages pages
+
+Frontend tests use **Vitest** + React Testing Library (`npm test`). Test files live beside the pages they test in `__tests__/` subdirectories.
+
 ## Project Status
 
-**Implemented:** Auth (login/register/current-user), admin user management, marine conditions with risk assessment, admin advisories CRUD, fish species and market location reference data (lookup endpoints + admin CRUD), vendor demand listings (`VendorDemandListingController` + `MarketplaceController`), fisherman marketplace, trip sessions with safety checklists (`TripController`, full ACTIVE→ENDED lifecycle with `TripStatus` enum).
+**Fully implemented:**
+- Auth: login, register, email verification, Google OAuth2, current-user endpoint
+- Admin: user management, advisories CRUD, fish species & market location CRUD
+- Marine conditions with risk assessment
+- Fisherman: trip sessions (ACTIVE→ENDED lifecycle with safety checklist), catch logs (domain entity, service, mapper, controller all implemented), catch alerts, procurement feed, earnings, profile
+- Vendor: demand listings, storefront editor, inventory management, shop profile, analytics, payouts, procurement cart, watchlist, deal negotiation, orders inbox
+- Buyer: marketplace, cart, checkout (Xendit e-wallet/card), addresses, orders, favorites, reviews, recommendations, public shop, payment return page
+- Deals negotiation: full backend + frontend (vendor ProcurementFeed, fisherman ActiveDeals, shared Messages page with chat)
+- Real-time: STOMP WebSocket for chat, deal events, and notification bell (all three roles)
+- File uploads: `FileUploadController` serves and stores images; `LocalStorageService` writes to local disk
+- Payments: Xendit `/v3/payment_requests` for GCash, PayMaya, and card; webhook handler at `POST /payments/webhook`; BFAR reference prices lookup
+- Notifications: `Notification` entity, `NotificationController`, `NotificationEventListener` publishing via STOMP
 
-**Deals negotiation flow:** Vendor and fisherman agree on price/qty before an order exists. Vendor clicks Start deal on a cart row → backend creates a `Deal` row (NEGOTIATING) and an opening `DealProposal` from the cart qty + alert asking price. Either party can counter with `POST /deals/{id}/proposals`; submitting supersedes any pending proposal via the partial unique index `uq_deal_proposals_pending`. The counterparty calls `POST /deals/{id}/proposals/{proposalId}/accept` to row-lock the alert, create a RETAIL `Order` with `order.deal_id` set, transition the deal to AGREED, and sweep competing peer deals on the same alert (OVERCOMMIT → proposal SUPERSEDED; alert sold out → peer deals CANCELLED with reason `ALERT_SOLD_OUT`). `DealExpirySweeper` runs every 60s and transitions stale NEGOTIATING deals to EXPIRED. Chat lives on `/user/queue/messages` (deal-tagged via `ChatMessage.dealId`); deal lifecycle events broadcast on `/user/queue/deals`; bell pings on `/user/queue/notifications`. Frontend: `frontend/src/context/StompContext.jsx` is the single STOMP client; `frontend/src/components/DealChatPane.jsx` is the shared chat pane; vendor and fisherman each have their own Messages page that auto-selects from `?deal=` or `sessionStorage['mermaid:openDeal']`. See `docs/superpowers/specs/2026-05-15-deals-negotiation-design.md` and `docs/superpowers/plans/2026-05-15-deals-negotiation.md` for the full design and task plan.
-
-**Still MVP-pending:** Catch log CRUD (schema in V9 migration and `api.yaml` endpoints defined, but no domain entity/service/mapper yet), Docker Compose orchestration.
-
-**Frontend:** Early MVP stage — currently a single `App.jsx` with login/register UI. No component structure yet.
+**Still MVP-pending:** Docker Compose orchestration.

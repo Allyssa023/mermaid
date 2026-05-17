@@ -3,7 +3,7 @@ import { I } from '../icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { listTrips, endTrip,
          listCatchLogs, createCatchLog, deleteCatchLog } from './api/trips'
-import { listCatchAlerts, createCatchAlert } from './api/catchAlerts'
+import { listCatchAlerts } from './api/catchAlerts'
 import { fetchSpecies } from '../api/lookup'
 import StartTripModal from '../components/StartTripModal'
 import BfarBadge from '../components/BfarBadge'
@@ -136,15 +136,18 @@ export function AddCatchModal({ tripId, species, onSaved, onClose }) {
 
 // ── End Trip Modal ────────────────────────────────────────────────────────────
 
-function EndTripModal({ trip, onEnded, onClose }) {
+function EndTripModal({ trip, catches = [], onEnded, onClose }) {
   const [notes, setNotes] = useState('')
   const [err, setErr]     = useState(null)
   const qc = useQueryClient()
+
+  const totalKg = catches.reduce((a, c) => a + (c.quantityKg ?? 0), 0)
 
   const mut = useMutation({
     mutationFn: () => endTrip(trip.id, { notes: notes.trim() || null }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['trips'] })
+      qc.invalidateQueries({ queryKey: ['catchAlerts', 'own'] })
       onEnded()
     },
     onError: e => setErr(e.message),
@@ -162,6 +165,23 @@ function EndTripModal({ trip, onEnded, onClose }) {
           <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
             End <strong>{trip.targetArea ?? 'this trip'}</strong>? The trip will be marked as Completed.
           </p>
+          {catches.length > 0 && (
+            <div style={{
+              marginTop: 12, padding: '10px 14px', borderRadius: 8,
+              background: 'var(--accent-soft, rgba(0,128,128,0.08))',
+              border: '1px solid var(--accent)',
+              fontSize: 13,
+            }}>
+              <strong style={{ color: 'var(--accent)' }}>📢 Vendors will be notified</strong>
+              <div style={{ marginTop: 4, color: 'var(--ink-2)' }}>
+                {catches.length} catch alert{catches.length !== 1 ? 's' : ''} will be posted
+                ({totalKg.toFixed(1)} kg total) — expires in 4 hours.
+              </div>
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--ink-3)' }}>
+                {catches.map(c => c.species?.commonName ?? '—').join(', ')}
+              </div>
+            </div>
+          )}
           <label className="trip-form__label" style={{ marginTop: 16 }}>
             Notes (optional)
             <textarea
@@ -183,7 +203,7 @@ function EndTripModal({ trip, onEnded, onClose }) {
               onClick={() => mut.mutate()}
               disabled={mut.isPending}
             >
-              {mut.isPending ? 'Ending…' : 'End Trip'}
+              {mut.isPending ? 'Ending…' : `End Trip${catches.length > 0 ? ` & Alert ${catches.length} catch${catches.length !== 1 ? 'es' : ''}` : ''}`}
             </button>
           </div>
         </div>
@@ -229,35 +249,10 @@ export default function TripsPage({ openModalTrigger = 0 }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['catchLogs', activeTrip?.id] }),
   })
 
-  const postAlertsMut = useMutation({
-    mutationFn: (catches) => Promise.all(
-      catches.map(c => createCatchAlert({
-        catchLogId:       c.id,
-        speciesId:        c.species?.id,
-        quantityKg:       (c.quantityKg != null && c.quantityKg >= 0.1) ? c.quantityKg : null,
-        quantityEstimate: c.quantityEstimate ?? null,
-        askingPricePerKg: c.estimatedPricePerKg ?? null,
-        expiresInHours:   4,
-        landingSite:      activeTrip?.departurePoint ?? null,
-      }))
-    ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['catchAlerts', 'own'] })
-    },
-  })
-
   if (tripsQ.isLoading) return <div className="page"><CardSkeleton /><TableRowSkeleton /></div>
   if (tripsQ.error) return <div className="page"><ApiError error={tripsQ.error} onRetry={tripsQ.refetch} /></div>
 
   const t = activeTrip
-
-  // Catch log IDs that already have an active or matched alert — don't re-post these
-  const alertedLogIds = new Set(
-    (alertsQ.data ?? [])
-      .filter(a => a.status === 'ACTIVE' || a.status === 'MATCHED')
-      .map(a => a.catchLogId)
-      .filter(Boolean)
-  )
 
   const elapsed    = t?.startedAt ? Math.max(0, now - new Date(t.startedAt).getTime()) : 0
   const durationH  = Math.floor(elapsed / 3600000)
@@ -290,6 +285,7 @@ export default function TripsPage({ openModalTrigger = 0 }) {
       {showEndTrip && t && (
         <EndTripModal
           trip={t}
+          catches={catches}
           onEnded={() => setShowEndTrip(false)}
           onClose={() => setShowEndTrip(false)}
         />
@@ -392,29 +388,9 @@ export default function TripsPage({ openModalTrigger = 0 }) {
                   <button className="btn btn--accent" onClick={() => setShowAddCatch(true)}>
                     <I.Plus size={12} /> Log catch
                   </button>
-                  {(() => {
-                    const unalerted = catches.filter(c => !alertedLogIds.has(c.id))
-                    const allPosted = catches.length > 0 && unalerted.length === 0
-                    const label = postAlertsMut.isPending
-                      ? 'Posting…'
-                      : allPosted
-                        ? 'All catches alerted'
-                        : catches.length === 0
-                          ? 'No catches yet'
-                          : `Post ${unalerted.length} catch alert${unalerted.length !== 1 ? 's' : ''}`
-                    return (
-                      <button
-                        className="btn"
-                        onClick={() => postAlertsMut.mutate(unalerted)}
-                        disabled={postAlertsMut.isPending || unalerted.length === 0}
-                      >
-                        <I.Bell size={12} /> {label}
-                      </button>
-                    )
-                  })()}
                   <div className="spacer" />
                   <button className="btn btn--primary" onClick={() => setShowEndTrip(true)}>
-                    End trip <I.Arrow size={12} />
+                    End trip & alert vendors <I.Arrow size={12} />
                   </button>
                 </div>
               </div>

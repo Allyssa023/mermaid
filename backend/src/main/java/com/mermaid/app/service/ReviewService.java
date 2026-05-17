@@ -148,8 +148,13 @@ public class ReviewService {
         Map<Long, User> reviewersById = userRepo.findAllById(reviewerIds).stream()
                 .collect(Collectors.toMap(User::getId, u -> u));
 
+        List<Long> orderIds = pageData.getContent().stream()
+                .map(Review::getOrderId).distinct().toList();
+        Map<Long, Order> ordersById = orderRepo.findAllById(orderIds).stream()
+                .collect(Collectors.toMap(Order::getId, o -> o));
+
         return pageData.getContent().stream()
-                .map(r -> mapper.toReviewWithReply(r, reviewersById.get(r.getReviewerId())))
+                .map(r -> mapper.toReviewWithReply(r, reviewersById.get(r.getReviewerId()), ordersById.get(r.getOrderId())))
                 .toList();
     }
 

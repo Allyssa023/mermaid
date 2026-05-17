@@ -18,7 +18,7 @@ function BarRow({ label, value, max, color = 'var(--accent)' }) {
   )
 }
 
-export default function Analytics() {
+export default function Analytics({ setPage }) {
   const [range, setRange] = useState('30')
 
   const now  = new Date()
@@ -83,11 +83,19 @@ export default function Analytics() {
           <thead><tr><th>Buyer</th><th>Orders</th><th>Total spent</th><th></th></tr></thead>
           <tbody>
             {buyers.map(b => (
-              <tr key={b.buyerName}>
+              <tr key={b.buyerId ?? b.buyerName}>
                 <td><strong>{b.buyerName}</strong></td>
                 <td>{b.orderCount}</td>
                 <td style={{fontFamily: 'var(--font-mono)'}}>₱{b.totalSpent.toLocaleString()}</td>
-                <td style={{textAlign: 'right'}}><button className="btn btn--ghost btn--sm">View orders</button></td>
+                <td style={{textAlign: 'right'}}>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => b.buyerId && setPage?.('vorders', { buyerId: b.buyerId })}
+                    disabled={!b.buyerId}
+                  >
+                    View orders
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

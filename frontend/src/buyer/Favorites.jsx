@@ -1,70 +1,90 @@
-import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
-
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const BUYER_FAVORITES = [
-  { id: 210, name: 'Marina Seafoods', port: 'Pinagbayanan · Quezon', rating: 4.8, trades: 184, lastBought: '2 days ago' },
-  { id: 213, name: 'Puerto Azul Resto', port: 'Anilao · Batangas', rating: 4.9, trades: 31, lastBought: '5 days ago' },
-  { id: 214, name: 'Del Mar Cold Chain', port: 'Batangas Port', rating: 4.7, trades: 215, lastBought: '9 days ago' },
-]
-
-const BUYER_ACTIVITY = [
-  { ts: '12 min ago', who: 'Marina Seafoods',  what: 'confirmed your order ORD-8412 (6kg Mahi-mahi)', type: 'order' },
-  { ts: '2 hr ago',   who: 'Bay City Market',  what: 'replied to your message about Grouper availability', type: 'message' },
-  { ts: '4 hr ago',   who: 'Marina Seafoods',  what: 'posted new listing — Yellowfin Tuna ₱400/kg × 60kg', type: 'listing' },
-  { ts: 'Yesterday',  who: 'You',              what: 'placed order ORD-8409 — Lapu-lapu 3kg × ₱560', type: 'order' },
-  { ts: 'Yesterday',  who: 'Del Mar',          what: 'completed delivery for ORD-8387 · ₱1,744', type: 'order' },
-]
+import { useFavorites } from '../context/FavoritesContext'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
 export default function Favorites({ setPage }) {
+  const { vendorFavorites, listingFavorites, loading, error, refresh, toggle } = useFavorites()
+
+  if (loading) return <div className="page"><TableRowSkeleton /></div>
+  if (error)   return <div className="page"><ApiError error={{ message: error }} onRetry={refresh} /></div>
+
+  const vendors = vendorFavorites.map(f => f.target ?? { id: f.targetId, name: f.targetName })
+  const savedListings = listingFavorites
+
   return (
     <div className="page">
       <div className="page__head">
         <div>
           <div className="eyebrow">Network</div>
           <h1 className="page__title" style={{marginTop: 4}}>Saved <em>Vendors</em></h1>
-          <p className="page__sub">{BUYER_FAVORITES.length} vendors you trust. Quick access to their listings and message threads.</p>
+          <p className="page__sub">{vendors.length} saved vendors · {savedListings.length} saved listings.</p>
         </div>
       </div>
 
-      <div className="vendor-grid" style={{marginTop: 18}}>
-        {BUYER_FAVORITES.map(v => (
-          <div key={v.id} className="vendor-card">
-            <div className="vendor-card__head">
-              <div className="vendor-card__avatar">{v.name.split(' ').map(s=>s[0]).join('').slice(0,2)}</div>
-              <button className="btn btn--ghost btn--sm"><I.Star size={12} /></button>
-            </div>
-            <h3 className="vendor-card__name">{v.name}</h3>
-            <div className="muted-data" style={{marginBottom: 12}}><I.MapPin size={11} /> {v.port}</div>
-            <div className="vendor-card__stats">
-              <div><div className="l">Rating</div><div className="v">★ {v.rating}</div></div>
-              <div><div className="l">Trades</div><div className="v">{v.trades}</div></div>
-              <div><div className="l">Last buy</div><div className="v" style={{fontSize: 13}}>{v.lastBought}</div></div>
-            </div>
-            <div className="vendor-card__foot">
-              <button className="btn btn--ghost btn--sm" style={{flex: 1}}>Message</button>
-              <button className="btn btn--accent btn--sm" style={{flex: 1}} onClick={() => setPage('bbrowse')}>View listings</button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="card" style={{marginTop: 18}}>
-        <div className="card__head">
-          <div className="card__title">Activity from saved vendors</div>
-        </div>
-        <ul className="activity">
-          {BUYER_ACTIVITY.map((a, i) => (
-            <li key={i} className="activity__item">
-              <span className={`activity__dot activity__dot--${a.type}`} />
-              <div className="activity__body">
-                <div className="activity__line"><strong>{a.who}</strong> <span>{a.what}</span></div>
-                <div className="activity__time">{a.ts}</div>
+      {vendors.length > 0 ? (
+        <div className="vendor-grid" style={{marginTop: 18}}>
+          {vendorFavorites.map(f => {
+            const v = f.target ?? {}
+            const name = v.shopName ?? v.name ?? f.targetName ?? 'Vendor'
+            const initials = name.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()
+            return (
+              <div key={f.id} className="vendor-card">
+                <div className="vendor-card__head">
+                  <div className="vendor-card__avatar">{initials}</div>
+                  <button className="btn btn--ghost btn--sm" onClick={() => toggle('VENDOR', f.targetId)}>
+                    <I.Star size={12} />
+                  </button>
+                </div>
+                <h3 className="vendor-card__name">{name}</h3>
+                {v.location && <div className="muted-data" style={{marginBottom: 12}}><I.MapPin size={11} /> {v.location}</div>}
+                {v.rating != null && (
+                  <div className="vendor-card__stats">
+                    <div><div className="l">Rating</div><div className="v">★ {v.rating}</div></div>
+                    {v.totalTrades != null && <div><div className="l">Trades</div><div className="v">{v.totalTrades}</div></div>}
+                  </div>
+                )}
+                <div className="vendor-card__foot">
+                  <button className="btn btn--accent btn--sm" style={{flex: 1}} onClick={() => setPage('bbrowse')}>View listings</button>
+                </div>
               </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="empty" style={{marginTop: 32}}>
+          <I.Star size={36} />
+          <div className="empty__title">No saved vendors yet</div>
+          <p>Star vendors from the marketplace to save them here.</p>
+          <button className="btn btn--primary" style={{marginTop: 12}} onClick={() => setPage('bbrowse')}>Browse marketplace</button>
+        </div>
+      )}
+
+      {savedListings.length > 0 && (
+        <div className="card" style={{marginTop: 18}}>
+          <div className="card__head">
+            <div className="card__title">Saved listings</div>
+          </div>
+          <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+            {savedListings.map(f => {
+              const l = f.target ?? {}
+              const name = l.speciesName ?? l.title ?? 'Listing'
+              return (
+                <div key={f.id} className="row" style={{gap: 10, padding: '10px 0', borderBottom: '1px solid var(--line)', alignItems: 'center'}}>
+                  <div style={{flex: 1}}>
+                    <div style={{fontWeight: 500}}>{name}</div>
+                    {l.vendorName && <div className="muted-data" style={{fontSize: 12}}>{l.vendorName}</div>}
+                  </div>
+                  {l.pricePerKg && <span style={{fontFamily: 'var(--font-mono)', fontSize: 13}}>₱{l.pricePerKg}/kg</span>}
+                  <button className="btn btn--accent btn--sm" onClick={() => setPage('bbrowse')}>View</button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => toggle('LISTING', f.targetId)}><I.Trash size={11} /></button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

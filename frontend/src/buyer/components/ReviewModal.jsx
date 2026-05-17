@@ -61,9 +61,8 @@ export default function ReviewModal({ order, existing, onClose, onSubmitted }) {
   const sellerName  = order.sellerName || order.seller?.fullName || 'the vendor'
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
-      <div className="modal__backdrop" onClick={onClose} />
-      <div className="modal__panel" style={{ maxWidth: 520 }}>
+    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="review-modal-title" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
         <div className="modal__head">
           <h2 id="review-modal-title">{isEdit ? 'Edit review' : 'Rate your order'}</h2>
           <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close review modal">×</button>

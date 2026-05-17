@@ -1,6 +1,5 @@
 package com.mermaid.app.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,6 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -41,58 +41,57 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
     public PaymentRequestResult createPaymentRequest(long amountCentavos, String method,
             String description, String idempotencyKey, String returnUrl) {
         boolean isCard = "CARD".equalsIgnoreCase(method);
-        // Xendit channel codes for PH ewallets use the PH_ prefix on the current
-        // /v3/payment_requests API (matching what disburse() uses).
+        // Xendit v3/payment_requests expects channel_code at the TOP LEVEL of the
+        // request body (NOT nested inside a payment_method object).
         String channelCode = switch (method.toUpperCase()) {
-            case "GCASH",   "PH_GCASH"             -> "PH_GCASH";
-            case "PAYMAYA", "MAYA", "PH_PAYMAYA"   -> "PH_PAYMAYA";
+            case "GCASH",   "PH_GCASH"             -> "GCASH";
+            case "PAYMAYA", "MAYA", "PH_PAYMAYA"   -> "PAYMAYA";
             default                                -> "CREDIT_DEBIT";
         };
-        Object channelProps = isCard ? Map.of()
-            : Map.of("success_return_url", returnUrl,
-                     "failure_return_url", returnUrl,
-                     "cancel_return_url",  returnUrl);
-        // Xendit Payment Methods v2 / payment_requests expects channel_code +
-        // channel_properties at the TOP of payment_method (siblings of `type`),
-        // not nested under an `ewallet` key. The nested shape triggers
-        // "Either channel_code or payment_token_id is required".
-        Map<String, Object> paymentMethod = isCard
-            ? Map.of("type", "CARD", "reusability", "ONE_TIME_USE", "card", Map.of())
-            : Map.of(
-                "type",               "EWALLET",
-                "reusability",        "ONE_TIME_USE",
-                "channel_code",       channelCode,
-                "channel_properties", channelProps
-            );
-        Map<String, Object> body = Map.of(
-            "reference_id", idempotencyKey,
-            "amount",       amountCentavos / 100.0,
-            "currency",     "PHP",
-            "description",  description,
-            "payment_method", paymentMethod
-        );
+
+        java.util.HashMap<String, Object> body = new java.util.HashMap<>();
+        body.put("reference_id",    idempotencyKey);
+        body.put("request_amount",  amountCentavos / 100.0);
+        body.put("currency",        "PHP");
+        body.put("country",         "PH");
+        body.put("description",     description);
+        body.put("type",            "PAY");
+        body.put("capture_method",  "AUTOMATIC");
+        body.put("channel_code",    channelCode);
+
+        if (!isCard) {
+            body.put("channel_properties", Map.of(
+                "success_return_url", returnUrl,
+                "failure_return_url", returnUrl
+            ));
+        }
+
         try {
             log.info("Xendit payment_requests body: {}", body);
-            JsonNode resp = restClient.post().uri("/v3/payment_requests")
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restClient.post().uri("/v3/payment_requests")
                 .header("idempotency-key", idempotencyKey)
-                .body(body).retrieve().body(JsonNode.class);
-            String id = resp.path("id").asText();
+                .body(body).retrieve().body(Map.class);
+            log.info("Xendit payment_requests response: {}", resp);
+            // Xendit v3 returns "payment_request_id", not "id"
+            String id = str(resp, "payment_request_id");
+            if (id == null) id = str(resp, "id");
             if (isCard) {
-                String ck = resp.path("payment_method").path("card").path("token_id").asText(null);
+                String ck = str(nested(nested(resp, "payment_method"), "card"), "token_id");
                 return new PaymentRequestResult(id, null, ck, publicKey);
             }
             // Xendit returns the hosted checkout URL in one of several places
-            // depending on api-version: actions[0].url (new), payment_method.
-            // channel_properties.checkout_url (current), payment_method.ewallet.
-            // channel_properties.checkout_url (legacy).
-            String redirect = resp.path("actions").path(0).path("url").asText(null);
+            // depending on api-version: actions[0].url (new), or nested under
+            // channel_properties.
+            String redirect = actionUrl(resp);
             if (redirect == null || redirect.isBlank()) {
-                redirect = resp.path("payment_method")
-                    .path("channel_properties").path("checkout_url").asText(null);
+                redirect = str(nested(resp, "channel_properties"), "checkout_url");
             }
             if (redirect == null || redirect.isBlank()) {
-                redirect = resp.path("payment_method").path("ewallet")
-                    .path("channel_properties").path("checkout_url").asText(null);
+                redirect = str(nested(nested(resp, "payment_method"), "channel_properties"), "checkout_url");
+            }
+            if (redirect == null || redirect.isBlank()) {
+                redirect = str(nested(nested(nested(resp, "payment_method"), "ewallet"), "channel_properties"), "checkout_url");
             }
             return new PaymentRequestResult(id, redirect, null, null);
         } catch (Exception e) {
@@ -114,11 +113,13 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
             "description", description
         );
         try {
-            JsonNode resp = restClient.post().uri("/v3/payouts")
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restClient.post().uri("/v3/payouts")
                 .header("idempotency-key", idempotencyKey)
-                .body(body).retrieve().body(JsonNode.class);
-            return new DisbursementResult(resp.path("id").asText(),
-                resp.path("status").asText("PENDING"));
+                .body(body).retrieve().body(Map.class);
+            String id = str(resp, "id");
+            String status = str(resp, "status");
+            return new DisbursementResult(id, status != null ? status : "PENDING");
         } catch (Exception e) {
             log.error("Xendit disburse failed: {}", e.getMessage());
             throw new RuntimeException("Disbursement service unavailable", e);
@@ -132,4 +133,38 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
 
     @Override
     public String getGatewayName() { return "XENDIT"; }
+
+    // ---- Map navigation helpers (avoids Jackson version issues) ----
+
+    /** Safely get a nested map by key, returning an empty map if absent. */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> nested(Map<String, Object> map, String key) {
+        if (map == null) return Map.of();
+        Object v = map.get(key);
+        return v instanceof Map ? (Map<String, Object>) v : Map.of();
+    }
+
+    /** Safely get a string value by key. */
+    private static String str(Map<String, Object> map, String key) {
+        if (map == null) return null;
+        Object v = map.get(key);
+        return v != null ? v.toString() : null;
+    }
+
+    /** Extract the first action URL from the actions array, if present. */
+    @SuppressWarnings("unchecked")
+    private static String actionUrl(Map<String, Object> resp) {
+        if (resp == null) return null;
+        Object actions = resp.get("actions");
+        if (actions instanceof List<?> list && !list.isEmpty()) {
+            Object first = list.get(0);
+            if (first instanceof Map) {
+                // Xendit v3 uses "value" for the redirect URL, not "url"
+                Object url = ((Map<String, Object>) first).get("value");
+                if (url == null) url = ((Map<String, Object>) first).get("url");
+                return url != null ? url.toString() : null;
+            }
+        }
+        return null;
+    }
 }

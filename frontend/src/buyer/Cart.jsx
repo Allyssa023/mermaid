@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { I } from '../icons'
 import { useCart } from '../context/CartContext'
 import { StatTileSkeleton } from '../components/Skeleton'
@@ -5,12 +6,35 @@ import ApiError from '../components/ApiError'
 
 export default function Cart({ setPage }) {
   const { cart, loading, error, refresh, updateItem, removeItem, clearCart } = useCart()
+  const [rowErrors, setRowErrors] = useState({})   // { [itemId]: string }
+  const [actionErr, setActionErr] = useState(null) // remove / clear failures
 
   if (loading) return <div className="page"><StatTileSkeleton /></div>
   if (error)   return <div className="page"><ApiError error={{ message: error }} onRetry={refresh} /></div>
 
   const groups = cart.groups ?? []
   const grand  = cart.grandTotal ?? 0
+
+  async function handleUpdate(itemId, qty) {
+    setRowErrors(prev => { const n = { ...prev }; delete n[itemId]; return n })
+    try {
+      await updateItem(itemId, { quantityKg: qty })
+    } catch (e) {
+      setRowErrors(prev => ({ ...prev, [itemId]: e.message ?? 'Could not update quantity' }))
+    }
+  }
+
+  async function handleRemove(itemId) {
+    setActionErr(null)
+    try { await removeItem(itemId) }
+    catch (e) { setActionErr(e.message ?? 'Could not remove item') }
+  }
+
+  async function handleClear() {
+    setActionErr(null)
+    try { await clearCart() }
+    catch (e) { setActionErr(e.message ?? 'Could not clear cart') }
+  }
 
   return (
     <div className="page">
@@ -22,6 +46,10 @@ export default function Cart({ setPage }) {
         </div>
         <button className="btn" onClick={() => setPage('bbrowse')}><I.ChevL size={12} /> Continue shopping</button>
       </div>
+
+      {actionErr && (
+        <p style={{ color: 'var(--unsafe)', fontSize: 13, marginBottom: 12 }}>{actionErr}</p>
+      )}
 
       {groups.length === 0 ? (
         <div className="empty" style={{marginTop: 32}}>
@@ -45,23 +73,28 @@ export default function Cart({ setPage }) {
                   </div>
                   <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
                     {(g.items ?? []).map(it => (
-                      <div key={it.id} className="row" style={{gap: 12, padding: '10px 0', borderTop: '1px solid var(--line)', alignItems: 'center'}}>
-                        <div style={{flex: 1, minWidth: 0}}>
-                          <div style={{fontWeight: 500}}>{it.speciesName}</div>
-                          <div className="muted-data" style={{fontSize: 12}}>₱{it.unitPriceSnapshot ?? it.currentPricePerKg}/kg</div>
+                      <div key={it.id}>
+                        <div className="row" style={{gap: 12, padding: '10px 0', borderTop: '1px solid var(--line)', alignItems: 'center'}}>
+                          <div style={{flex: 1, minWidth: 0}}>
+                            <div style={{fontWeight: 500}}>{it.speciesName}</div>
+                            <div className="muted-data" style={{fontSize: 12}}>₱{it.unitPriceSnapshot ?? it.currentPricePerKg}/kg</div>
+                          </div>
+                          <div className="row" style={{gap: 4, alignItems: 'center'}}>
+                            <button className="btn btn--ghost btn--sm" style={{padding: '4px 8px'}}
+                              onClick={() => handleUpdate(it.id, Math.max(0.1, (it.quantityKg ?? 1) - 1))}>−</button>
+                            <span style={{width: 40, textAlign: 'center', fontSize: 14}}>{it.quantityKg}</span>
+                            <button className="btn btn--ghost btn--sm" style={{padding: '4px 8px'}}
+                              onClick={() => handleUpdate(it.id, (it.quantityKg ?? 1) + 1)}>+</button>
+                            <span className="muted-data" style={{fontSize: 11, marginLeft: 4}}>kg</span>
+                          </div>
+                          <span style={{fontFamily: 'var(--font-mono)', minWidth: 80, textAlign: 'right'}}>
+                            ₱{Math.round(it.lineTotal ?? 0).toLocaleString()}
+                          </span>
+                          <button className="btn btn--ghost btn--sm" onClick={() => handleRemove(it.id)}><I.Trash size={11} /></button>
                         </div>
-                        <div className="row" style={{gap: 4, alignItems: 'center'}}>
-                          <button className="btn btn--ghost btn--sm" style={{padding: '4px 8px'}}
-                            onClick={() => updateItem(it.id, { quantityKg: Math.max(1, (it.quantityKg ?? 1) - 1) })}>−</button>
-                          <span style={{width: 40, textAlign: 'center', fontSize: 14}}>{it.quantityKg}</span>
-                          <button className="btn btn--ghost btn--sm" style={{padding: '4px 8px'}}
-                            onClick={() => updateItem(it.id, { quantityKg: (it.quantityKg ?? 1) + 1 })}>+</button>
-                          <span className="muted-data" style={{fontSize: 11, marginLeft: 4}}>kg</span>
-                        </div>
-                        <span style={{fontFamily: 'var(--font-mono)', minWidth: 80, textAlign: 'right'}}>
-                          ₱{Math.round(it.lineTotal ?? 0).toLocaleString()}
-                        </span>
-                        <button className="btn btn--ghost btn--sm" onClick={() => removeItem(it.id)}><I.Trash size={11} /></button>
+                        {rowErrors[it.id] && (
+                          <p style={{ color: 'var(--unsafe)', fontSize: 11, margin: '2px 0 4px' }}>{rowErrors[it.id]}</p>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -75,7 +108,7 @@ export default function Cart({ setPage }) {
               <div className="eyebrow">Grand total</div>
               <div style={{fontSize: 32, fontFamily: 'var(--font-display)', fontStyle: 'italic', color: 'var(--accent)'}}>₱{Math.round(grand).toLocaleString()}</div>
             </div>
-            <button className="btn btn--ghost btn--sm" onClick={clearCart}>Clear cart</button>
+            <button className="btn btn--ghost btn--sm" onClick={handleClear}>Clear cart</button>
             <button className="btn btn--primary" onClick={() => setPage('bcheckout')}>Proceed to checkout <I.Arrow size={12} /></button>
           </div>
         </>

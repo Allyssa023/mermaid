@@ -7,10 +7,8 @@ import StorefrontEditor from './StorefrontEditor'
 import Inventory from './Inventory'
 import OrdersInbox from './OrdersInbox'
 import ProcurementFeed from './ProcurementFeed'
-import Watchlist from './Watchlist'
 import Analytics from './Analytics'
 import Reviews from './Reviews'
-import Payouts from './Payouts'
 import ShopProfile from './ShopProfile'
 import VendorMessagesPage from './Messages'
 
@@ -21,10 +19,8 @@ const VENDOR_NAV_ITEMS = [
   { id: 'vorders',      icon: 'Clipboard', label: 'Orders' },
   { id: 'vprocurement', icon: 'Fish',      label: 'Source Catch' },
   { id: 'vmessages',    icon: 'Message',   label: 'Messages' },
-  { id: 'vwatchlist',   icon: 'Star',      label: 'Watchlist' },
   { id: 'vanalytics',   icon: 'Bars',      label: 'Analytics' },
   { id: 'vreviews',     icon: 'Heart',     label: 'Reviews' },
-  { id: 'vpayouts',     icon: 'Wallet',    label: 'Payouts' },
   { id: 'vshop',        icon: 'User',      label: 'Shop profile' },
 ]
 
@@ -35,10 +31,8 @@ const PAGE_LABELS = {
   vorders:      'Orders',
   vprocurement: 'Source Catch',
   vmessages:    'Messages',
-  vwatchlist:   'Catch Watchlist',
   vanalytics:   'Analytics',
   vreviews:     'Reviews',
-  vpayouts:     'Payouts',
   vshop:        'Shop Profile',
 }
 
@@ -128,10 +122,8 @@ function PageContent({ page, pageState, navigate }) {
     case 'vorders':      return <OrdersInbox pageState={pageState} setPage={navigate} />
     case 'vprocurement': return <ProcurementFeed pageState={pageState} setPage={navigate} />
     case 'vmessages':    return <VendorMessagesPage />
-    case 'vwatchlist':   return <Watchlist setPage={navigate} />
     case 'vanalytics':   return <Analytics setPage={navigate} />
     case 'vreviews':     return <Reviews />
-    case 'vpayouts':     return <Payouts />
     case 'vshop':        return <ShopProfile />
     default:             return <Home setPage={navigate} />
   }
@@ -152,6 +144,18 @@ export default function VendorDashboard({ user, onLogout }) {
       setPageState(null)
     }
   }, [location.pathname, page])
+
+  // Handle Xendit payment return: /payment/return?orderId=...
+  // Verifies the payment with Xendit and redirects to procurement orders tab.
+  useEffect(() => {
+    if (location.pathname === '/payment/return') {
+      const params = new URLSearchParams(location.search)
+      const orderId = params.get('orderId')
+      setPage('vprocurement')
+      setPageState({ paymentReturnOrderId: orderId })
+      routerNavigate('/', { replace: true })
+    }
+  }, [location.pathname])
 
   const navigate = (id, state = null) => {
     setPage(id)

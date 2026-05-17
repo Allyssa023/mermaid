@@ -1,18 +1,32 @@
 import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
+import { getProfile, updateProfile } from './api/profile'
+import { StatTileSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const BUYER_USER = {
-  id: 401,
-  fullName: 'Sofia Mendez',
-  first: 'Sofia',
-  email: 'sofia.m@example.ph',
-  role: 'BUYER',
-  business: 'Casa Mendez Kitchen',
-  port: 'Tagaytay · Cavite',
-}
+export default function Profile() {
+  const qc = useQueryClient()
+  const { data: profile, isLoading, error, refetch } = useQuery({
+    queryKey: ['buyerProfile'],
+    queryFn: getProfile,
+    staleTime: 5 * 60_000,
+  })
 
-export default function Profile({ setPage }) {
+  const [form, setForm] = useState(null)
+  const editing = form != null
+  const p = form ?? profile ?? {}
+
+  const saveMut = useMutation({
+    mutationFn: () => updateProfile(form),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['buyerProfile'] }); setForm(null) },
+  })
+
+  if (isLoading) return <div className="page"><StatTileSkeleton /></div>
+  if (error)     return <div className="page"><ApiError error={error} onRetry={refetch} /></div>
+
+  const initials = (profile?.fullName ?? 'B').split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()
+
   return (
     <div className="page">
       <div className="page__head">
@@ -21,29 +35,45 @@ export default function Profile({ setPage }) {
           <h1 className="page__title" style={{marginTop: 4}}>Your <em>profile</em></h1>
         </div>
       </div>
-      <div className="orders-strip orders-strip--4" style={{marginTop: 18}}>
-        <div className="stat"><div className="l">Member since</div><div className="v" style={{fontSize: 26}}>Jan 2024</div><div className="s">1y 3mo</div></div>
-        <div className="stat"><div className="l">Total orders</div><div className="v">42</div><div className="s">across 8 vendors</div></div>
-        <div className="stat"><div className="l">Saved vendors</div><div className="v">6</div></div>
-        <div className="stat"><div className="l">Saved listings</div><div className="v">11</div></div>
-      </div>
+
       <div className="card" style={{marginTop: 18}}>
         <div className="row" style={{gap: 20, alignItems: 'flex-start'}}>
           <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8}}>
-            <div style={{width: 88, height: 88, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 600}}>SM</div>
-            <button className="btn btn--ghost btn--sm"><I.Camera size={11} /> Upload</button>
+            <div style={{width: 88, height: 88, borderRadius: '50%', background: 'var(--accent-soft)', color: 'var(--accent)', display: 'grid', placeItems: 'center', fontSize: 30, fontWeight: 600}}>{initials}</div>
           </div>
           <div style={{flex: 1}}>
             <div className="form-grid">
-              <div className="form-row"><label>Full name</label><input className="input" defaultValue={BUYER_USER.fullName} /></div>
-              <div className="form-row"><label>Display name</label><input className="input" defaultValue="Sofia M." /></div>
-              <div className="form-row"><label>Email</label><input className="input" defaultValue={BUYER_USER.email} disabled /></div>
-              <div className="form-row"><label>Phone</label><input className="input" defaultValue="+63 917 555 0042" /></div>
-              <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Business name</label><input className="input" defaultValue={BUYER_USER.business} /></div>
+              <div className="form-row">
+                <label>Full name</label>
+                <input className="input" value={p.fullName ?? ''} readOnly={!editing}
+                  onChange={e => setForm(f => ({...f, fullName: e.target.value}))} />
+              </div>
+              <div className="form-row">
+                <label>Email</label>
+                <input className="input" value={p.email ?? ''} disabled />
+              </div>
+              <div className="form-row">
+                <label>Phone</label>
+                <input className="input" value={p.phoneNumber ?? ''} readOnly={!editing}
+                  onChange={e => setForm(f => ({...f, phoneNumber: e.target.value}))} />
+              </div>
+              <div className="form-row" style={{gridColumn: '1 / -1'}}>
+                <label>Business name</label>
+                <input className="input" value={p.businessName ?? ''} readOnly={!editing}
+                  onChange={e => setForm(f => ({...f, businessName: e.target.value}))} />
+              </div>
             </div>
             <div className="row" style={{gap: 8, marginTop: 14, justifyContent: 'flex-end'}}>
-              <button className="btn">Cancel</button>
-              <button className="btn btn--primary">Save profile</button>
+              {editing ? (
+                <>
+                  <button className="btn" onClick={() => setForm(null)}>Cancel</button>
+                  <button className="btn btn--primary" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+                    {saveMut.isPending ? 'Saving…' : 'Save profile'}
+                  </button>
+                </>
+              ) : (
+                <button className="btn btn--primary" onClick={() => setForm({...profile})}><I.Edit size={12} /> Edit profile</button>
+              )}
             </div>
           </div>
         </div>
