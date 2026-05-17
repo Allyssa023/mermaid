@@ -135,6 +135,9 @@ public class StorefrontListingService {
             if (!allowEmpty && lot.getRemainingKg().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Lot " + lotId + " has no remaining stock");
             }
+            if (listingLotRepo.existsByLotIdInActiveListing(lotId)) {
+                throw new IllegalStateException("Lot " + lotId + " is already assigned to an existing listing");
+            }
         }
     }
 
