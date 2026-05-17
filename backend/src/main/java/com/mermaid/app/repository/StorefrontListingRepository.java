@@ -24,4 +24,6 @@ public interface StorefrontListingRepository extends JpaRepository<StorefrontLis
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM StorefrontListing s WHERE s.id = :id AND s.isDeleted = false")
     Optional<StorefrontListing> findByIdWithLock(@Param("id") Long id);
+
+    long countByStatus(com.mermaid.app.domain.StorefrontListingStatus status);
 }

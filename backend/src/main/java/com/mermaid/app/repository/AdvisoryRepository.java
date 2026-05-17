@@ -18,4 +18,7 @@ public interface AdvisoryRepository extends JpaRepository<Advisory, Long> {
            "AND a.activeFrom <= :now AND a.activeTo >= :now " +
            "ORDER BY a.createdAt DESC")
     List<Advisory> findActive(@Param("now") OffsetDateTime now);
+
+    @Query("SELECT COUNT(a) FROM Advisory a WHERE a.isActive = true")
+    long countActive();
 }

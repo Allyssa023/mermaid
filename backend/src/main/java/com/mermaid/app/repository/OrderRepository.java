@@ -91,4 +91,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     BigDecimal sumActiveOrderedKgForStorefrontListing(@Param("listingId") Long listingId);
 
     List<Order> findByStatusAndUpdatedAtBefore(String status, OffsetDateTime before);
+
+    long countByStatus(String status);
+
+    @Query(value = "SELECT COUNT(*) FROM orders WHERE DATE(created_at AT TIME ZONE 'UTC') = CURRENT_DATE", nativeQuery = true)
+    long countCreatedToday();
 }
