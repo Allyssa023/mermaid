@@ -8,6 +8,6 @@ import java.util.Optional;
 
 public interface CartItemRepository extends JpaRepository<CartItem, Long> {
 
-    @EntityGraph(attributePaths = {"listing", "listing.species", "listing.location"})
+    @EntityGraph(attributePaths = {"listing"})
     Optional<CartItem> findByCart_IdAndListing_Id(Long cartId, Long listingId);
 }

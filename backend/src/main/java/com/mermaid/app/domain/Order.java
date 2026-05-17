@@ -53,6 +53,9 @@ public class Order {
     @Column(name = "storefront_listing_id")
     private Long storefrontListingId;
 
+    @Column(name = "delivery_fee", precision = 10, scale = 2)
+    private BigDecimal deliveryFee;
+
     @Column(name = "cart_checkout_id")
     private UUID cartCheckoutId;
 
@@ -122,6 +125,9 @@ public class Order {
     public void setDeliveryAddress(String deliveryAddress) { this.deliveryAddress = deliveryAddress; }
     public Long getStorefrontListingId() { return storefrontListingId; }
     public void setStorefrontListingId(Long storefrontListingId) { this.storefrontListingId = storefrontListingId; }
+
+    public BigDecimal getDeliveryFee() { return deliveryFee; }
+    public void setDeliveryFee(BigDecimal deliveryFee) { this.deliveryFee = deliveryFee; }
 
     public UUID getCartCheckoutId() { return cartCheckoutId; }
     public void setCartCheckoutId(UUID cartCheckoutId) { this.cartCheckoutId = cartCheckoutId; }

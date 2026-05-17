@@ -33,6 +33,9 @@ public class StorefrontListing {
     @Column(name = "min_qty_kg", nullable = false, precision = 10, scale = 2)
     private BigDecimal minQtyKg = new BigDecimal("0.5");
 
+    @Column(name = "delivery_fee", nullable = false, precision = 10, scale = 2)
+    private BigDecimal deliveryFee = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
     private StorefrontListingStatus status = StorefrontListingStatus.DRAFT;
@@ -80,6 +83,9 @@ public class StorefrontListing {
 
     public BigDecimal getMinQtyKg() { return minQtyKg; }
     public void setMinQtyKg(BigDecimal minQtyKg) { this.minQtyKg = minQtyKg; }
+
+    public BigDecimal getDeliveryFee() { return deliveryFee; }
+    public void setDeliveryFee(BigDecimal deliveryFee) { this.deliveryFee = deliveryFee; }
 
     public StorefrontListingStatus getStatus() { return status; }
     public void setStatus(StorefrontListingStatus status) { this.status = status; }

@@ -19,7 +19,7 @@ public class CartItem {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "listing_id", nullable = false)
-    private DemandListing listing;
+    private StorefrontListing listing;
 
     @Column(name = "quantity_kg", nullable = false, precision = 10, scale = 2)
     private BigDecimal quantityKg;
@@ -52,8 +52,8 @@ public class CartItem {
     public void setId(Long id) { this.id = id; }
     public Cart getCart() { return cart; }
     public void setCart(Cart cart) { this.cart = cart; }
-    public DemandListing getListing() { return listing; }
-    public void setListing(DemandListing listing) { this.listing = listing; }
+    public StorefrontListing getListing() { return listing; }
+    public void setListing(StorefrontListing listing) { this.listing = listing; }
     public BigDecimal getQuantityKg() { return quantityKg; }
     public void setQuantityKg(BigDecimal quantityKg) { this.quantityKg = quantityKg; }
     public BigDecimal getUnitPriceSnapshot() { return unitPriceSnapshot; }

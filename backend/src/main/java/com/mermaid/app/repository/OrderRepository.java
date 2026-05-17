@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -75,4 +77,18 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         @Param("status") String status,
         @Param("from") java.time.OffsetDateTime from,
         @Param("to") java.time.OffsetDateTime to);
+
+    @Query("SELECT o FROM Order o WHERE o.sellerId = :sellerId AND o.status = :status AND o.completedAt BETWEEN :from AND :to ORDER BY o.completedAt DESC")
+    List<Order> findBySellerIdAndStatusAndCompletedAtBetween(
+        @Param("sellerId") Long sellerId,
+        @Param("status") String status,
+        @Param("from") java.time.OffsetDateTime from,
+        @Param("to") java.time.OffsetDateTime to);
+
+    @Query("SELECT COALESCE(SUM(o.orderedQtyKg), 0) FROM Order o " +
+           "WHERE o.storefrontListingId = :listingId " +
+           "AND o.status IN ('PENDING','CONFIRMED','PREPARING','READY','OUT_FOR_DELIVERY','AWAITING_RECEIPT')")
+    BigDecimal sumActiveOrderedKgForStorefrontListing(@Param("listingId") Long listingId);
+
+    List<Order> findByStatusAndUpdatedAtBefore(String status, OffsetDateTime before);
 }

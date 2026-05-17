@@ -2,13 +2,13 @@ package com.mermaid.app.mapper;
 
 import com.mermaid.app.domain.Cart;
 import com.mermaid.app.domain.CartItem;
-import com.mermaid.app.domain.DemandListing;
+import com.mermaid.app.domain.StorefrontListing;
+import com.mermaid.app.domain.StorefrontListingStatus;
 import com.mermaid.app.domain.User;
 import com.mermaid.app.model.BuyerCartGroup;
 import com.mermaid.app.model.BuyerCartItem;
 import com.mermaid.app.model.BuyerCartView;
 import com.mermaid.app.model.BuyerVendorProfile;
-import com.mermaid.app.model.DemandListingStatus;
 import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +31,7 @@ public class CartMapper {
     public BuyerCartView toView(Cart cart, Map<Long, User> vendorsById) {
         Map<Long, List<CartItem>> byVendor = new LinkedHashMap<>();
         for (CartItem ci : cart.getItems()) {
-            DemandListing l = ci.getListing();
+            StorefrontListing l = ci.getListing();
             if (l == null) continue;
             byVendor.computeIfAbsent(l.getVendorId(), k -> new ArrayList<>()).add(ci);
         }
@@ -69,36 +69,32 @@ public class CartMapper {
     }
 
     private BuyerCartItem toItem(CartItem ci) {
-        DemandListing l = ci.getListing();
+        StorefrontListing l = ci.getListing();
         BigDecimal qty = ci.getQuantityKg();
         BigDecimal snapshot = ci.getUnitPriceSnapshot();
-        BigDecimal current = l.getOfferPricePerKg();
+        BigDecimal current = l.getPricePerKg();
         BigDecimal lineTotal = scale(snapshot.multiply(qty));
 
         BuyerCartItem item = new BuyerCartItem(
                 ci.getId(), l.getId(), l.getVendorId(),
-                l.getSpecies() != null ? l.getSpecies().getCommonName() : "—",
+                l.getTitle() != null ? l.getTitle() : "—",
                 qty.doubleValue(),
                 snapshot.doubleValue(),
                 current != null ? current.doubleValue() : snapshot.doubleValue(),
                 lineTotal.doubleValue(),
                 ci.getAddedAt());
 
-        item.setLocationName(JsonNullable.of(
-                l.getLocation() != null ? l.getLocation().getName() : null));
+        item.setLocationName(JsonNullable.of(null));
         item.setNotes(JsonNullable.of(ci.getNotes()));
 
-        String warning = computeWarning(l, qty, snapshot, current);
+        String warning = computeWarning(l, snapshot, current);
         item.setWarning(JsonNullable.of(warning));
         return item;
     }
 
-    private String computeWarning(DemandListing l, BigDecimal qty, BigDecimal snapshot, BigDecimal current) {
-        if (l.isDeleted() || l.getStatus() != DemandListingStatus.OPEN) {
+    private String computeWarning(StorefrontListing l, BigDecimal snapshot, BigDecimal current) {
+        if (l.isDeleted() || l.getStatus() != StorefrontListingStatus.PUBLISHED) {
             return "This listing is no longer available.";
-        }
-        if (l.getQuantityKg() != null && qty.compareTo(l.getQuantityKg()) > 0) {
-            return "Vendor only has " + l.getQuantityKg() + "kg available.";
         }
         if (current != null && snapshot != null && current.compareTo(snapshot) != 0) {
             int cmp = current.compareTo(snapshot);

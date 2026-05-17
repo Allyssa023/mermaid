@@ -3,14 +3,14 @@ package com.mermaid.app.service;
 import com.mermaid.app.domain.BuyerAddress;
 import com.mermaid.app.domain.Cart;
 import com.mermaid.app.domain.CartItem;
-import com.mermaid.app.domain.DemandListing;
 import com.mermaid.app.domain.Order;
+import com.mermaid.app.domain.StorefrontListing;
+import com.mermaid.app.domain.StorefrontListingStatus;
 import com.mermaid.app.exception.ListingClosedException;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.model.BuyerCheckoutGroupSpec;
 import com.mermaid.app.model.BuyerCheckoutRequest;
 import com.mermaid.app.model.BuyerCheckoutResult;
-import com.mermaid.app.model.DemandListingStatus;
 import com.mermaid.app.repository.BuyerAddressRepository;
 import com.mermaid.app.repository.CartRepository;
 import com.mermaid.app.repository.OrderRepository;
@@ -59,16 +59,11 @@ public class CheckoutService {
 
         // Validate every cart item is satisfiable AND has a matching group spec.
         for (CartItem ci : cart.getItems()) {
-            DemandListing listing = ci.getListing();
+            StorefrontListing listing = ci.getListing();
             if (listing == null || listing.isDeleted()
-                    || listing.getStatus() != DemandListingStatus.OPEN) {
+                    || listing.getStatus() != StorefrontListingStatus.PUBLISHED) {
                 throw new ListingClosedException(
                         "One or more items are no longer available. Please update your cart.");
-            }
-            if (listing.getQuantityKg() != null
-                    && ci.getQuantityKg().compareTo(listing.getQuantityKg()) > 0) {
-                throw new ListingClosedException(
-                        "Some items exceed available stock. Please update your cart.");
             }
             BuyerCheckoutGroupSpec spec = specsByVendor.get(listing.getVendorId());
             if (spec == null) {
@@ -98,18 +93,20 @@ public class CheckoutService {
         List<Long> orderIds = new ArrayList<>();
         BigDecimal grandTotal = BigDecimal.ZERO;
         for (CartItem ci : cart.getItems()) {
-            DemandListing listing = ci.getListing();
+            StorefrontListing listing = ci.getListing();
             BuyerCheckoutGroupSpec spec = specsByVendor.get(listing.getVendorId());
 
             Order order = new Order();
             order.setBuyerId(buyerId);
             order.setSellerId(listing.getVendorId());
-            order.setDemandListingId(listing.getId());
-            order.setSpecies(listing.getSpecies());
-            order.setAgreedPricePerKg(listing.getOfferPricePerKg());
+            order.setStorefrontListingId(listing.getId());
+            order.setAgreedPricePerKg(listing.getPricePerKg());
             order.setOrderedQtyKg(ci.getQuantityKg());
             order.setDispatchMode(spec.getDispatchMode().getValue());
             order.setCartCheckoutId(cartCheckoutId);
+            if (listing.getDeliveryFee() != null) {
+                order.setDeliveryFee(listing.getDeliveryFee());
+            }
             if ("DELIVERY".equals(spec.getDispatchMode().getValue())) {
                 order.setDeliveryAddress(addrsByVendor.get(listing.getVendorId()).toSingleLine());
             }
