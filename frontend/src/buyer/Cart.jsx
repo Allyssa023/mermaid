@@ -35,11 +35,11 @@ export default function Cart({ setPage }) {
           <div style={{display: 'flex', flexDirection: 'column', gap: 14, marginTop: 18}}>
             {groups.map((g) => {
               return (
-                <div key={g.vendor?.id ?? g.vendorId} className="card">
+                <div key={g.vendor?.id} className="card">
                   <div className="card__head">
                     <div>
                       <div className="eyebrow">Vendor</div>
-                      <div className="card__title" style={{fontSize: 17, marginTop: 2}}>{g.vendor?.fullName ?? g.vendorName ?? 'Vendor'}</div>
+                      <div className="card__title" style={{fontSize: 17, marginTop: 2}}>{g.vendor?.fullName ?? 'Vendor'}</div>
                     </div>
                     <span style={{fontFamily: 'var(--font-mono)', fontSize: 14}}>₱{Math.round(g.subtotal ?? 0).toLocaleString()}</span>
                   </div>
@@ -47,7 +47,7 @@ export default function Cart({ setPage }) {
                     {(g.items ?? []).map(it => (
                       <div key={it.id} className="row" style={{gap: 12, padding: '10px 0', borderTop: '1px solid var(--line)', alignItems: 'center'}}>
                         <div style={{flex: 1, minWidth: 0}}>
-                          <div style={{fontWeight: 500}}>{it.speciesName ?? it.species}</div>
+                          <div style={{fontWeight: 500}}>{it.speciesName}</div>
                           <div className="muted-data" style={{fontSize: 12}}>₱{it.unitPriceSnapshot ?? it.currentPricePerKg}/kg</div>
                         </div>
                         <div className="row" style={{gap: 4, alignItems: 'center'}}>

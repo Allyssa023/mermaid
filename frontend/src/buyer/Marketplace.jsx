@@ -23,7 +23,7 @@ export default function Marketplace({ setPage, setBuyNow }) {
   })
 
   const addToCartMut = useMutation({
-    mutationFn: () => addItem({ listingId: cartModal.id, quantityKg: Number(qty), notes: notes || null }),
+    mutationFn: () => addItem({ listingId: cartModal?.id, quantityKg: Number(qty), notes: notes || null }),
     onSuccess: () => { setCartModal(null); setAddErr('') },
     onError: (e) => setAddErr(e?.message ?? 'Could not add to cart'),
   })
@@ -116,17 +116,8 @@ export default function Marketplace({ setPage, setBuyNow }) {
           const availKg = l.availableKg ?? 0
           return (
             <div key={l.id} className="buyer-card">
-              {/* Photo or placeholder */}
-              <div style={{
-                background: l.photoUrl ? `url(${l.photoUrl}) center/cover` : 'var(--surface-2)',
-                backgroundSize: 'cover',
-                height: 120,
-                borderRadius: '8px 8px 0 0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                {!l.photoUrl && <I.Fish size={32} style={{ opacity: 0.3 }} />}
+              <div className="buyer-card__hero" style={l.photoUrl ? {backgroundImage: `url(${l.photoUrl})`} : {}}>
+                {!l.photoUrl && <I.Fish size={32} style={{opacity:0.3}} />}
               </div>
 
               <div className="buyer-card__body">
