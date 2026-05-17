@@ -33,6 +33,7 @@ public class OrderService {
     private final OrderMapper mapper;
     private final OrderStatusEventRepository eventRepo;
     private final ApplicationEventPublisher eventPublisher;
+    private final InventoryService inventoryService;
 
     public OrderService(OrderRepository orderRepo,
                         CatchAlertRepository alertRepo,
@@ -43,7 +44,8 @@ public class OrderService {
                         CatchLogRepository catchLogRepo,
                         OrderMapper mapper,
                         OrderStatusEventRepository eventRepo,
-                        ApplicationEventPublisher eventPublisher) {
+                        ApplicationEventPublisher eventPublisher,
+                        InventoryService inventoryService) {
         this.orderRepo = orderRepo;
         this.alertRepo = alertRepo;
         this.speciesRepo = speciesRepo;
@@ -54,6 +56,7 @@ public class OrderService {
         this.mapper = mapper;
         this.eventRepo = eventRepo;
         this.eventPublisher = eventPublisher;
+        this.inventoryService = inventoryService;
     }
 
     private String resolveName(Long userId) {
@@ -255,6 +258,15 @@ public class OrderService {
                     order.setPaymentMethod(p.getMethod()));
                 orderRepo.save(order);
                 recordStatusEvent(order.getId(), "COMPLETED", null, "Payment confirmed — order complete");
+
+                // Auto-populate vendor inventory for procurement orders
+                if (OrderKind.PROCUREMENT.equals(order.getKind())) {
+                    try {
+                        inventoryService.addLotFromProcurement(orderId);
+                    } catch (Exception e) {
+                        log.warn("Failed to create inventory lot for order {}: {}", orderId, e.getMessage());
+                    }
+                }
             }
         });
     }
