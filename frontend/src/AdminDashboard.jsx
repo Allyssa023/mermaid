@@ -1,157 +1,44 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from './icons'
+import {
+  fetchAdminUsers, updateAdminUser, createAdminUser,
+  fetchAdminAdvisories, createAdvisory, updateAdvisory,
+  fetchAdminSpecies, createSpecies, updateSpecies, deleteSpecies, reactivateSpecies,
+  fetchAdminLocations, createLocation, updateLocation, deleteLocation, reactivateLocation,
+  fetchAdminMetrics, fetchAdminDau, fetchAdminHealth, fetchAdminAuditLog,
+} from './api/admin.js'
 
-// ─── Mock data (inline from data-admin.jsx) ───────────────────────────────────
-
-const ADMIN_USER = {
-  id: 1,
-  fullName: 'Liza Domingo',
-  first: 'Liza',
-  email: 'liza@mermaid.ph',
-  role: 'ADMIN',
-  team: 'Platform Operations',
-  port: 'BFAR Region IV-A',
+function relativeTime(iso) {
+  if (!iso) return 'Never'
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days === 1) return 'Yesterday'
+  return `${days}d ago`
 }
 
-const ADMIN_USERS = [
-  { id: 101, fullName: 'Ramiro Delgado',     email: 'ramiro@mermaid.ph',     role: 'FISHERMAN', active: true,  joined: '2025-08-12', lastSeen: '2h ago',     trips: 47, region: 'Batangas' },
-  { id: 102, fullName: 'Carlos Bautista',    email: 'carlos@mermaid.ph',     role: 'FISHERMAN', active: true,  joined: '2025-09-04', lastSeen: '5h ago',     trips: 32, region: 'Quezon' },
-  { id: 103, fullName: 'Tomas Reyes',        email: 'tomas@mermaid.ph',      role: 'FISHERMAN', active: true,  joined: '2025-07-21', lastSeen: '1h ago',     trips: 51, region: 'Quezon' },
-  { id: 104, fullName: 'Helena Cruz',        email: 'helena@mermaid.ph',     role: 'FISHERMAN', active: true,  joined: '2025-11-02', lastSeen: '4d ago',     trips: 28, region: 'Batangas' },
-  { id: 105, fullName: 'Capt. Arturo R.',    email: 'arturo@mermaid.ph',     role: 'FISHERMAN', active: true,  joined: '2024-12-15', lastSeen: 'Yesterday', trips: 89, region: 'Batangas' },
-  { id: 106, fullName: 'Mateo Villar',       email: 'mateo@mermaid.ph',      role: 'FISHERMAN', active: false, joined: '2025-10-08', lastSeen: '11d ago',    trips: 14, region: 'Quezon' },
-  { id: 210, fullName: 'Inez Marina',        email: 'inez@marinaseafoods.ph',role: 'VENDOR',    active: true,  joined: '2025-06-10', lastSeen: '1h ago',     listings: 28, region: 'Quezon' },
-  { id: 211, fullName: 'Bay City Market',    email: 'ops@baycity.ph',        role: 'VENDOR',    active: true,  joined: '2025-07-01', lastSeen: '8h ago',     listings: 19, region: 'Quezon' },
-  { id: 212, fullName: 'J. Aquino & Sons',   email: 'jaquino@aquino.ph',     role: 'VENDOR',    active: true,  joined: '2025-09-17', lastSeen: 'Yesterday', listings: 11, region: 'Batangas' },
-  { id: 213, fullName: 'Puerto Azul Resto',  email: 'kitchen@puertoazul.ph', role: 'VENDOR',    active: true,  joined: '2025-08-22', lastSeen: '3h ago',     listings: 8,  region: 'Batangas' },
-  { id: 214, fullName: 'Del Mar Cold Chain', email: 'ops@delmar.ph',         role: 'VENDOR',    active: true,  joined: '2025-05-30', lastSeen: '6h ago',     listings: 22, region: 'Batangas' },
-  { id: 215, fullName: 'Taal Lake Fresh',    email: 'desk@taallake.ph',      role: 'VENDOR',    active: false, joined: '2025-12-01', lastSeen: '24d ago',    listings: 4,  region: 'Batangas' },
-  { id: 1,   fullName: 'Liza Domingo',       email: 'liza@mermaid.ph',       role: 'ADMIN',     active: true,  joined: '2024-09-01', lastSeen: 'now',        region: 'HQ' },
-  { id: 2,   fullName: 'Renato Villanueva',  email: 'reno@mermaid.ph',       role: 'ADMIN',     active: true,  joined: '2024-09-01', lastSeen: '2d ago',     region: 'HQ' },
-]
-
-const ADMIN_ADVISORIES = [
-  { id: 1, title: 'Tropical Depression Emong',
-    message: 'Sustained winds 65 km/h; gusts to 90 km/h. Cancel all offshore trips through Friday.',
-    severity: 'HIGH', affectedArea: 'Sibuyan Sea', isActive: true,
-    activeFrom: '2026-04-22T06:00:00+08:00', activeTo: '2026-04-26T18:00:00+08:00',
-    createdAt: '2026-04-22T05:42:00+08:00', createdBy: 'Liza Domingo' },
-  { id: 2, title: 'Small-craft advisory',
-    message: 'Wave heights 1.5–2.0m expected between 14:00–20:00. Exercise caution.',
-    severity: 'MEDIUM', affectedArea: 'Balayan Bay', isActive: true,
-    activeFrom: '2026-04-23T08:00:00+08:00', activeTo: '2026-04-23T22:00:00+08:00',
-    createdAt: '2026-04-23T07:14:00+08:00', createdBy: 'Renato Villanueva' },
-  { id: 3, title: 'Lunar tide extreme',
-    message: 'Spring tides this week. Low at 03:42, high 09:15. Plan landings accordingly.',
-    severity: 'LOW', affectedArea: 'Tayabas Bay', isActive: true,
-    activeFrom: '2026-04-22T00:00:00+08:00', activeTo: '2026-04-25T23:59:00+08:00',
-    createdAt: '2026-04-22T09:00:00+08:00', createdBy: 'Liza Domingo' },
-  { id: 4, title: 'Squall line moving NE',
-    message: 'Isolated thunderstorms; visibility may drop below 500m intermittently.',
-    severity: 'MEDIUM', affectedArea: 'Ragay Gulf', isActive: true,
-    activeFrom: '2026-04-22T18:00:00+08:00', activeTo: '2026-04-24T06:00:00+08:00',
-    createdAt: '2026-04-22T17:30:00+08:00', createdBy: 'Liza Domingo' },
-  { id: 5, title: 'Reef closure — spawning season',
-    message: 'No fishing activity in protected zone for next 14 days.',
-    severity: 'CRITICAL', affectedArea: 'Apo Reef', isActive: true,
-    activeFrom: '2026-04-20T00:00:00+08:00', activeTo: '2026-05-04T00:00:00+08:00',
-    createdAt: '2026-04-19T16:00:00+08:00', createdBy: 'BFAR Coordination' },
-  { id: 6, title: 'Old advisory — high winds',
-    message: 'Sustained winds 45 km/h, advised caution.',
-    severity: 'MEDIUM', affectedArea: 'Sibuyan Sea', isActive: false,
-    activeFrom: '2026-04-15T00:00:00+08:00', activeTo: '2026-04-17T00:00:00+08:00',
-    createdAt: '2026-04-15T05:00:00+08:00', createdBy: 'Liza Domingo' },
-]
-
-const ADMIN_SPECIES = [
-  { id: 1, commonName: 'Yellowfin Tuna',      scientificName: 'Thunnus albacares',          active: true,  usageCount: 247 },
-  { id: 2, commonName: 'Skipjack',            scientificName: 'Katsuwonus pelamis',         active: true,  usageCount: 312 },
-  { id: 3, commonName: 'Mahi-mahi',           scientificName: 'Coryphaena hippurus',        active: true,  usageCount: 184 },
-  { id: 4, commonName: 'Red Snapper',         scientificName: 'Lutjanus campechanus',       active: true,  usageCount: 96  },
-  { id: 5, commonName: 'Grouper (Lapu-lapu)', scientificName: 'Epinephelus fuscoguttatus',  active: true,  usageCount: 142 },
-  { id: 6, commonName: 'Spanish Mackerel',    scientificName: 'Scomberomorus commerson',    active: true,  usageCount: 88  },
-  { id: 7, commonName: 'Squid (Pusit)',       scientificName: 'Loligo duvaucelii',          active: true,  usageCount: 156 },
-  { id: 8, commonName: 'Blue Marlin',         scientificName: 'Makaira nigricans',          active: true,  usageCount: 24  },
-  { id: 9, commonName: 'Sailfish',            scientificName: 'Istiophorus platypterus',    active: false, usageCount: 3   },
-]
-
-const ADMIN_LOCATIONS = [
-  { id: 1, name: 'Marina Seafoods Depot', municipality: 'Quezon',        province: 'Quezon',   active: true,  vendors: 1, listings: 28 },
-  { id: 2, name: 'Bay City Market',       municipality: 'Lucena City',   province: 'Quezon',   active: true,  vendors: 1, listings: 19 },
-  { id: 3, name: 'Lipa Port',             municipality: 'Lipa',          province: 'Batangas', active: true,  vendors: 1, listings: 11 },
-  { id: 4, name: 'Anilao Landing',        municipality: 'Mabini',        province: 'Batangas', active: true,  vendors: 1, listings: 8  },
-  { id: 5, name: 'Batangas Port',         municipality: 'Batangas City', province: 'Batangas', active: true,  vendors: 1, listings: 22 },
-  { id: 6, name: 'Taal Fresh',            municipality: 'Taal',          province: 'Batangas', active: false, vendors: 1, listings: 4  },
-]
-
-const ADMIN_METRICS = {
-  totalUsers: 1287,
-  fishermen: 942,
-  vendors: 341,
-  admins: 4,
-  newThisWeek: 28,
-  activeNow: 184,
-
-  totalTrips: 8642,
-  activeTrips: 47,
-  tripsToday: 96,
-
-  totalListings: 412,
-  openListings: 187,
-
-  totalAlerts: 2341,
-  activeAlerts: 84,
-
-  totalOrders: 5611,
-  ordersToday: 138,
-  orderVolumeKg: 18420,
-  orderVolumePhp: 4120000,
-
-  disputedOrders: 7,
-
-  uptimePct: 99.94,
-  marineApiHealth: 'OK',
-  mailQueue: 12,
+function fmtAuditTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const now = new Date()
+  const diffDays = Math.floor((now - d) / 86400000)
+  if (diffDays === 0) return d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })
+  if (diffDays === 1) return `Yest. ${d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}`
+  return `${diffDays}d ago`
 }
-
-const ADMIN_DAU = (() => {
-  const out = []
-  for (let i = 0; i < 30; i++) {
-    const base = 220 + Math.sin(i / 4) * 35 + (i % 7 === 6 ? -40 : 0)
-    out.push({ day: i, dau: Math.round(base + Math.random() * 22) })
-  }
-  return out
-})()
-
-const ADMIN_AUDIT = [
-  { ts: '08:42', actor: 'Renato Villanueva', action: 'updated advisory', target: 'A-2 Small-craft advisory', kind: 'advisory' },
-  { ts: '08:11', actor: 'System',            action: 'auto-expired',     target: '12 catch alerts',          kind: 'system' },
-  { ts: '07:55', actor: 'Liza Domingo',      action: 'created species',  target: 'Threadfin Bream',          kind: 'lookup' },
-  { ts: '07:30', actor: 'System',            action: 'flagged dispute',  target: 'ORD-7387 Bay City vs Mateo', kind: 'flag' },
-  { ts: '06:18', actor: 'Liza Domingo',      action: 'deactivated user', target: 'Mateo Villar (id 106)',    kind: 'user' },
-  { ts: 'Yest. 22:14', actor: 'BFAR Coord',  action: 'posted advisory',  target: 'A-5 Reef closure',         kind: 'advisory' },
-  { ts: 'Yest. 18:02', actor: 'System',      action: 'sync OK',          target: 'Marine data · Open-Meteo', kind: 'system' },
-  { ts: 'Yest. 14:40', actor: 'Liza Domingo', action: 'merged duplicate', target: 'Yellowfin Tuna ↔ Tuna YF', kind: 'lookup' },
-]
-
-const ADMIN_HEALTH = [
-  { name: 'API Gateway',              status: 'OK',   detail: '99.94% uptime · p95 142ms' },
-  { name: 'PostgreSQL',               status: 'OK',   detail: '24 connections · 0 slow queries' },
-  { name: 'Marine data (Open-Meteo)', status: 'OK',   detail: 'Last sync 4 min ago' },
-  { name: 'Mail queue',               status: 'WARN', detail: '12 pending · oldest 8 min' },
-  { name: 'WebSocket (chat)',         status: 'OK',   detail: '47 active connections' },
-  { name: 'Storage',                  status: 'OK',   detail: '38% of 100GB used' },
-]
 
 // ─── Inline Rail + Topbar from shell.jsx ─────────────────────────────────────
 
 const ROLE_NAV = {
   ADMIN: {
-    user: () => ADMIN_USER,
     items: [
       { id: 'aoverview',   icon: 'Dashboard', label: 'Overview' },
       { id: 'ausers',      icon: 'Users',     label: 'Users' },
-      { id: 'aadvisories', icon: 'Alert',     label: 'Advisories', badge: 5 },
+      { id: 'aadvisories', icon: 'Alert',     label: 'Advisories' },
       { id: 'aspecies',    icon: 'Fish',      label: 'Fish Species' },
       { id: 'alocations',  icon: 'MapPin',    label: 'Market Locations' },
       { id: 'aaudit',      icon: 'Clock',     label: 'Audit Log' },
@@ -168,10 +55,12 @@ const ROLE_NAV = {
   },
 }
 
-function Rail({ role, page, setPage, onTweaks, onSwitchRole }) {
+function Rail({ role, page, setPage, onTweaks, onSwitchRole, user, advisoryBadge }) {
   const cfg = ROLE_NAV[role]
-  const user = cfg.user()
-  const initials = user.first.slice(0, 1) + (user.fullName.split(' ')[1]?.slice(0, 1) || '')
+  const initials = user
+    ? user.fullName.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()
+    : '?'
+  const firstName = user?.fullName?.split(' ')[0] || 'Admin'
 
   return (
     <aside className="rail">
@@ -191,7 +80,7 @@ function Rail({ role, page, setPage, onTweaks, onSwitchRole }) {
             >
               <div className="rail-item__icon"><Icon size={18} /></div>
               <div className="rail-item__text">{it.label}</div>
-              {it.badge ? <span className="rail-item__badge">{it.badge}</span> : null}
+              {it.id === 'aadvisories' && advisoryBadge > 0 ? <span className="rail-item__badge">{advisoryBadge}</span> : null}
             </div>
           )
         })}
@@ -215,8 +104,8 @@ function Rail({ role, page, setPage, onTweaks, onSwitchRole }) {
         <div className="rail__user">
           <div className="rail__avatar">{initials}</div>
           <div className="rail__user-info">
-            <span className="rail__user-name">{user.first}</span>
-            <span className="rail__user-role">{user.role} · {user.vessel || user.business || user.team || ''}</span>
+            <span className="rail__user-name">{firstName}</span>
+            <span className="rail__user-role">{user?.role || 'ADMIN'}</span>
           </div>
         </div>
       </div>
@@ -258,17 +147,31 @@ function Topbar({ role, page }) {
 
 // ─── Admin page components ────────────────────────────────────────────────────
 
-function AdminOverviewPage({ setPage }) {
-  const M = ADMIN_METRICS
-  const max = Math.max(...ADMIN_DAU.map(d => d.dau))
+function AdminOverviewPage({ setPage, user, metrics: metricsProp }) {
+  const { data: M = {} } = useQuery({
+    queryKey: ['admin-metrics'],
+    queryFn: fetchAdminMetrics,
+    initialData: metricsProp,
+    enabled: !metricsProp,
+  })
+  const { data: dau = [] } = useQuery({ queryKey: ['admin-dau'], queryFn: fetchAdminDau })
+  const { data: health = [] } = useQuery({ queryKey: ['admin-health'], queryFn: fetchAdminHealth })
+  const { data: audit = [] } = useQuery({
+    queryKey: ['admin-audit-log'],
+    queryFn: () => fetchAdminAuditLog(null)
+  })
+
+  const max = dau.length ? Math.max(...dau.map(d => d.count), 1) : 1
+  const firstName = user?.fullName?.split(' ')[0] || 'Admin'
+  const STATUS_CLASS = { OK: 'safe', WARN: 'warn', DOWN: 'unsafe', N_A: 'inactive' }
 
   return (
     <div className="page">
       <div className="page__head">
         <div>
           <div className="eyebrow">Platform</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Good morning, <em>{ADMIN_USER.first}</em></h1>
-          <p className="page__sub">{M.activeNow} users online now · {M.tripsToday} trips · {M.ordersToday} orders today.</p>
+          <h1 className="page__title" style={{marginTop: 4}}>Good morning, <em>{firstName}</em></h1>
+          <p className="page__sub">{M.activeNow ?? 0} users online now · {M.tripsToday ?? 0} trips · {M.ordersToday ?? 0} orders today.</p>
         </div>
         <div className="page__actions">
           <button className="btn"><I.Filter size={14} /> Last 7 days</button>
@@ -280,12 +183,12 @@ function AdminOverviewPage({ setPage }) {
 
       {/* Metric strip */}
       <div className="orders-strip">
-        <div className="stat"><div className="l">Total users</div><div className="v">{M.totalUsers.toLocaleString()}</div><div className="s">+{M.newThisWeek} this week</div></div>
-        <div className="stat"><div className="l">Active now</div><div className="v">{M.activeNow}</div><div className="s">{Math.round(M.activeNow/M.totalUsers*100)}% of base</div></div>
-        <div className="stat"><div className="l">Trips today</div><div className="v">{M.tripsToday}</div><div className="s">{M.activeTrips} live now</div></div>
-        <div className="stat"><div className="l">Orders today</div><div className="v">{M.ordersToday}</div><div className="s">₱{(M.orderVolumePhp/1000000).toFixed(1)}M MTD</div></div>
-        <div className="stat"><div className="l">Disputes</div><div className="v" style={{color: M.disputedOrders > 5 ? 'var(--unsafe)' : 'var(--ink)'}}>{M.disputedOrders}</div><div className="s">Need review</div></div>
-        <div className="stat"><div className="l">Uptime</div><div className="v">{M.uptimePct}%</div><div className="s">Last 30 days</div></div>
+        <div className="stat"><div className="l">Total users</div><div className="v">{(M.totalUsers ?? 0).toLocaleString()}</div><div className="s">+{M.newThisWeek ?? 0} this week</div></div>
+        <div className="stat"><div className="l">Active now</div><div className="v">{M.activeNow ?? 0}</div><div className="s">{M.totalUsers ? Math.round((M.activeNow ?? 0)/(M.totalUsers)*100) : 0}% of base</div></div>
+        <div className="stat"><div className="l">Trips today</div><div className="v">{M.tripsToday ?? 0}</div><div className="s">{M.activeTrips ?? 0} live now</div></div>
+        <div className="stat"><div className="l">Orders today</div><div className="v">{M.ordersToday ?? 0}</div><div className="s">—</div></div>
+        <div className="stat"><div className="l">Disputes</div><div className="v" style={{color: (M.disputedOrders ?? 0) > 5 ? 'var(--unsafe)' : 'var(--ink)'}}>{M.disputedOrders ?? 0}</div><div className="s">Need review</div></div>
+        <div className="stat"><div className="l">Uptime</div><div className="v">—</div><div className="s">Last 30 days</div></div>
       </div>
 
       <div className="grid grid--2-1" style={{marginTop: 18}}>
@@ -294,7 +197,7 @@ function AdminOverviewPage({ setPage }) {
           <div className="card__head">
             <div>
               <div className="card__title">Daily active users · 30 days</div>
-              <div className="card__sub">Average {Math.round(ADMIN_DAU.reduce((a,d)=>a+d.dau,0)/ADMIN_DAU.length)} DAU</div>
+              <div className="card__sub">Average {Math.round(dau.reduce((a,d)=>a+d.count,0)/Math.max(dau.length,1))} DAU</div>
             </div>
             <div className="seg seg--sm">
               <button className="on">DAU</button>
@@ -303,13 +206,13 @@ function AdminOverviewPage({ setPage }) {
             </div>
           </div>
           <div style={{display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, padding: '0 4px'}}>
-            {ADMIN_DAU.map((d, i) => {
-              const h = (d.dau / max) * 100
+            {dau.map((d, i) => {
+              const h = (d.count / max) * 100
               return (
                 <div key={i} style={{flex: 1, display:'flex', flexDirection:'column', alignItems:'center', gap: 4}}>
                   <div style={{
                     width: '100%', height: `${h}%`,
-                    background: i === ADMIN_DAU.length - 1 ? 'var(--accent)' : 'var(--ink-soft)',
+                    background: i === dau.length - 1 ? 'var(--accent)' : 'var(--ink-soft)',
                     borderRadius: '3px 3px 0 0', minHeight: 4,
                   }} />
                 </div>
@@ -332,12 +235,12 @@ function AdminOverviewPage({ setPage }) {
           </div>
           <div className="role-bars">
             {[
-              { name: 'Fishermen', count: M.fishermen, color: 'oklch(0.55 0.09 220)' },
-              { name: 'Vendors',   count: M.vendors,   color: 'oklch(0.55 0.09 55)' },
-              { name: 'Buyers',    count: M.totalUsers - M.fishermen - M.vendors - M.admins, color: 'oklch(0.55 0.07 150)' },
-              { name: 'Admins',    count: M.admins,    color: 'oklch(0.50 0.10 330)' },
+              { name: 'Fishermen', count: M.fishermen ?? 0, color: 'oklch(0.55 0.09 220)' },
+              { name: 'Vendors',   count: M.vendors ?? 0,   color: 'oklch(0.55 0.09 55)' },
+              { name: 'Buyers',    count: M.buyers ?? 0, color: 'oklch(0.55 0.07 150)' },
+              { name: 'Admins',    count: M.admins ?? 0,    color: 'oklch(0.50 0.10 330)' },
             ].map(r => {
-              const pct = (r.count / M.totalUsers) * 100
+              const pct = M.totalUsers ? (r.count / M.totalUsers) * 100 : 0
               return (
                 <div key={r.name} className="role-bar">
                   <div className="role-bar__head">
@@ -361,18 +264,18 @@ function AdminOverviewPage({ setPage }) {
           <div className="card__head">
             <div>
               <div className="card__title">System health</div>
-              <div className="card__sub">{ADMIN_HEALTH.filter(h=>h.status==='OK').length}/{ADMIN_HEALTH.length} services nominal</div>
+              <div className="card__sub">{health.filter(h=>h.status==='OK').length}/{health.length} services nominal</div>
             </div>
           </div>
           <div className="health-list">
-            {ADMIN_HEALTH.map(h => (
+            {health.map(h => (
               <div key={h.name} className="health-item">
                 <span className={`health-dot health-dot--${h.status.toLowerCase()}`} />
                 <div className="health-item__body">
                   <div className="health-item__name">{h.name}</div>
                   <div className="health-item__detail">{h.detail}</div>
                 </div>
-                <span className={`chip chip--${h.status === 'OK' ? 'safe' : h.status === 'WARN' ? 'warn' : 'unsafe'}`}>{h.status}</span>
+                <span className={`chip chip--${STATUS_CLASS[h.status] || 'inactive'}`}>{h.status}</span>
               </div>
             ))}
           </div>
@@ -389,11 +292,11 @@ function AdminOverviewPage({ setPage }) {
           </div>
           <table className="tbl tbl--audit">
             <tbody>
-              {ADMIN_AUDIT.map((a, i) => (
-                <tr key={i}>
-                  <td className="data" style={{color:'var(--ink-4)', width: 80}}>{a.ts}</td>
+              {audit.slice(0, 8).map((a) => (
+                <tr key={a.id}>
+                  <td className="data" style={{color:'var(--ink-4)', width: 80}}>{fmtAuditTime(a.createdAt)}</td>
                   <td><span className={`audit-tag audit-tag--${a.kind}`}>{a.kind}</span></td>
-                  <td><strong>{a.actor}</strong> {a.action}</td>
+                  <td><strong>{a.actorName}</strong> {a.action}</td>
                   <td style={{color:'var(--ink-3)'}}>{a.target}</td>
                 </tr>
               ))}
@@ -405,36 +308,105 @@ function AdminOverviewPage({ setPage }) {
   )
 }
 
-function AdminUsersPage({ setPage }) {
+function AdminUsersPage() {
+  const qc = useQueryClient()
+  const { data: users = [], isLoading } = useQuery({ queryKey: ['admin-users'], queryFn: fetchAdminUsers })
   const [tab, setTab] = useState('all')
   const [search, setSearch] = useState('')
-  const filtered = ADMIN_USERS.filter(u => {
-    const m = !search || u.fullName.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
-    const t = tab === 'all' ? true : u.role === tab.toUpperCase()
+  const [openMenu, setOpenMenu] = useState(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [_editUser, setEditUser] = useState(null)
+  const [inviteForm, setInviteForm] = useState({ fullName: '', email: '', role: 'FISHERMAN', password: '' })
+  const [inviteErr, setInviteErr] = useState(null)
+
+  const filtered = users.filter(u => {
+    const m = !search || u.fullName.toLowerCase().includes(search.toLowerCase())
+      || u.email.toLowerCase().includes(search.toLowerCase())
+    const t = tab === 'all' || u.role === tab.toUpperCase()
     return m && t
   })
 
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, active }) => updateAdminUser(id, { active }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users'] })
+  })
+  const toggleActive = (u) => toggleMutation.mutate({ id: u.id, active: !u.active })
+
+  const inviteMutation = useMutation({
+    mutationFn: createAdminUser,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      setInviteOpen(false)
+      setInviteForm({ fullName: '', email: '', role: 'FISHERMAN', password: '' })
+    },
+    onError: (e) => setInviteErr(e.message)
+  })
+
+  function handleInvite(e) {
+    e.preventDefault()
+    setInviteErr(null)
+    inviteMutation.mutate(inviteForm)
+  }
+
   return (
     <div className="page">
+      {inviteOpen && (
+        <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && setInviteOpen(false)}>
+          <div className="trip-modal">
+            <div className="trip-modal__header">
+              <h2 className="trip-modal__title">Invite user</h2>
+              <button className="trip-modal__close" onClick={() => setInviteOpen(false)}>✕</button>
+            </div>
+            <form className="trip-form" onSubmit={handleInvite}>
+              {inviteErr && <p style={{ color: 'var(--unsafe)', fontSize: 13 }}>{inviteErr}</p>}
+              <label className="trip-form__label">Full name *
+                <input className="trip-form__input" value={inviteForm.fullName}
+                  onChange={e => setInviteForm(f => ({...f, fullName: e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Email *
+                <input type="email" className="trip-form__input" value={inviteForm.email}
+                  onChange={e => setInviteForm(f => ({...f, email: e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Role *
+                <select className="trip-form__input" value={inviteForm.role}
+                  onChange={e => setInviteForm(f => ({...f, role: e.target.value}))}>
+                  <option value="FISHERMAN">Fisherman</option>
+                  <option value="VENDOR">Vendor</option>
+                  <option value="BUYER">Buyer</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </label>
+              <label className="trip-form__label">Password *
+                <input type="password" className="trip-form__input" value={inviteForm.password}
+                  onChange={e => setInviteForm(f => ({...f, password: e.target.value}))} required minLength={8} />
+              </label>
+              <div className="trip-form__actions">
+                <button type="button" className="trip-btn trip-btn--ghost" onClick={() => setInviteOpen(false)}>Cancel</button>
+                <button type="submit" className="trip-btn trip-btn--primary">Invite</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="page__head">
         <div>
           <div className="eyebrow">Users</div>
           <h1 className="page__title" style={{marginTop: 4}}>User <em>Management</em></h1>
-          <p className="page__sub">{ADMIN_USERS.length} accounts · {ADMIN_USERS.filter(u=>u.active).length} active.</p>
+          <p className="page__sub">{users.length} accounts · {users.filter(u=>u.active).length} active.</p>
         </div>
         <div className="page__actions">
-          <button className="btn"><I.Filter size={14} /> Export CSV</button>
-          <button className="btn btn--primary"><I.Plus size={14} /> Invite user</button>
+          <button className="btn btn--primary" onClick={() => setInviteOpen(true)}><I.Plus size={14} /> Invite user</button>
         </div>
       </div>
 
       <div className="card" style={{marginTop: 18}}>
         <div className="card__head">
           <div className="seg">
-            <button className={tab==='all'?'on':''} onClick={()=>setTab('all')}>All ({ADMIN_USERS.length})</button>
-            <button className={tab==='fisherman'?'on':''} onClick={()=>setTab('fisherman')}>Fishermen ({ADMIN_USERS.filter(u=>u.role==='FISHERMAN').length})</button>
-            <button className={tab==='vendor'?'on':''} onClick={()=>setTab('vendor')}>Vendors ({ADMIN_USERS.filter(u=>u.role==='VENDOR').length})</button>
-            <button className={tab==='admin'?'on':''} onClick={()=>setTab('admin')}>Admins ({ADMIN_USERS.filter(u=>u.role==='ADMIN').length})</button>
+            <button className={tab==='all'?'on':''} onClick={()=>setTab('all')}>All ({users.length})</button>
+            <button className={tab==='fisherman'?'on':''} onClick={()=>setTab('fisherman')}>Fishermen ({users.filter(u=>u.role==='FISHERMAN').length})</button>
+            <button className={tab==='vendor'?'on':''} onClick={()=>setTab('vendor')}>Vendors ({users.filter(u=>u.role==='VENDOR').length})</button>
+            <button className={tab==='admin'?'on':''} onClick={()=>setTab('admin')}>Admins ({users.filter(u=>u.role==='ADMIN').length})</button>
           </div>
           <div className="search-input" style={{minWidth: 220}}>
             <I.Search size={13} />
@@ -442,67 +414,185 @@ function AdminUsersPage({ setPage }) {
           </div>
         </div>
 
-        <table className="tbl tbl--users">
-          <thead>
-            <tr><th>Name</th><th>Role</th><th>Region</th><th>Activity</th><th>Joined</th><th>Last seen</th><th>Status</th><th></th></tr>
-          </thead>
-          <tbody>
-            {filtered.map(u => (
-              <tr key={u.id} className="row--link">
-                <td>
-                  <div className="row" style={{gap: 10}}>
-                    <div className="user-avatar">{u.fullName.split(' ').map(s=>s[0]).join('').slice(0,2)}</div>
-                    <div>
-                      <div style={{fontWeight: 500}}>{u.fullName}</div>
-                      <small style={{color:'var(--ink-4)'}}>{u.email}</small>
+        {isLoading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>Loading…</div>
+        ) : (
+          <table className="tbl tbl--users">
+            <thead>
+              <tr><th>Name</th><th>Role</th><th>Activity</th><th>Joined</th><th>Last seen</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              {filtered.map(u => (
+                <tr key={u.id} className="row--link">
+                  <td>
+                    <div className="row" style={{gap: 10}}>
+                      <div className="user-avatar">{u.fullName.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}</div>
+                      <div>
+                        <div style={{fontWeight: 500}}>{u.fullName}</div>
+                        <small style={{color:'var(--ink-4)'}}>{u.email}</small>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td><span className={`role-pill role-pill--${u.role.toLowerCase()}`}>{u.role}</span></td>
-                <td style={{color:'var(--ink-3)'}}>{u.region}</td>
-                <td className="data">
-                  {u.trips !== undefined ? `${u.trips} trips` : u.listings !== undefined ? `${u.listings} listings` : '—'}
-                </td>
-                <td className="data" style={{color:'var(--ink-4)'}}>{u.joined}</td>
-                <td style={{color:'var(--ink-4)'}}>{u.lastSeen}</td>
-                <td>
-                  <span className={`status status--${u.active ? 'active' : 'inactive'}`}>
-                    <span className="status__dot" /> {u.active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td><button className="btn btn--ghost btn--sm"><I.Dots size={12} /></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </td>
+                  <td><span className={`role-pill role-pill--${u.role.toLowerCase()}`}>{u.role}</span></td>
+                  <td className="data">—</td>
+                  <td className="data" style={{color:'var(--ink-4)'}}>
+                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-PH') : '—'}
+                  </td>
+                  <td style={{color:'var(--ink-4)'}}>{relativeTime(u.lastLoginAt)}</td>
+                  <td>
+                    <span className={`status status--${u.active ? 'active' : 'inactive'}`}>
+                      <span className="status__dot" /> {u.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td style={{ position: 'relative' }}>
+                    <button className="btn btn--ghost btn--sm"
+                      onClick={() => setOpenMenu(openMenu === u.id ? null : u.id)}>
+                      <I.Dots size={12} />
+                    </button>
+                    {openMenu === u.id && (
+                      <div className="popover" style={{ position: 'absolute', right: 0, zIndex: 10, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '4px 0', minWidth: 140 }}>
+                        <button className="popover-item" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 14px', background: 'none', border: 'none', cursor: 'pointer' }}
+                          onClick={() => { setEditUser(u); setOpenMenu(null) }}>Edit</button>
+                        <button className="popover-item" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 14px', background: 'none', border: 'none', cursor: 'pointer' }}
+                          onClick={() => { toggleActive(u); setOpenMenu(null) }}>
+                          {u.active ? 'Deactivate' : 'Reactivate'}
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
 }
 
-function AdminAdvisoriesPage({ setPage }) {
+function AdminAdvisoriesPage() {
+  const qc = useQueryClient()
+  const { data: advisories = [] } = useQuery({ queryKey: ['admin-advisories'], queryFn: fetchAdminAdvisories })
   const [tab, setTab] = useState('active')
-  const filtered = ADMIN_ADVISORIES.filter(a => tab === 'active' ? a.isActive : !a.isActive)
+  const [showForm, setShowForm] = useState(false)
+  const [editAdvisory, setEditAdvisory] = useState(null)
+  const [form, setForm] = useState({ title:'', message:'', severity:'MEDIUM', affectedArea:'', activeFrom:'', activeTo:'' })
+  const [err, setErr] = useState(null)
+
   const sevColor = { LOW: 'var(--ink-4)', MEDIUM: 'var(--warn)', HIGH: 'var(--unsafe)', CRITICAL: 'var(--unsafe)' }
+  const filtered = advisories.filter(a => tab === 'active' ? a.isActive : !a.isActive)
+
+  function openNew() {
+    setEditAdvisory(null)
+    setForm({ title:'', message:'', severity:'MEDIUM', affectedArea:'', activeFrom:'', activeTo:'' })
+    setErr(null)
+    setShowForm(true)
+  }
+  function openEdit(a) {
+    setEditAdvisory(a)
+    setForm({
+      title: a.title, message: a.message, severity: a.severity,
+      affectedArea: a.affectedArea,
+      activeFrom: a.activeFrom ? a.activeFrom.slice(0,16) : '',
+      activeTo: a.activeTo ? a.activeTo.slice(0,16) : '',
+    })
+    setErr(null)
+    setShowForm(true)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setErr(null)
+    try {
+      const body = {
+        ...form,
+        activeFrom: form.activeFrom ? new Date(form.activeFrom).toISOString() : undefined,
+        activeTo: form.activeTo ? new Date(form.activeTo).toISOString() : undefined,
+      }
+      if (editAdvisory) {
+        await updateAdvisory(editAdvisory.id, body)
+      } else {
+        await createAdvisory(body)
+      }
+      qc.invalidateQueries({ queryKey: ['admin-advisories'] })
+      qc.invalidateQueries({ queryKey: ['admin-metrics'] })
+      setShowForm(false)
+    } catch(e) { setErr(e.message) }
+  }
+
+  async function endNow(a) {
+    if (!confirm(`End advisory "${a.title}" now?`)) return
+    try {
+      await updateAdvisory(a.id, { isActive: false, activeTo: new Date().toISOString() })
+      qc.invalidateQueries({ queryKey: ['admin-advisories'] })
+      qc.invalidateQueries({ queryKey: ['admin-metrics'] })
+    } catch(e) { alert(e.message) }
+  }
 
   return (
     <div className="page">
+      {showForm && (
+        <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div className="trip-modal">
+            <div className="trip-modal__header">
+              <h2 className="trip-modal__title">{editAdvisory ? 'Edit advisory' : 'New advisory'}</h2>
+              <button className="trip-modal__close" onClick={() => setShowForm(false)}>✕</button>
+            </div>
+            <form className="trip-form" onSubmit={handleSubmit}>
+              {err && <p style={{ color: 'var(--unsafe)', fontSize: 13 }}>{err}</p>}
+              <label className="trip-form__label">Title *
+                <input className="trip-form__input" value={form.title}
+                  onChange={e => setForm(f=>({...f,title:e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Message *
+                <textarea className="trip-form__input" value={form.message}
+                  onChange={e => setForm(f=>({...f,message:e.target.value}))} required rows={3} />
+              </label>
+              <label className="trip-form__label">Severity *
+                <select className="trip-form__input" value={form.severity}
+                  onChange={e => setForm(f=>({...f,severity:e.target.value}))}>
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="CRITICAL">Critical</option>
+                </select>
+              </label>
+              <label className="trip-form__label">Affected area *
+                <input className="trip-form__input" value={form.affectedArea}
+                  onChange={e => setForm(f=>({...f,affectedArea:e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Active from *
+                <input type="datetime-local" className="trip-form__input" value={form.activeFrom}
+                  onChange={e => setForm(f=>({...f,activeFrom:e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Active to *
+                <input type="datetime-local" className="trip-form__input" value={form.activeTo}
+                  onChange={e => setForm(f=>({...f,activeTo:e.target.value}))} required />
+              </label>
+              <div className="trip-form__actions">
+                <button type="button" className="trip-btn trip-btn--ghost" onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="trip-btn trip-btn--primary">{editAdvisory ? 'Save changes' : 'Post advisory'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="page__head">
         <div>
           <div className="eyebrow">Safety</div>
           <h1 className="page__title" style={{marginTop: 4}}>Marine <em>Advisories</em></h1>
-          <p className="page__sub">{ADMIN_ADVISORIES.filter(a=>a.isActive).length} active advisories broadcasting to fishermen and vendors.</p>
+          <p className="page__sub">{advisories.filter(a=>a.isActive).length} active advisories broadcasting to fishermen and vendors.</p>
         </div>
         <div className="page__actions">
-          <button className="btn btn--primary"><I.Plus size={14} /> New advisory</button>
+          <button className="btn btn--primary" onClick={openNew}><I.Plus size={14} /> New advisory</button>
         </div>
       </div>
 
       <div className="card" style={{marginTop: 18}}>
         <div className="card__head">
           <div className="seg">
-            <button className={tab==='active'?'on':''} onClick={()=>setTab('active')}>Active ({ADMIN_ADVISORIES.filter(a=>a.isActive).length})</button>
-            <button className={tab==='archive'?'on':''} onClick={()=>setTab('archive')}>Archive ({ADMIN_ADVISORIES.filter(a=>!a.isActive).length})</button>
+            <button className={tab==='active'?'on':''} onClick={()=>setTab('active')}>Active ({advisories.filter(a=>a.isActive).length})</button>
+            <button className={tab==='archive'?'on':''} onClick={()=>setTab('archive')}>Archive ({advisories.filter(a=>!a.isActive).length})</button>
           </div>
         </div>
 
@@ -521,56 +611,116 @@ function AdminAdvisoriesPage({ setPage }) {
                 <p>{a.message}</p>
                 <div className="advisory-item__meta">
                   <span><I.Clock size={11} /> {new Date(a.activeFrom).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})} → {new Date(a.activeTo).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
-                  <span>·</span>
-                  <span>By {a.createdBy}</span>
                 </div>
               </div>
               <div className="advisory-item__actions">
-                <button className="btn btn--ghost btn--sm">Edit</button>
-                {a.isActive ? <button className="btn btn--ghost btn--sm">End now</button> : null}
+                <button className="btn btn--ghost btn--sm" onClick={() => openEdit(a)}>Edit</button>
+                {a.isActive ? <button className="btn btn--ghost btn--sm" onClick={() => endNow(a)}>End now</button> : null}
               </div>
             </div>
           ))}
+          {filtered.length === 0 && (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>
+              No {tab === 'active' ? 'active' : 'archived'} advisories.
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-function AdminSpeciesPage({ setPage }) {
+function AdminSpeciesPage() {
+  const qc = useQueryClient()
+  const { data: species = [], isLoading } = useQuery({ queryKey: ['admin-species'], queryFn: fetchAdminSpecies })
+  const [showForm, setShowForm] = useState(false)
+  const [editSpecies, setEditSpecies] = useState(null)
+  const [form, setForm] = useState({ commonName: '', scientificName: '' })
+  const [err, setErr] = useState(null)
+
+  function openNew() {
+    setEditSpecies(null); setForm({ commonName: '', scientificName: '' }); setErr(null); setShowForm(true)
+  }
+  function openEdit(s) {
+    setEditSpecies(s); setForm({ commonName: s.commonName, scientificName: s.scientificName || '' }); setErr(null); setShowForm(true)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setErr(null)
+    try {
+      if (editSpecies) {
+        await updateSpecies(editSpecies.id, form)
+      } else {
+        await createSpecies(form)
+      }
+      qc.invalidateQueries({ queryKey: ['admin-species'] })
+      setShowForm(false)
+    } catch(e) { setErr(e.message) }
+  }
+
+  async function toggleSpecies(s) {
+    try {
+      if (s.active) {
+        await deleteSpecies(s.id)
+      } else {
+        await reactivateSpecies(s.id)
+      }
+      qc.invalidateQueries({ queryKey: ['admin-species'] })
+    } catch(e) { alert(e.message) }
+  }
+
   return (
     <div className="page">
+      {showForm && (
+        <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div className="trip-modal">
+            <div className="trip-modal__header">
+              <h2 className="trip-modal__title">{editSpecies ? 'Edit species' : 'Add species'}</h2>
+              <button className="trip-modal__close" onClick={() => setShowForm(false)}>✕</button>
+            </div>
+            <form className="trip-form" onSubmit={handleSubmit}>
+              {err && <p style={{ color: 'var(--unsafe)', fontSize: 13 }}>{err}</p>}
+              <label className="trip-form__label">Common name *
+                <input className="trip-form__input" value={form.commonName}
+                  onChange={e => setForm(f=>({...f,commonName:e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Scientific name
+                <input className="trip-form__input" value={form.scientificName}
+                  onChange={e => setForm(f=>({...f,scientificName:e.target.value}))} />
+              </label>
+              <div className="trip-form__actions">
+                <button type="button" className="trip-btn trip-btn--ghost" onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="trip-btn trip-btn--primary">{editSpecies ? 'Save changes' : 'Add species'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="page__head">
         <div>
           <div className="eyebrow">Lookups</div>
           <h1 className="page__title" style={{marginTop: 4}}>Fish <em>Species</em></h1>
-          <p className="page__sub">{ADMIN_SPECIES.filter(s=>s.active).length} active species in the catalog · used across {ADMIN_SPECIES.reduce((a,s)=>a+s.usageCount,0).toLocaleString()} catches and listings.</p>
+          <p className="page__sub">{species.filter(s=>s.active).length} active species in the catalog.</p>
         </div>
         <div className="page__actions">
-          <button className="btn btn--primary"><I.Plus size={14} /> Add species</button>
+          <button className="btn btn--primary" onClick={openNew}><I.Plus size={14} /> Add species</button>
         </div>
       </div>
 
       <div className="card" style={{marginTop: 18}}>
-        <table className="tbl">
-          <thead>
-            <tr><th>Common name</th><th>Scientific name</th><th>Usage</th><th>Status</th><th></th></tr>
-          </thead>
-          <tbody>
-            {ADMIN_SPECIES.map(s => {
-              const max = Math.max(...ADMIN_SPECIES.map(x => x.usageCount))
-              return (
-                <tr key={s.id} className="row--link">
+        {isLoading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>Loading…</div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr><th>Common name</th><th>Scientific name</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+              {species.map(s => (
+                <tr key={s.id} className={s.active ? 'row--link' : ''} style={s.active ? {} : {opacity:0.5}}>
                   <td style={{fontWeight: 500}}>{s.commonName}</td>
-                  <td style={{fontStyle: 'italic', color: 'var(--ink-3)'}}>{s.scientificName}</td>
-                  <td>
-                    <div className="row" style={{gap: 8}}>
-                      <span className="data" style={{minWidth: 36}}>{s.usageCount}</span>
-                      <div style={{width: 80, height: 4, background:'var(--line-soft)', borderRadius: 2, overflow: 'hidden'}}>
-                        <div style={{width: `${s.usageCount/max*100}%`, height: '100%', background: 'var(--accent)'}} />
-                      </div>
-                    </div>
-                  </td>
+                  <td style={{fontStyle: 'italic', color: 'var(--ink-3)'}}>{s.scientificName || '—'}</td>
                   <td>
                     <span className={`status status--${s.active ? 'active' : 'inactive'}`}>
                       <span className="status__dot" /> {s.active ? 'Active' : 'Hidden'}
@@ -578,58 +728,165 @@ function AdminSpeciesPage({ setPage }) {
                   </td>
                   <td>
                     <div className="row" style={{gap: 6}}>
-                      <button className="btn btn--ghost btn--sm">Edit</button>
-                      <button className="btn btn--ghost btn--sm"><I.Dots size={12} /></button>
+                      <button className="btn btn--ghost btn--sm" onClick={() => openEdit(s)}>Edit</button>
+                      <button className="btn btn--ghost btn--sm" onClick={() => toggleSpecies(s)}>
+                        {s.active ? 'Deactivate' : 'Reactivate'}
+                      </button>
                     </div>
                   </td>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   )
 }
 
-function AdminLocationsPage({ setPage }) {
+function AdminLocationsPage() {
+  const qc = useQueryClient()
+  const { data: locations = [], isLoading } = useQuery({ queryKey: ['admin-locations'], queryFn: fetchAdminLocations })
+  const [showForm, setShowForm] = useState(false)
+  const [editLocation, setEditLocation] = useState(null)
+  const [form, setForm] = useState({ name: '', municipality: '', province: '' })
+  const [openMenu, setOpenMenu] = useState(null)
+  const [err, setErr] = useState(null)
+
+  function openNew() {
+    setEditLocation(null); setForm({ name: '', municipality: '', province: '' }); setErr(null); setShowForm(true)
+  }
+  function openEdit(l) {
+    setEditLocation(l); setForm({ name: l.name, municipality: l.municipality || '', province: l.province || '' }); setErr(null); setShowForm(true); setOpenMenu(null)
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setErr(null)
+    try {
+      if (editLocation) {
+        await updateLocation(editLocation.id, form)
+      } else {
+        await createLocation(form)
+      }
+      qc.invalidateQueries({ queryKey: ['admin-locations'] })
+      setShowForm(false)
+    } catch(e) { setErr(e.message) }
+  }
+
+  async function toggleLocation(l) {
+    try {
+      if (l.active) {
+        await deleteLocation(l.id)
+      } else {
+        await reactivateLocation(l.id)
+      }
+      qc.invalidateQueries({ queryKey: ['admin-locations'] })
+      setOpenMenu(null)
+    } catch(e) { alert(e.message) }
+  }
+
+  const provinces = new Set(locations.map(l => l.province).filter(Boolean))
+
   return (
     <div className="page">
+      {showForm && (
+        <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
+          <div className="trip-modal">
+            <div className="trip-modal__header">
+              <h2 className="trip-modal__title">{editLocation ? 'Edit location' : 'Add location'}</h2>
+              <button className="trip-modal__close" onClick={() => setShowForm(false)}>✕</button>
+            </div>
+            <form className="trip-form" onSubmit={handleSubmit}>
+              {err && <p style={{ color: 'var(--unsafe)', fontSize: 13 }}>{err}</p>}
+              <label className="trip-form__label">Name *
+                <input className="trip-form__input" value={form.name}
+                  onChange={e => setForm(f=>({...f,name:e.target.value}))} required />
+              </label>
+              <label className="trip-form__label">Municipality
+                <input className="trip-form__input" value={form.municipality}
+                  onChange={e => setForm(f=>({...f,municipality:e.target.value}))} />
+              </label>
+              <label className="trip-form__label">Province
+                <input className="trip-form__input" value={form.province}
+                  onChange={e => setForm(f=>({...f,province:e.target.value}))} />
+              </label>
+              <div className="trip-form__actions">
+                <button type="button" className="trip-btn trip-btn--ghost" onClick={() => setShowForm(false)}>Cancel</button>
+                <button type="submit" className="trip-btn trip-btn--primary">{editLocation ? 'Save changes' : 'Add location'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="page__head">
         <div>
           <div className="eyebrow">Lookups</div>
           <h1 className="page__title" style={{marginTop: 4}}>Market <em>Locations</em></h1>
-          <p className="page__sub">{ADMIN_LOCATIONS.filter(l=>l.active).length} active drop-off and depot locations across {new Set(ADMIN_LOCATIONS.map(l=>l.province)).size} provinces.</p>
+          <p className="page__sub">{locations.filter(l=>l.active).length} active locations across {provinces.size} provinces.</p>
         </div>
         <div className="page__actions">
-          <button className="btn btn--primary"><I.Plus size={14} /> Add location</button>
+          <button className="btn btn--primary" onClick={openNew}><I.Plus size={14} /> Add location</button>
         </div>
       </div>
 
-      <div className="locations-grid" style={{marginTop: 18}}>
-        {ADMIN_LOCATIONS.map(l => (
-          <div key={l.id} className={`location-card${!l.active ? ' location-card--inactive' : ''}`}>
-            <div className="location-card__head">
-              <I.MapPin size={14} />
-              <span>{l.municipality}, {l.province}</span>
-              <button className="btn btn--ghost btn--sm" style={{marginLeft:'auto'}}><I.Dots size={12} /></button>
+      {isLoading ? (
+        <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>Loading…</div>
+      ) : (
+        <div className="locations-grid" style={{marginTop: 18}}>
+          {locations.map(l => (
+            <div key={l.id} className={`location-card${!l.active ? ' location-card--inactive' : ''}`}>
+              <div className="location-card__head">
+                <I.MapPin size={14} />
+                <span>{l.municipality ? `${l.municipality}, ` : ''}{l.province || '—'}</span>
+                <div style={{marginLeft:'auto', position:'relative'}}>
+                  <button className="btn btn--ghost btn--sm"
+                    onClick={() => setOpenMenu(openMenu === l.id ? null : l.id)}>
+                    <I.Dots size={12} />
+                  </button>
+                  {openMenu === l.id && (
+                    <div style={{ position: 'absolute', right: 0, zIndex: 10, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 8, padding: '4px 0', minWidth: 140 }}>
+                      <button style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 14px', background: 'none', border: 'none', cursor: 'pointer' }}
+                        onClick={() => openEdit(l)}>Edit</button>
+                      <button style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 14px', background: 'none', border: 'none', cursor: 'pointer' }}
+                        onClick={() => toggleLocation(l)}>
+                        {l.active ? 'Deactivate' : 'Reactivate'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <h3 className="location-card__name">{l.name}</h3>
+              <div className="location-card__stats">
+                <div><div className="l">Status</div><div className="v" style={{fontSize: 13, color: l.active ? 'var(--safe)' : 'var(--ink-4)'}}>{l.active ? 'Active' : 'Off'}</div></div>
+              </div>
             </div>
-            <h3 className="location-card__name">{l.name}</h3>
-            <div className="location-card__stats">
-              <div><div className="l">Vendors</div><div className="v">{l.vendors}</div></div>
-              <div><div className="l">Listings</div><div className="v">{l.listings}</div></div>
-              <div><div className="l">Status</div><div className="v" style={{fontSize: 13, color: l.active ? 'var(--safe)' : 'var(--ink-4)'}}>{l.active ? 'Active' : 'Off'}</div></div>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function AdminAuditPage({ setPage }) {
+function AdminAuditPage() {
   const [filter, setFilter] = useState('all')
-  const filtered = ADMIN_AUDIT.filter(a => filter === 'all' ? true : a.kind === filter)
+  const { data: entries = [], isLoading } = useQuery({
+    queryKey: ['admin-audit-log', filter],
+    queryFn: () => fetchAdminAuditLog(filter)
+  })
+
+  function exportCsv() {
+    const header = 'Time,Kind,Actor,Action,Target'
+    const lines = entries.map(r =>
+      `"${r.createdAt}","${r.kind}","${r.actorName}","${r.action}","${r.target || ''}"`
+    )
+    const csv = [header, ...lines].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'audit-log.csv'; a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="page">
@@ -640,7 +897,7 @@ function AdminAuditPage({ setPage }) {
           <p className="page__sub">All admin and system actions, ordered by recency.</p>
         </div>
         <div className="page__actions">
-          <button className="btn"><I.Filter size={14} /> Export</button>
+          <button className="btn" onClick={exportCsv}><I.Filter size={14} /> Export</button>
         </div>
       </div>
 
@@ -655,21 +912,41 @@ function AdminAuditPage({ setPage }) {
           </div>
         </div>
 
-        <table className="tbl tbl--audit">
-          <thead>
-            <tr><th>Time</th><th>Kind</th><th>Action</th><th>Target</th></tr>
-          </thead>
-          <tbody>
-            {filtered.map((a, i) => (
-              <tr key={i}>
-                <td className="data" style={{color:'var(--ink-4)'}}>{a.ts}</td>
-                <td><span className={`audit-tag audit-tag--${a.kind}`}>{a.kind}</span></td>
-                <td><strong>{a.actor}</strong> {a.action}</td>
-                <td style={{color:'var(--ink-3)'}}>{a.target}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {isLoading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--ink-3)' }}>Loading…</div>
+        ) : (
+          <table className="tbl tbl--audit">
+            <thead>
+              <tr><th>Time</th><th>Kind</th><th>Action</th><th>Target</th></tr>
+            </thead>
+            <tbody>
+              {entries.map((a) => (
+                <tr key={a.id}>
+                  <td className="data" style={{color:'var(--ink-4)'}}>{fmtAuditTime(a.createdAt)}</td>
+                  <td><span className={`audit-tag audit-tag--${a.kind}`}>{a.kind}</span></td>
+                  <td><strong>{a.actorName}</strong> {a.action}</td>
+                  <td style={{color:'var(--ink-3)'}}>{a.target}</td>
+                </tr>
+              ))}
+              {entries.length === 0 && (
+                <tr><td colSpan={4} style={{ textAlign: 'center', color: 'var(--ink-3)', padding: 24 }}>No audit entries yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function AdminBfarPage() {
+  return (
+    <div className="page">
+      <div className="page__head">
+        <div>
+          <div className="eyebrow">BFAR</div>
+          <h1 className="page__title" style={{marginTop: 4}}>BFAR <em>Reference</em></h1>
+        </div>
       </div>
     </div>
   )
@@ -679,6 +956,7 @@ function AdminAuditPage({ setPage }) {
 
 export default function AdminDashboard({ user, onLogout }) {
   const [page, setPage] = useState('aoverview')
+  const { data: metrics } = useQuery({ queryKey: ['admin-metrics'], queryFn: fetchAdminMetrics })
 
   const PAGES = {
     aoverview:   AdminOverviewPage,
@@ -687,15 +965,20 @@ export default function AdminDashboard({ user, onLogout }) {
     aspecies:    AdminSpeciesPage,
     alocations:  AdminLocationsPage,
     aaudit:      AdminAuditPage,
+    abfar:       AdminBfarPage,
   }
   const PageCmp = PAGES[page] || AdminOverviewPage
 
   return (
     <div className="app" data-accent="plum" data-density="balanced">
-      <Rail role="ADMIN" page={page} setPage={setPage} onTweaks={() => {}} onSwitchRole={onLogout || (() => {})} />
+      <Rail
+        role="ADMIN" page={page} setPage={setPage}
+        onTweaks={() => {}} onSwitchRole={onLogout || (() => {})}
+        user={user} advisoryBadge={metrics?.activeAdvisories ?? 0}
+      />
       <main className="main">
         <Topbar role="ADMIN" page={page} />
-        <PageCmp setPage={setPage} />
+        <PageCmp setPage={setPage} user={user} metrics={metrics} />
       </main>
     </div>
   )
