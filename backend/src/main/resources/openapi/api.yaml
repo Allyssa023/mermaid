@@ -6800,6 +6800,10 @@ components:
         minQtyKg:
           type: number
           format: double
+        deliveryFee:
+          type: number
+          format: double
+          description: "Delivery fee in PHP. 0 means free delivery."
         availableKg:
           type: number
           format: double

@@ -50,6 +50,7 @@ public class StorefrontListingMapper {
         dto.setDescription(JsonNullable.of(entity.getDescription()));
         dto.setPhotoUrl(JsonNullable.of(entity.getPhotoUrl()));
         dto.setAvailableKg(availableKg != null ? availableKg.doubleValue() : 0.0);
+        dto.setDeliveryFee(toDouble(entity.getDeliveryFee()));
         return dto;
     }
 
@@ -71,6 +72,7 @@ public class StorefrontListingMapper {
         dto.setDescription(JsonNullable.of(entity.getDescription()));
         dto.setPhotoUrl(JsonNullable.of(entity.getPhotoUrl()));
         dto.setMinQtyKg(toDouble(entity.getMinQtyKg()));
+        dto.setDeliveryFee(toDouble(entity.getDeliveryFee()));
         return dto;
     }
 

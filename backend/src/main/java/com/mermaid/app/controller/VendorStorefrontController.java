@@ -110,6 +110,8 @@ public class VendorStorefrontController implements VendorStorefrontApi {
             entity.setPricePerKg(BigDecimal.valueOf(req.getPricePerKg()));
         if (req.getMinQtyKg() != null)
             entity.setMinQtyKg(BigDecimal.valueOf(req.getMinQtyKg()));
+        if (req.getDeliveryFee() != null)
+            entity.setDeliveryFee(BigDecimal.valueOf(req.getDeliveryFee()));
         return entity;
     }
 
@@ -124,6 +126,8 @@ public class VendorStorefrontController implements VendorStorefrontApi {
             entity.setPricePerKg(BigDecimal.valueOf(req.getPricePerKg()));
         if (req.getMinQtyKg() != null)
             entity.setMinQtyKg(BigDecimal.valueOf(req.getMinQtyKg()));
+        if (req.getDeliveryFee() != null)
+            entity.setDeliveryFee(BigDecimal.valueOf(req.getDeliveryFee()));
         return entity;
     }
 }
