@@ -569,6 +569,20 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /admin/fish-species:
+    get:
+      tags: [Admin]
+      summary: List all fish species including inactive
+      operationId: adminListFishSpecies
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: All fish species
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FishSpecies'
     post:
       tags: [Admin]
       summary: Create fish species (Admin only)
@@ -637,6 +651,20 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /admin/market-locations:
+    get:
+      tags: [Admin]
+      summary: List all market locations including inactive
+      operationId: adminListMarketLocations
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: All market locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MarketLocation'
     post:
       tags: [Admin]
       summary: Create market location (Admin only)
@@ -814,6 +842,111 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /admin/fish-species/{speciesId}/reactivate:
+    post:
+      tags: [Admin]
+      summary: Reactivate a soft-deleted fish species
+      operationId: adminReactivateFishSpecies
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: speciesId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Species reactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FishSpecies'
+
+  /admin/market-locations/{locationId}/reactivate:
+    post:
+      tags: [Admin]
+      summary: Reactivate a soft-deleted market location
+      operationId: adminReactivateMarketLocation
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Location reactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketLocation'
+
+  /admin/metrics:
+    get:
+      tags: [Admin]
+      summary: Platform aggregate metrics
+      operationId: adminGetMetrics
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Platform metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMetrics'
+
+  /admin/dau:
+    get:
+      tags: [Admin]
+      summary: 30-day daily active users
+      operationId: adminGetDau
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: DAU array
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminDauEntry'
+
+  /admin/health:
+    get:
+      tags: [Admin]
+      summary: Service health checks
+      operationId: adminGetHealth
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Health checks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HealthCheck'
+
+  /admin/audit-log:
+    get:
+      tags: [Admin]
+      summary: Audit log entries
+      operationId: adminListAuditLog
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Audit entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEntry'
 
   /vendor/demand-listings:
     get:
@@ -4846,6 +4979,14 @@ components:
           $ref: '#/components/schemas/Role'
         active:
           type: boolean
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
 
     ChatMessage:
       type: object
@@ -7445,6 +7586,20 @@ components:
         createdAt:
           type: string
           format: date-time
+        orderCode:
+          type: string
+          nullable: true
+        speciesName:
+          type: string
+          nullable: true
+        quantityKg:
+          type: number
+          format: double
+          nullable: true
+        orderDate:
+          type: string
+          format: date-time
+          nullable: true
 
     PublicShopView:
       type: object
@@ -7999,3 +8154,53 @@ components:
           format: int64
         totalPages:
           type: integer
+
+    AdminMetrics:
+      type: object
+      required: [totalUsers, fishermen, vendors, buyers, admins, newThisWeek, activeNow,
+                 totalTrips, activeTrips, tripsToday, totalListings, openListings,
+                 totalOrders, ordersToday, disputedOrders, activeAdvisories]
+      properties:
+        totalUsers:       { type: integer }
+        fishermen:        { type: integer }
+        vendors:          { type: integer }
+        buyers:           { type: integer }
+        admins:           { type: integer }
+        newThisWeek:      { type: integer }
+        activeNow:        { type: integer }
+        totalTrips:       { type: integer }
+        activeTrips:      { type: integer }
+        tripsToday:       { type: integer }
+        totalListings:    { type: integer }
+        openListings:     { type: integer }
+        totalOrders:      { type: integer }
+        ordersToday:      { type: integer }
+        disputedOrders:   { type: integer }
+        activeAdvisories: { type: integer }
+
+    AdminDauEntry:
+      type: object
+      required: [date, count]
+      properties:
+        date:  { type: string, format: date }
+        count: { type: integer }
+
+    HealthCheck:
+      type: object
+      required: [name, status, detail]
+      properties:
+        name:   { type: string }
+        status: { type: string, enum: [OK, WARN, DOWN, N_A] }
+        detail: { type: string }
+
+    AuditEntry:
+      type: object
+      required: [id, actorName, kind, action, createdAt]
+      properties:
+        id:        { type: integer, format: int64 }
+        actorId:   { type: integer, format: int64, nullable: true }
+        actorName: { type: string }
+        kind:      { type: string }
+        action:    { type: string }
+        target:    { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }

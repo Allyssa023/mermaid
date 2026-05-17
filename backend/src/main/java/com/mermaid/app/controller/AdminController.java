@@ -134,6 +134,52 @@ public class AdminController implements AdminApi {
         return ResponseEntity.noContent().build();
     }
 
+    // --- Fish species (extended) ---
+
+    @Override
+    public ResponseEntity<List<FishSpecies>> adminListFishSpecies() {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    @Override
+    public ResponseEntity<FishSpecies> adminReactivateFishSpecies(Long speciesId) {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    // --- Market locations (extended) ---
+
+    @Override
+    public ResponseEntity<List<MarketLocation>> adminListMarketLocations() {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    @Override
+    public ResponseEntity<MarketLocation> adminReactivateMarketLocation(Long locationId) {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    // --- Platform metrics / telemetry ---
+
+    @Override
+    public ResponseEntity<AdminMetrics> adminGetMetrics() {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    @Override
+    public ResponseEntity<List<AdminDauEntry>> adminGetDau() {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    @Override
+    public ResponseEntity<List<HealthCheck>> adminGetHealth() {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
+    @Override
+    public ResponseEntity<List<AuditEntry>> adminListAuditLog(String kind) {
+        throw new UnsupportedOperationException("Not yet implemented");
+    }
+
     // --- Dispute resolution ---
 
     @Override
