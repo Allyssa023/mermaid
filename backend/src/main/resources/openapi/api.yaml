@@ -1354,6 +1354,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /vendor/orders/{orderId}/dispatch:
     post:
@@ -1381,6 +1383,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /vendor/orders/{orderId}/delivered:
     post:
@@ -1414,6 +1418,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
 
   /vendor/orders/{orderId}/cancel:
     post:
@@ -6163,7 +6169,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [PENDING, CONFIRMED, ACCEPTED, READY, COMPLETED, CANCELLED, DISPUTED]
+          enum: [PENDING, CONFIRMED, PREPARING, READY, OUT_FOR_DELIVERY, AWAITING_RECEIPT, COMPLETED, CANCELLED, DISPUTED]
         notes:
           type: string
           nullable: true
