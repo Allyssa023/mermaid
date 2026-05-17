@@ -1,191 +1,227 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { I } from '../icons'
+import { fetchListings } from './api/marketplace'
+import { useCart } from '../context/CartContext'
+import { TableRowSkeleton } from '../components/Skeleton'
+import ApiError from '../components/ApiError'
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const BUYER_LISTINGS = [
-  { id: 612, listingCode: 'L-612', vendorName: 'Marina Seafoods', vendorRating: 4.8, vendorTrades: 184,
-    species: { commonName: 'Yellowfin Tuna', tag: 'YT' },
-    location: 'Pinagbayanan · Quezon',
-    quantityKg: 60, pricePerKg: 400, neededBy: 'Apr 25',
-    notes: 'Export-grade, sashimi-quality. Iced at sea.',
-    tag: 'Premium', urgent: false, available: 42 },
-  { id: 611, listingCode: 'L-611', vendorName: 'Marina Seafoods', vendorRating: 4.8, vendorTrades: 184,
-    species: { commonName: 'Skipjack', tag: 'SK' },
-    location: 'Pinagbayanan · Quezon',
-    quantityKg: 100, pricePerKg: 175, neededBy: 'Apr 28',
-    notes: 'Bulk weekly contract. Excellent for canning.',
-    tag: 'Bulk', urgent: false, available: 58 },
-  { id: 609, listingCode: 'L-609', vendorName: 'Marina Seafoods', vendorRating: 4.8, vendorTrades: 184,
-    species: { commonName: 'Mahi-mahi', tag: 'MM' },
-    location: 'Pinagbayanan · Quezon',
-    quantityKg: 30, pricePerKg: 260, neededBy: 'Apr 24',
-    notes: 'Whole fish, 2kg+ pieces. Limited stock.',
-    tag: 'Limited', urgent: true, available: 21 },
-  { id: 615, listingCode: 'L-615', vendorName: 'Bay City Market', vendorRating: 4.6, vendorTrades: 92,
-    species: { commonName: 'Grouper (Lapu-lapu)', tag: 'LL' },
-    location: 'Lucena City · Quezon',
-    quantityKg: 18, pricePerKg: 560, neededBy: 'Apr 25',
-    notes: 'Live, 1.5–3kg individuals. Restaurant grade.',
-    tag: 'Premium', urgent: false, available: 12 },
-  { id: 618, listingCode: 'L-618', vendorName: 'J. Aquino & Sons', vendorRating: 4.5, vendorTrades: 47,
-    species: { commonName: 'Spanish Mackerel', tag: 'SM' },
-    location: 'Lipa · Batangas',
-    quantityKg: 25, pricePerKg: 340, neededBy: 'Apr 26',
-    notes: 'Whole fish, gilled and gutted on request.',
-    tag: '', urgent: false, available: 25 },
-  { id: 619, listingCode: 'L-619', vendorName: 'Puerto Azul Resto', vendorRating: 4.9, vendorTrades: 31,
-    species: { commonName: 'Red Snapper', tag: 'RS' },
-    location: 'Anilao · Batangas',
-    quantityKg: 12, pricePerKg: 380, neededBy: 'Apr 24',
-    notes: 'Reef-caught. Smaller individual portions available.',
-    tag: 'Premium', urgent: false, available: 8 },
-  { id: 622, listingCode: 'L-622', vendorName: 'Del Mar Cold Chain', vendorRating: 4.7, vendorTrades: 215,
-    species: { commonName: 'Squid (Pusit)', tag: 'PS' },
-    location: 'Batangas City · Batangas',
-    quantityKg: 60, pricePerKg: 218, neededBy: 'Apr 27',
-    notes: 'Frozen at sea. Mixed sizes.',
-    tag: 'Bulk', urgent: false, available: 60 },
-  { id: 624, listingCode: 'L-624', vendorName: 'Marina Seafoods', vendorRating: 4.8, vendorTrades: 184,
-    species: { commonName: 'Blue Marlin', tag: 'BM' },
-    location: 'Pinagbayanan · Quezon',
-    quantityKg: 20, pricePerKg: 620, neededBy: 'Apr 30',
-    notes: 'Sashimi-grade. Pre-order — landing expected Thu.',
-    tag: 'Premium', urgent: false, available: 0 },
-]
+export default function Marketplace({ setPage, setBuyNow }) {
+  const [selectedSpeciesId, setSelectedSpeciesId] = useState(null)
+  const [search, setSearch]   = useState('')
+  const [cartModal, setCartModal] = useState(null)
+  const [qty, setQty]         = useState(1)
+  const [notes, setNotes]     = useState('')
+  const [addErr, setAddErr]   = useState('')
 
-const BUYER_FAVORITES = [
-  { id: 210, name: 'Marina Seafoods', port: 'Pinagbayanan · Quezon', rating: 4.8, trades: 184, lastBought: '2 days ago' },
-  { id: 213, name: 'Puerto Azul Resto', port: 'Anilao · Batangas', rating: 4.9, trades: 31, lastBought: '5 days ago' },
-  { id: 214, name: 'Del Mar Cold Chain', port: 'Batangas Port', rating: 4.7, trades: 215, lastBought: '9 days ago' },
-]
+  const { addItem } = useCart()
 
-export default function Marketplace({ setPage }) {
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('all')
-  const [selected, setSelected] = useState(null)
-
-  const filtered = BUYER_LISTINGS.filter(l => {
-    const matchesSearch = !search || l.species.commonName.toLowerCase().includes(search.toLowerCase()) || l.vendorName.toLowerCase().includes(search.toLowerCase())
-    const matchesFilter =
-      filter === 'all' ? true :
-      filter === 'available' ? l.available > 0 :
-      filter === 'urgent' ? l.urgent :
-      filter === 'premium' ? l.tag === 'Premium' : true
-    return matchesSearch && matchesFilter
+  const listingsQ = useQuery({
+    queryKey: ['buyerListings'],
+    queryFn: () => fetchListings({ size: 100 }),
+    staleTime: 30_000,
   })
+
+  const addToCartMut = useMutation({
+    mutationFn: () => addItem({ listingId: cartModal.id, quantityKg: Number(qty), notes: notes || null }),
+    onSuccess: () => { setCartModal(null); setAddErr('') },
+    onError: (e) => setAddErr(e?.message ?? 'Could not add to cart'),
+  })
+
+  const allListings = useMemo(
+    () => listingsQ.data?.content ?? listingsQ.data ?? [],
+    [listingsQ.data],
+  )
+
+  // Species chips derived from ALL listings
+  const speciesChips = useMemo(() => {
+    const map = new Map()
+    for (const l of allListings) {
+      if (!map.has(l.speciesId))
+        map.set(l.speciesId, { speciesId: l.speciesId, speciesName: l.speciesName, count: 0 })
+      map.get(l.speciesId).count++
+    }
+    return Array.from(map.values())
+  }, [allListings])
+
+  // Filtered listings for display
+  const listings = useMemo(() => {
+    let r = allListings
+    if (selectedSpeciesId) r = r.filter(l => l.speciesId === selectedSpeciesId)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      r = r.filter(l => l.title?.toLowerCase().includes(q) || l.vendorName?.toLowerCase().includes(q))
+    }
+    return r
+  }, [allListings, selectedSpeciesId, search])
+
+  if (listingsQ.isLoading) return <div className="page"><TableRowSkeleton /></div>
+  if (listingsQ.error)     return <div className="page"><ApiError error={listingsQ.error} onRetry={listingsQ.refetch} /></div>
 
   return (
     <div className="page">
+      {/* Page header */}
       <div className="page__head">
         <div>
           <div className="eyebrow">Marketplace</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Fresh from the <em>coast</em></h1>
-          <p className="page__sub">Browse {BUYER_LISTINGS.length} active listings from verified vendors. Place an order and pick up or have it delivered.</p>
+          <h1 className="page__title" style={{ marginTop: 4 }}>Fresh from the <em>coast</em></h1>
+          <p className="page__sub">
+            {listings.length} listing{listings.length !== 1 ? 's' : ''} available
+          </p>
         </div>
         <div className="page__actions">
-          <button className="btn"><I.MapPin size={14} /> By location</button>
-          <button className="btn btn--ghost">{BUYER_FAVORITES.length} saved <I.Star size={12} /></button>
+          <button className="btn" onClick={() => setPage('bcart')}>
+            <I.Cart size={12} /> Cart
+          </button>
         </div>
       </div>
 
-      {/* Search + filter row */}
-      <div className="card" style={{marginTop: 18, padding: '14px 18px'}}>
-        <div className="row" style={{gap: 12, alignItems: 'center'}}>
-          <div className="search-input" style={{flex: 1}}>
-            <I.Search size={14} />
-            <input placeholder="Search species or vendor…" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-          <div className="seg">
-            <button className={filter==='all'?'on':''} onClick={()=>setFilter('all')}>All</button>
-            <button className={filter==='available'?'on':''} onClick={()=>setFilter('available')}>In stock</button>
-            <button className={filter==='premium'?'on':''} onClick={()=>setFilter('premium')}>Premium</button>
-            <button className={filter==='urgent'?'on':''} onClick={()=>setFilter('urgent')}>Last chance</button>
-          </div>
-          <button className="btn btn--ghost btn--sm">Sort: Recommended <I.ChevD size={11} /></button>
+      {/* Search */}
+      <div className="card" style={{ marginTop: 18, padding: '14px 18px' }}>
+        <div className="search-input">
+          <I.Search size={14} />
+          <input
+            placeholder="Search species or vendor…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
+      </div>
+
+      {/* Species chips */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, marginBottom: 14 }}>
+        <button
+          className={`chip${!selectedSpeciesId ? ' chip--safe' : ''}`}
+          style={{ cursor: 'pointer', border: '1px solid var(--border)' }}
+          onClick={() => setSelectedSpeciesId(null)}
+        >
+          All
+        </button>
+        {speciesChips.map(sp => (
+          <button
+            key={sp.speciesId}
+            className={`chip${selectedSpeciesId === sp.speciesId ? ' chip--safe' : ''}`}
+            style={{ cursor: 'pointer', border: '1px solid var(--border)' }}
+            onClick={() => setSelectedSpeciesId(s => s === sp.speciesId ? null : sp.speciesId)}
+          >
+            {sp.speciesName}{' '}
+            <span className="muted-data" style={{ fontSize: 10 }}>({sp.count})</span>
+          </button>
+        ))}
       </div>
 
       {/* Listings grid */}
-      <div className="buyer-grid" style={{marginTop: 18}}>
-        {filtered.map(l => {
-          const inStock = l.available > 0
-          const lowStock = inStock && l.available < l.quantityKg * 0.4
+      <div className="buyer-grid">
+        {listings.map(l => {
+          const availKg = l.availableKg ?? 0
           return (
-            <div key={l.id} className="buyer-card" onClick={() => setSelected(l)}>
-              <div className="buyer-card__hero" data-tag={l.species.tag}>
-                <div className="buyer-card__species-tag">{l.species.tag}</div>
-                {l.tag ? <span className={`buyer-card__chip buyer-card__chip--${l.tag.toLowerCase()}`}>{l.tag}</span> : null}
+            <div key={l.id} className="buyer-card">
+              {/* Photo or placeholder */}
+              <div style={{
+                background: l.photoUrl ? `url(${l.photoUrl}) center/cover` : 'var(--surface-2)',
+                backgroundSize: 'cover',
+                height: 120,
+                borderRadius: '8px 8px 0 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {!l.photoUrl && <I.Fish size={32} style={{ opacity: 0.3 }} />}
               </div>
+
               <div className="buyer-card__body">
-                <h3 className="buyer-card__species">{l.species.commonName}</h3>
-                <div className="buyer-card__vendor">
-                  <span>{l.vendorName}</span>
-                  <span className="muted-data">★ {l.vendorRating}</span>
-                </div>
-                <div className="buyer-card__location"><I.MapPin size={11} /> {l.location}</div>
-                <div className="buyer-card__price">
-                  <span className="big">₱{l.pricePerKg}</span>
-                  <span>/kg</span>
-                </div>
-                <div className="buyer-card__stock">
-                  {!inStock ? (
-                    <span className="muted-data" style={{color:'var(--ink-4)'}}>Pre-order · landing {l.neededBy}</span>
-                  ) : lowStock ? (
-                    <span style={{color:'var(--warn)', fontSize: 12, fontFamily: 'var(--font-mono)'}}>● Low stock · {l.available}kg left</span>
-                  ) : (
-                    <span style={{color:'var(--safe)', fontSize: 12, fontFamily: 'var(--font-mono)'}}>● {l.available}kg available</span>
-                  )}
+                <div className="buyer-card__species">{l.title ?? l.speciesName}</div>
+                <div className="buyer-card__vendor">{l.vendorName}</div>
+                <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                    ₱{l.pricePerKg}<small>/kg</small>
+                  </span>
+                  <span className={`chip chip--${availKg > 0 ? 'safe' : 'unsafe'}`} style={{ fontSize: 10 }}>
+                    {availKg > 0 ? `${availKg} kg` : 'Sold out'}
+                  </span>
                 </div>
               </div>
+
               <div className="buyer-card__foot">
-                <button className="btn btn--ghost btn--sm" onClick={(e)=>{e.stopPropagation();}}>Details</button>
-                <button className="btn btn--accent btn--sm" disabled={!inStock} onClick={(e)=>{e.stopPropagation();}}>
-                  {inStock ? 'Order' : 'Notify me'}
+                <button
+                  className="btn btn--ghost btn--sm"
+                  disabled={availKg <= 0}
+                  onClick={() => { setCartModal(l); setQty(l.minQtyKg ?? 1); setNotes(''); setAddErr('') }}
+                >
+                  Add to cart
+                </button>
+                <button
+                  className="btn btn--primary btn--sm"
+                  disabled={availKg <= 0}
+                  onClick={() => { setBuyNow({ listing: l }); setPage('bcheckout') }}
+                >
+                  Order now
                 </button>
               </div>
             </div>
           )
         })}
+
+        {listings.length === 0 && (
+          <div className="empty" style={{ gridColumn: '1/-1', padding: '32px 0' }}>No listings found.</div>
+        )}
       </div>
 
-      {/* Detail / order modal */}
-      {selected ? (
-        <div className="modal-overlay" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth: 540}}>
+      {/* Add to cart modal */}
+      {cartModal && (
+        <div className="modal-overlay" onClick={() => setCartModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
             <div className="modal__head">
               <div>
-                <div className="eyebrow">{selected.vendorName}</div>
-                <h2 className="modal__title" style={{marginTop: 4}}>{selected.species.commonName}</h2>
-                <div className="muted-data">★ {selected.vendorRating} · {selected.vendorTrades} trades · {selected.location}</div>
+                <div className="eyebrow">{cartModal.vendorName}</div>
+                <h2 className="modal__title" style={{ marginTop: 4 }}>{cartModal.title ?? cartModal.speciesName}</h2>
               </div>
-              <button className="btn btn--ghost btn--sm" onClick={() => setSelected(null)}><I.X size={14} /></button>
+              <button className="btn btn--ghost btn--sm" onClick={() => setCartModal(null)}>
+                <I.X size={14} />
+              </button>
             </div>
 
-            <div className="detail-grid">
-              <div><div className="l">Price</div><div className="v">₱{selected.pricePerKg}<small>/kg</small></div></div>
-              <div><div className="l">Available</div><div className="v">{selected.available}<small>kg</small></div></div>
-              <div><div className="l">Total batch</div><div className="v">{selected.quantityKg}<small>kg</small></div></div>
-              <div><div className="l">Ready by</div><div className="v">{selected.neededBy}</div></div>
-            </div>
-
-            {selected.notes ? <div className="detail-notes">"{selected.notes}"</div> : null}
-
-            <div className="form-grid" style={{marginTop: 14}}>
+            <div className="form-grid" style={{ marginTop: 12 }}>
               <div className="form-row form-row--2col">
-                <div><label>Quantity (kg)</label><input className="input" type="number" defaultValue={Math.min(selected.available || 5, 5)} /></div>
-                <div><label>Pickup or delivery</label><select className="input"><option>Pickup</option><option>Delivery</option></select></div>
+                <div>
+                  <label>Quantity (kg)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    step="0.1"
+                    min={cartModal.minQtyKg ?? 0.1}
+                    value={qty}
+                    onChange={e => setQty(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="form-row"><label>Notes for vendor</label><textarea className="input" rows="2" placeholder="Optional — quality requests, packaging…" /></div>
+              <div className="form-row">
+                <label>Notes (optional)</label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  style={{ resize: 'vertical' }}
+                />
+              </div>
             </div>
+
+            {addErr && <p style={{ color: 'var(--unsafe)', fontSize: 12, marginTop: 8 }}>{addErr}</p>}
 
             <div className="modal__foot">
-              <button className="btn" onClick={() => setSelected(null)}>Cancel</button>
-              <button className="btn btn--ghost">Message vendor</button>
-              <button className="btn btn--primary">Place order</button>
+              <button className="btn" onClick={() => setCartModal(null)}>Cancel</button>
+              <button
+                className="btn btn--primary"
+                disabled={addToCartMut.isPending}
+                onClick={() => addToCartMut.mutate()}
+              >
+                {addToCartMut.isPending ? 'Adding…' : 'Add to cart'}
+              </button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
