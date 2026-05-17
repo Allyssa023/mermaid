@@ -110,6 +110,11 @@ class VendorStorefrontControllerTest {
         req.setPricePerKg(200.0);
         req.setMinQtyKg(0.5);
         req.setLotIds(List.of(1L));
+        req.setPhotoEyes("http://example.com/eyes.jpg");
+        req.setPhotoGills("http://example.com/gills.jpg");
+        req.setPhotoScales("http://example.com/scales.jpg");
+        req.setPhotoBelly("http://example.com/belly.jpg");
+        req.setPhotoFlesh("http://example.com/flesh.jpg");
 
         StorefrontListing saved = listing(100L, 10L, 5L);
         StorefrontListingResponse dto = responseDto(100L);
@@ -134,6 +139,11 @@ class VendorStorefrontControllerTest {
         req.setPricePerKg(200.0);
         req.setMinQtyKg(0.5);
         req.setLotIds(List.of(1L));
+        req.setPhotoEyes("http://example.com/eyes.jpg");
+        req.setPhotoGills("http://example.com/gills.jpg");
+        req.setPhotoScales("http://example.com/scales.jpg");
+        req.setPhotoBelly("http://example.com/belly.jpg");
+        req.setPhotoFlesh("http://example.com/flesh.jpg");
 
         when(service.create(any(), any(), any()))
                 .thenThrow(new IllegalArgumentException("Lot 1 has no remaining stock"));

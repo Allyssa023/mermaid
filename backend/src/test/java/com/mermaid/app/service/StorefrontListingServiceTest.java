@@ -29,21 +29,49 @@ class StorefrontListingServiceTest {
     // ---- create ----
 
     @Test
-    void create_savesListingAsDraftWithLotLinks() {
+    void create_savesListingAsPublishedWithLotLinks() {
         InventoryLot lot = lot(1L, 10L, 5L, bd("20.00"));
         when(lotRepo.findById(1L)).thenReturn(Optional.of(lot));
 
-        StorefrontListing draft = listing(null, null, 5L);
-        StorefrontListing saved = listing(100L, 10L, 5L);
+        StorefrontListing draft = listingWithFreshness(null, null, 5L);
+        StorefrontListing saved = listingWithFreshness(100L, 10L, 5L);
         when(listingRepo.save(any())).thenReturn(saved);
         when(listingLotRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
         StorefrontListing result = service.create(10L, draft, List.of(1L));
 
         assertThat(result.getId()).isEqualTo(100L);
-        verify(listingRepo).save(argThat(l -> l.getStatus() == StorefrontListingStatus.DRAFT
+        verify(listingRepo).save(argThat(l -> l.getStatus() == StorefrontListingStatus.PUBLISHED
                 && Long.valueOf(10L).equals(l.getVendorId())));
         verify(listingLotRepo).save(any(StorefrontListingLot.class));
+    }
+
+    @Test
+    void create_missingFreshnessPhotos_throws() {
+        InventoryLot lot = lot(1L, 10L, 5L, bd("20.00"));
+        when(lotRepo.findById(1L)).thenReturn(Optional.of(lot));
+
+        StorefrontListing draft = listing(null, null, 5L); // no freshness photos
+        assertThatThrownBy(() -> service.create(10L, draft, List.of(1L)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("freshness photos");
+    }
+
+    @Test
+    void create_allFreshnessPhotosProvided_publishesDirectly() {
+        InventoryLot lot = lot(1L, 10L, 5L, bd("20.00"));
+        when(lotRepo.findById(1L)).thenReturn(Optional.of(lot));
+
+        StorefrontListing draft = listingWithFreshness(null, null, 5L);
+        StorefrontListing saved = listingWithFreshness(100L, 10L, 5L);
+        when(listingRepo.save(any())).thenReturn(saved);
+        when(listingLotRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        StorefrontListing result = service.create(10L, draft, List.of(1L));
+
+        assertThat(result.getId()).isEqualTo(100L);
+        verify(listingRepo).save(argThat(l -> l.getStatus() == StorefrontListingStatus.PUBLISHED
+                && Long.valueOf(10L).equals(l.getVendorId())));
     }
 
     @Test
@@ -99,6 +127,11 @@ class StorefrontListingServiceTest {
     @Test
     void publish_withAvailableStock_setsStatusPublished() {
         StorefrontListing sl = ownedListing(10L, 5L);
+        sl.setPhotoEyes("http://example.com/eyes.jpg");
+        sl.setPhotoGills("http://example.com/gills.jpg");
+        sl.setPhotoScales("http://example.com/scales.jpg");
+        sl.setPhotoBelly("http://example.com/belly.jpg");
+        sl.setPhotoFlesh("http://example.com/flesh.jpg");
         when(listingRepo.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(sl));
         when(inventoryService.availableKg(10L, 5L)).thenReturn(bd("15.00"));
 
@@ -202,6 +235,16 @@ class StorefrontListingServiceTest {
     private StorefrontListing ownedListing(Long vendorId, Long speciesId) {
         StorefrontListing l = listing(1L, vendorId, speciesId);
         l.setStatus(StorefrontListingStatus.DRAFT);
+        return l;
+    }
+
+    private static StorefrontListing listingWithFreshness(Long id, Long vendorId, Long speciesId) {
+        StorefrontListing l = listing(id, vendorId, speciesId);
+        l.setPhotoEyes("http://example.com/eyes.jpg");
+        l.setPhotoGills("http://example.com/gills.jpg");
+        l.setPhotoScales("http://example.com/scales.jpg");
+        l.setPhotoBelly("http://example.com/belly.jpg");
+        l.setPhotoFlesh("http://example.com/flesh.jpg");
         return l;
     }
 }

@@ -106,6 +106,11 @@ public class VendorStorefrontController implements VendorStorefrontApi {
             entity.setDescription(req.getDescription().get());
         if (req.getPhotoUrl() != null && req.getPhotoUrl().isPresent())
             entity.setPhotoUrl(req.getPhotoUrl().get());
+        entity.setPhotoEyes(req.getPhotoEyes());
+        entity.setPhotoGills(req.getPhotoGills());
+        entity.setPhotoScales(req.getPhotoScales());
+        entity.setPhotoBelly(req.getPhotoBelly());
+        entity.setPhotoFlesh(req.getPhotoFlesh());
         if (req.getPricePerKg() != null)
             entity.setPricePerKg(BigDecimal.valueOf(req.getPricePerKg()));
         if (req.getMinQtyKg() != null)
@@ -122,6 +127,11 @@ public class VendorStorefrontController implements VendorStorefrontApi {
             entity.setDescription(req.getDescription().get());
         if (req.getPhotoUrl() != null && req.getPhotoUrl().isPresent())
             entity.setPhotoUrl(req.getPhotoUrl().get());
+        if (req.getPhotoEyes()   != null && req.getPhotoEyes().isPresent())   entity.setPhotoEyes(req.getPhotoEyes().get());
+        if (req.getPhotoGills()  != null && req.getPhotoGills().isPresent())  entity.setPhotoGills(req.getPhotoGills().get());
+        if (req.getPhotoScales() != null && req.getPhotoScales().isPresent()) entity.setPhotoScales(req.getPhotoScales().get());
+        if (req.getPhotoBelly()  != null && req.getPhotoBelly().isPresent())  entity.setPhotoBelly(req.getPhotoBelly().get());
+        if (req.getPhotoFlesh()  != null && req.getPhotoFlesh().isPresent())  entity.setPhotoFlesh(req.getPhotoFlesh().get());
         if (req.getPricePerKg() != null)
             entity.setPricePerKg(BigDecimal.valueOf(req.getPricePerKg()));
         if (req.getMinQtyKg() != null)

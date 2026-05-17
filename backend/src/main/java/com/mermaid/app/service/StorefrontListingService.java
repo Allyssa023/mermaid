@@ -31,8 +31,9 @@ public class StorefrontListingService {
     @Transactional
     public StorefrontListing create(Long vendorId, StorefrontListing draft, List<Long> lotIds) {
         validateLots(vendorId, draft.getSpeciesId(), lotIds, false, null);
+        validateFreshnessPhotos(draft);
         draft.setVendorId(vendorId);
-        draft.setStatus(StorefrontListingStatus.DRAFT);
+        draft.setStatus(StorefrontListingStatus.PUBLISHED);
         StorefrontListing saved = listingRepo.save(draft);
         saveLotLinks(saved.getId(), lotIds);
         return saved;
@@ -44,6 +45,11 @@ public class StorefrontListingService {
         if (patch.getTitle() != null) listing.setTitle(patch.getTitle());
         if (patch.getDescription() != null) listing.setDescription(patch.getDescription());
         if (patch.getPhotoUrl() != null) listing.setPhotoUrl(patch.getPhotoUrl());
+        if (patch.getPhotoEyes()   != null) listing.setPhotoEyes(patch.getPhotoEyes());
+        if (patch.getPhotoGills()  != null) listing.setPhotoGills(patch.getPhotoGills());
+        if (patch.getPhotoScales() != null) listing.setPhotoScales(patch.getPhotoScales());
+        if (patch.getPhotoBelly()  != null) listing.setPhotoBelly(patch.getPhotoBelly());
+        if (patch.getPhotoFlesh()  != null) listing.setPhotoFlesh(patch.getPhotoFlesh());
         if (patch.getPricePerKg() != null) listing.setPricePerKg(patch.getPricePerKg());
         if (patch.getMinQtyKg() != null) listing.setMinQtyKg(patch.getMinQtyKg());
         if (patch.getDeliveryFee() != null) listing.setDeliveryFee(patch.getDeliveryFee());
@@ -74,6 +80,7 @@ public class StorefrontListingService {
         if (!anyWithStock) {
             throw new IllegalArgumentException("Cannot publish listing: no lots with remaining stock");
         }
+        validateFreshnessPhotos(listing);
         listing.setStatus(StorefrontListingStatus.PUBLISHED);
         return listingRepo.save(listing);
     }
@@ -104,7 +111,7 @@ public class StorefrontListingService {
                 .filter(l -> speciesId == null || speciesId.equals(l.getSpeciesId()))
                 .filter(l -> vendorId == null || vendorId.equals(l.getVendorId()))
                 .filter(l -> search == null || l.getTitle().toLowerCase().contains(search.toLowerCase()))
-                .filter(l -> inventoryService.availableKg(l.getVendorId(), l.getSpeciesId())
+                .filter(l -> inventoryService.effectiveAvailableKg(l)
                         .compareTo(BigDecimal.ZERO) > 0)
                 .collect(Collectors.toList());
     }
@@ -152,5 +159,19 @@ public class StorefrontListingService {
 
     private void saveLotLinks(Long listingId, List<Long> lotIds) {
         lotIds.forEach(lotId -> listingLotRepo.save(new StorefrontListingLot(listingId, lotId)));
+    }
+
+    private void validateFreshnessPhotos(StorefrontListing listing) {
+        if (isBlank(listing.getPhotoEyes()) ||
+            isBlank(listing.getPhotoGills()) ||
+            isBlank(listing.getPhotoScales()) ||
+            isBlank(listing.getPhotoBelly()) ||
+            isBlank(listing.getPhotoFlesh())) {
+            throw new IllegalStateException("All 5 freshness photos are required before publishing");
+        }
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }
