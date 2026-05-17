@@ -74,16 +74,14 @@ describe('OrderCard — Xendit payment-after-handoff flow', () => {
     expect(screen.queryByRole('button', { name: /confirm handoff/i })).not.toBeInTheDocument()
   })
 
-  it('shows "Waiting for buyer to pay" banner for SELLER when handoff CONFIRMED and no payment', () => {
+  it('shows Confirm Payment button for SELLER in procurement flow when handoff CONFIRMED and payment pending', () => {
     wrap(
       <OrderCard
-        order={{ ...BASE_ORDER, status: 'CONFIRMED', handoff: HANDOFF_CONFIRMED }}
+        order={{ ...BASE_ORDER, kind: 'PROCUREMENT', status: 'CONFIRMED', handoff: HANDOFF_CONFIRMED, payment: { status: 'PENDING' } }}
         viewerRole="SELLER"
         onAction={vi.fn()}
       />
     )
-    expect(screen.getByText(/waiting for buyer to pay/i)).toBeInTheDocument()
-    // No actionable button for the fisherman at this stage (other than ghost cancel/dispute)
-    expect(screen.queryByRole('button', { name: /record payment/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /confirm payment/i })).toBeInTheDocument()
   })
 })

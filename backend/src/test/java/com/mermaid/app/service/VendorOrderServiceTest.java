@@ -66,8 +66,8 @@ class VendorOrderServiceTest {
     // ---- complete ----
 
     @Test
-    void complete_readyRetailOrder_deductsInventory() {
-        Order order = order(1L, 10L, 20L, "READY");
+    void complete_awaitingReceiptRetailOrder_deductsInventory() {
+        Order order = order(1L, 10L, 20L, "AWAITING_RECEIPT");
         order.setKind(OrderKind.RETAIL);
         order.setStorefrontListingId(99L);
         when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
@@ -80,8 +80,8 @@ class VendorOrderServiceTest {
     }
 
     @Test
-    void complete_readyProcurementOrder_doesNotDeductInventory() {
-        Order order = order(1L, 10L, 20L, "READY");
+    void complete_awaitingReceiptProcurementOrder_doesNotDeductInventory() {
+        Order order = order(1L, 10L, 20L, "AWAITING_RECEIPT");
         order.setKind(OrderKind.PROCUREMENT);
         when(orderRepo.findById(1L)).thenReturn(Optional.of(order));
         when(orderRepo.save(any())).thenAnswer(i -> i.getArgument(0));
