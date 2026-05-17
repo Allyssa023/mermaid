@@ -54,16 +54,12 @@ class StorefrontListingLotRepositoryTest {
     }
 
     @Test
-    void existsByLotIdInActiveListing_methodReturnsBoolean_notBoxed() {
-        // Ensures the method signature returns primitive boolean (not Boolean),
-        // which is required for JPQL COUNT > 0 return type mapping.
+    void existsByLotIdInActiveListing_acceptsLongParam() {
         Long lotId = 1L;
         when(repo.existsByLotIdInActiveListing(lotId)).thenReturn(false);
 
         boolean result = repo.existsByLotIdInActiveListing(lotId);
 
-        // If method returned Boolean (boxed), this call would compile but could
-        // NPE on unboxing. Primitive boolean guarantee is enforced at compile time.
         assertThat(result).isFalse();
     }
 
