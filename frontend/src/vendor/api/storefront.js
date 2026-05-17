@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from '../../api'
+import { apiGet, apiPost, apiPut, apiDelete, apiUpload } from '../../api'
 
 export const listListings = () => apiGet('/vendor/storefront/listings')
 
@@ -13,3 +13,5 @@ export const deleteListing = (id) => apiDelete(`/vendor/storefront/listings/${id
 export const publishListing = (id) => apiPost(`/vendor/storefront/listings/${id}/publish`, null, {})
 
 export const unpublishListing = (id) => apiPost(`/vendor/storefront/listings/${id}/unpublish`, null, {})
+
+export const uploadListingPhoto = (file) => apiUpload('/uploads?subDir=listings', file)
