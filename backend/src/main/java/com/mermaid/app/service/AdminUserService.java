@@ -78,6 +78,8 @@ public class AdminUserService {
     private static UserSummary toUserSummary(User user) {
         UserSummary s = new UserSummary(user.getId(), user.getFullName(), user.getEmail(), user.getRole());
         s.setActive(user.isActive());
+        s.setCreatedAt(org.openapitools.jackson.nullable.JsonNullable.of(user.getCreatedAt()));
+        s.setLastLoginAt(org.openapitools.jackson.nullable.JsonNullable.of(user.getLastLoginAt()));
         return s;
     }
 }
