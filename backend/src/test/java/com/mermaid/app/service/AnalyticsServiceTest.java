@@ -153,12 +153,21 @@ class AnalyticsServiceTest {
         when(orderRepo.findCompletedByBuyerAndKindInRange(eq(VENDOR), eq(OrderKind.PROCUREMENT), any(), any()))
                 .thenReturn(procOrders);
 
-        Map<String, Object> result = service.procurementSpend(VENDOR, FROM, TO);
+        List<Map<String, Object>> result = service.procurementSpend(VENDOR, FROM, TO);
 
-        assertThat(result.get("totalOrders")).isEqualTo(2);
-        // spend = (20*100) + (15*80) = 2000+1200 = 3200
-        assertThat((double) result.get("totalSpend")).isEqualTo(3200.0);
-        assertThat((double) result.get("totalQtyKg")).isEqualTo(35.0);
+        assertThat(result).hasSize(2);
+        // Tuna: 20*100 = 2000
+        Map<String, Object> tuna = result.stream()
+                .filter(m -> "Tuna".equals(m.get("speciesName"))).findFirst().orElseThrow();
+        assertThat(tuna.get("totalOrders")).isEqualTo(1);
+        assertThat((double) tuna.get("totalSpend")).isEqualTo(2000.0);
+        assertThat((double) tuna.get("totalQtyKg")).isEqualTo(20.0);
+        // Mackerel: 15*80 = 1200
+        Map<String, Object> mackerel = result.stream()
+                .filter(m -> "Mackerel".equals(m.get("speciesName"))).findFirst().orElseThrow();
+        assertThat(mackerel.get("totalOrders")).isEqualTo(1);
+        assertThat((double) mackerel.get("totalSpend")).isEqualTo(1200.0);
+        assertThat((double) mackerel.get("totalQtyKg")).isEqualTo(15.0);
     }
 
     // ── repeatBuyers ────────────────────────────────────────────────

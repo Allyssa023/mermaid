@@ -120,20 +120,23 @@ class VendorAnalyticsControllerTest {
 
     @Test
     void procurementSpend_happyPath_returns200() throws Exception {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("totalOrders", 2);
-        data.put("totalSpend", 3200.0);
-        data.put("totalQtyKg", 35.0);
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("speciesId", 1L);
+        entry.put("speciesName", "Tuna");
+        entry.put("totalOrders", 2);
+        entry.put("totalSpend", 3200.0);
+        entry.put("totalQtyKg", 35.0);
 
-        when(analyticsService.procurementSpend(eq(10L), any(), any())).thenReturn(data);
+        when(analyticsService.procurementSpend(eq(10L), any(), any())).thenReturn(List.of(entry));
 
         mockMvc.perform(get("/vendor/analytics/procurement-spend")
                 .param("from", "2026-04-01")
                 .param("to", "2026-04-30")
                 .with(asVendor(10L)))
                .andExpect(status().isOk())
-               .andExpect(jsonPath("$.totalOrders").value(2))
-               .andExpect(jsonPath("$.totalSpend").value(3200.0));
+               .andExpect(jsonPath("$[0].speciesName").value("Tuna"))
+               .andExpect(jsonPath("$[0].totalOrders").value(2))
+               .andExpect(jsonPath("$[0].totalSpend").value(3200.0));
     }
 
     // ── GET /vendor/analytics/repeat-buyers ─────────────────────────

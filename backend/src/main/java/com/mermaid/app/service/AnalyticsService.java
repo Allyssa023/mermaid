@@ -96,25 +96,37 @@ public class AnalyticsService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> procurementSpend(Long vendorId, LocalDate from, LocalDate to) {
+    public List<Map<String, Object>> procurementSpend(Long vendorId, LocalDate from, LocalDate to) {
         validateRange(from, to);
         List<Order> orders = orderRepo.findCompletedByBuyerAndKindInRange(
                 vendorId, OrderKind.PROCUREMENT, startOf(from), endOf(to));
 
-        BigDecimal totalSpend = orders.stream()
-                .filter(o -> o.getOrderedQtyKg() != null && o.getAgreedPricePerKg() != null)
-                .map(o -> o.getAgreedPricePerKg().multiply(o.getOrderedQtyKg()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalQtyKg = orders.stream()
-                .filter(o -> o.getOrderedQtyKg() != null)
-                .map(Order::getOrderedQtyKg)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Map<Long, List<Order>> bySpecies = orders.stream()
+                .collect(Collectors.groupingBy(o -> o.getSpecies() != null ? o.getSpecies().getId() : -1L));
 
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("totalOrders", orders.size());
-        m.put("totalSpend", totalSpend.doubleValue());
-        m.put("totalQtyKg", totalQtyKg.doubleValue());
-        return m;
+        List<Map<String, Object>> result = new ArrayList<>();
+        bySpecies.forEach((speciesId, ords) -> {
+            if (speciesId < 0) return;
+            String name = ords.get(0).getSpecies().getCommonName();
+            BigDecimal spend = ords.stream()
+                    .filter(o -> o.getOrderedQtyKg() != null && o.getAgreedPricePerKg() != null)
+                    .map(o -> o.getAgreedPricePerKg().multiply(o.getOrderedQtyKg()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal qty = ords.stream()
+                    .filter(o -> o.getOrderedQtyKg() != null)
+                    .map(Order::getOrderedQtyKg)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("speciesId", speciesId);
+            entry.put("speciesName", name);
+            entry.put("totalOrders", ords.size());
+            entry.put("totalSpend", spend.doubleValue());
+            entry.put("totalQtyKg", qty.doubleValue());
+            result.add(entry);
+        });
+        result.sort(Comparator.<Map<String, Object>, Double>
+                comparing(m -> -(Double) m.get("totalSpend")));
+        return result;
     }
 
     @Transactional(readOnly = true)

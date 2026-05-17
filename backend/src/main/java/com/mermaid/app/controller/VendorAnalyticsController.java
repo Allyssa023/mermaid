@@ -55,15 +55,17 @@ public class VendorAnalyticsController implements VendorAnalyticsApi {
     }
 
     @Override
-    public ResponseEntity<ProcurementSpend> vendorProcurementSpend(LocalDate from, LocalDate to) {
+    public ResponseEntity<List<ProcurementSpend>> vendorProcurementSpend(LocalDate from, LocalDate to) {
         Long vendorId = SecurityUtils.currentUserId();
-        Map<String, Object> data = analyticsService.procurementSpend(vendorId, from, to);
-        ProcurementSpend dto = new ProcurementSpend(
-            ((Number) data.get("totalOrders")).intValue(),
-            ((Number) data.get("totalSpend")).doubleValue(),
-            ((Number) data.get("totalQtyKg")).doubleValue()
-        );
-        return ResponseEntity.ok(dto);
+        List<Map<String, Object>> data = analyticsService.procurementSpend(vendorId, from, to);
+        List<ProcurementSpend> dtos = data.stream().map(m -> new ProcurementSpend(
+            ((Number) m.get("speciesId")).longValue(),
+            (String) m.get("speciesName"),
+            ((Number) m.get("totalOrders")).intValue(),
+            ((Number) m.get("totalSpend")).doubleValue(),
+            ((Number) m.get("totalQtyKg")).doubleValue()
+        )).toList();
+        return ResponseEntity.ok(dtos);
     }
 
     @Override

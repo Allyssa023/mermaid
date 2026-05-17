@@ -1837,7 +1837,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProcurementSpend'
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProcurementSpend'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4003,6 +4005,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /orders/{orderId}/credit/settle:
+    put:
+      tags: [Orders]
+      summary: Settle a credit payment
+      description: Vendor pays off an outstanding credit (utang). Updates payment status from CONFIRMED to SETTLED.
+      operationId: settleCredit
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditSettleRequest'
+      responses:
+        '200':
+          description: Credit settled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRecord'
+        '404':
+          description: Order or payment not found
+        '400':
+          description: Payment is not a credit or already settled
+
   /webhooks/xendit:
     post:
       tags: [Webhooks]
@@ -5846,7 +5881,7 @@ components:
           nullable: true
         status:
           type: string
-          enum: [ACTIVE, MATCHED, EXPIRED, CANCELLED]
+          enum: [ACTIVE, MATCHED, SOLD, EXPIRED, CANCELLED]
         matchedListingIds:
           type: array
           items:
@@ -6051,7 +6086,10 @@ components:
           nullable: true
         status:
           type: string
-          enum: [PENDING, CONFIRMED, DISPUTED]
+          enum: [PENDING, CONFIRMED, DISPUTED, SETTLED]
+        settledMethod:
+          type: string
+          nullable: true
         paidAt:
           type: string
           format: date-time
@@ -6059,6 +6097,18 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    CreditSettleRequest:
+      type: object
+      required: [method]
+      properties:
+        method:
+          type: string
+          enum: [CASH, GCASH, MAYA]
+        reference:
+          type: string
+          maxLength: 200
+          nullable: true
 
     ErrorResponse:
       type: object
@@ -7089,8 +7139,13 @@ components:
 
     ProcurementSpend:
       type: object
-      required: [totalOrders, totalSpend, totalQtyKg]
+      required: [speciesId, speciesName, totalOrders, totalSpend, totalQtyKg]
       properties:
+        speciesId:
+          type: integer
+          format: int64
+        speciesName:
+          type: string
         totalOrders:
           type: integer
         totalSpend:
