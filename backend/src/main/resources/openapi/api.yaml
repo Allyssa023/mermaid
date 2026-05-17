@@ -1060,7 +1060,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StorefrontListingRequest'
+              $ref: '#/components/schemas/StorefrontListingUpdateRequest'
       responses:
         '200':
           description: Updated listing
@@ -1070,10 +1070,12 @@ paths:
                 $ref: '#/components/schemas/StorefrontListingResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags: [Vendor Storefront]
       summary: Soft-delete a storefront listing
@@ -6536,6 +6538,32 @@ components:
             type: integer
             format: int64
           minItems: 1
+
+    StorefrontListingUpdateRequest:
+      type: object
+      required: [title, pricePerKg]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          nullable: true
+          maxLength: 2000
+        photoUrl:
+          type: string
+          nullable: true
+          maxLength: 500
+        pricePerKg:
+          type: number
+          format: double
+          minimum: 0
+        minQtyKg:
+          type: number
+          format: double
+          minimum: 0.1
+          default: 0.5
 
     StorefrontListingResponse:
       type: object
