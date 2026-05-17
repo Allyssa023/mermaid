@@ -5,6 +5,7 @@ import com.mermaid.app.exception.InsufficientStockException;
 import com.mermaid.app.exception.ResourceNotFoundException;
 import com.mermaid.app.repository.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -53,7 +54,7 @@ public class InventoryService {
         this.handoffRepo = handoffRepo;
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public InventoryLot addLotFromProcurement(Long orderId) {
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
