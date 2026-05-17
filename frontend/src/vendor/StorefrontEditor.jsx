@@ -5,6 +5,15 @@ import { listListings, updateListing, deleteListing, publishListing, unpublishLi
 import { TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
 
+const SLOT_FORM_KEYS = {
+  cover:  'photoUrl',
+  eyes:   'photoEyes',
+  gills:  'photoGills',
+  scales: 'photoScales',
+  belly:  'photoBelly',
+  flesh:  'photoFlesh',
+}
+
 export default function StorefrontEditor() {
   const [modal, setModal] = useState(null)
   const [form, setForm] = useState({})
@@ -13,20 +22,21 @@ export default function StorefrontEditor() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoError, setPhotoError] = useState('')
   const fileRef = useRef(null)
+  const [currentSlot, setCurrentSlot] = useState(null)
 
   const qc = useQueryClient()
   const listingsQ = useQuery({ queryKey: ['vendor', 'storefront'], queryFn: listListings })
   const invalidate = () => qc.invalidateQueries({ queryKey: ['vendor', 'storefront'] })
   const updateMut = useMutation({ mutationFn: ({ id, ...body }) => updateListing(id, body), onSuccess: () => { invalidate(); setModal(null) }, onError: (err) => setSaveError(err.message || 'Save failed') })
   const deleteMut = useMutation({ mutationFn: deleteListing, onSuccess: () => { invalidate(); setDeleteConfirmId(null) } })
-  const publishMut = useMutation({ mutationFn: publishListing, onSuccess: invalidate })
+  const republishMut = useMutation({ mutationFn: publishListing, onSuccess: invalidate })
   const unpubMut = useMutation({ mutationFn: unpublishListing, onSuccess: invalidate })
 
   if (listingsQ.isLoading) return <div className="page"><TableRowSkeleton rows={5} /></div>
   if (listingsQ.error) return <div className="page"><ApiError error={listingsQ.error} onRetry={listingsQ.refetch} /></div>
   const listings = listingsQ.data ?? []
 
-  const statusChip = { PUBLISHED: 'safe', SOLD_OUT: 'unsafe', DRAFT: 'caution', UNPUBLISHED: '' }
+  const statusChip = { PUBLISHED: 'safe', SOLD_OUT: 'unsafe', UNPUBLISHED: '' }
 
   const openModal = (l) => {
     setForm({ ...l })
@@ -51,6 +61,11 @@ export default function StorefrontEditor() {
       minQtyKg: m,
       description: form.description ?? null,
       photoUrl: form.photoUrl ?? null,
+      photoEyes:   form.photoEyes   ?? null,
+      photoGills:  form.photoGills  ?? null,
+      photoScales: form.photoScales ?? null,
+      photoBelly:  form.photoBelly  ?? null,
+      photoFlesh:  form.photoFlesh  ?? null,
     })
   }
 
@@ -64,7 +79,8 @@ export default function StorefrontEditor() {
     setPhotoUploading(true)
     try {
       const data = await uploadListingPhoto(file)
-      setForm(f => ({ ...f, photoUrl: data.url }))
+      const key = SLOT_FORM_KEYS[currentSlot] ?? 'photoUrl'
+      setForm(f => ({ ...f, [key]: data.url }))
     } catch {
       setPhotoError('Upload failed — try again')
     } finally {
@@ -121,9 +137,11 @@ export default function StorefrontEditor() {
                       <>
                         <button className="btn btn--ghost btn--sm btn--danger" onClick={() => setDeleteConfirmId(l.id)}>Delete</button>
                         <button className="btn btn--ghost btn--sm" onClick={() => openModal(l)}><I.Edit size={11} /> Edit</button>
-                        {l.status === 'DRAFT' || l.status === 'UNPUBLISHED'
-                          ? <button className="btn btn--ghost btn--sm" onClick={() => publishMut.mutate(l.id)}>Publish</button>
-                          : <button className="btn btn--ghost btn--sm" onClick={() => unpubMut.mutate(l.id)}>Unpublish</button>
+                        {(l.status === 'PUBLISHED' || l.status === 'SOLD_OUT')
+                          ? <button className="btn btn--ghost btn--sm" onClick={() => unpubMut.mutate(l.id)}>Unpublish</button>
+                          : l.status === 'UNPUBLISHED'
+                            ? <button className="btn btn--ghost btn--sm" onClick={() => republishMut.mutate(l.id)}>Re-publish</button>
+                            : null
                         }
                       </>
                     )}
@@ -137,7 +155,7 @@ export default function StorefrontEditor() {
 
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth: 540}}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth: 540, maxHeight: '90vh', overflowY: 'auto'}}>
             <div className="modal__head">
               <div>
                 <div className="eyebrow">Edit listing</div>
@@ -169,17 +187,54 @@ export default function StorefrontEditor() {
                 ) : form.photoUrl ? (
                   <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
                     <img src={form.photoUrl} alt="listing" style={{width: 80, height: 80, objectFit: 'cover', borderRadius: 6}} />
-                    <button className="btn btn--ghost btn--sm" type="button" onClick={() => fileRef.current?.click()}>Change photo</button>
+                    <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setCurrentSlot('cover'); fileRef.current?.click() }}>Change photo</button>
                   </div>
                 ) : (
-                  <button className="btn btn--ghost btn--sm" type="button" onClick={() => fileRef.current?.click()}>Select photo</button>
+                  <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setCurrentSlot('cover'); fileRef.current?.click() }}>Select photo</button>
                 )}
                 {photoError && (
                   <span style={{fontSize: 12, color: 'var(--unsafe)', marginTop: 4, display: 'block'}}>
                     {photoError}{' '}
-                    <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setPhotoError(''); fileRef.current?.click() }}>Retry</button>
+                    <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setPhotoError(''); setCurrentSlot('cover'); fileRef.current?.click() }}>Retry</button>
                   </span>
                 )}
+              </div>
+              <div className="form-row" style={{gridColumn: '1 / -1'}}>
+                <label style={{ fontWeight: 600 }}>Freshness photos</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+                  {[
+                    { slot: 'eyes',   label: 'Eyes',   hint: 'Clear, bright pupils',           formKey: 'photoEyes'   },
+                    { slot: 'gills',  label: 'Gills',  hint: 'Bright red, not brown',          formKey: 'photoGills'  },
+                    { slot: 'scales', label: 'Scales', hint: 'Shiny, tight to skin',           formKey: 'photoScales' },
+                    { slot: 'belly',  label: 'Belly',  hint: 'Firm, not swollen',              formKey: 'photoBelly'  },
+                    { slot: 'flesh',  label: 'Flesh',  hint: 'Pink/white, no discoloration',   formKey: 'photoFlesh'  },
+                  ].map(({ slot, label, hint, formKey }, i) => {
+                    const url = form[formKey]
+                    const isLast = i === 4
+                    return (
+                      <div key={slot} style={{ gridColumn: isLast ? '1 / -1' : undefined, maxWidth: isLast ? '50%' : undefined }}>
+                        <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
+                        <div className="muted-data" style={{ fontSize: 10, marginBottom: 6 }}>{hint}</div>
+                        {url ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <img src={url} alt={label} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }} />
+                            <button className="btn btn--ghost btn--sm" type="button"
+                              onClick={() => { setCurrentSlot(slot); fileRef.current?.click() }}>Change</button>
+                          </div>
+                        ) : (
+                          <button
+                            className="btn btn--ghost btn--sm"
+                            type="button"
+                            style={{ border: '1.5px dashed var(--line)', width: '100%', padding: '12px 0' }}
+                            onClick={() => { setCurrentSlot(slot); fileRef.current?.click() }}
+                          >
+                            Upload
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             </div>
             {/* always rendered so ref is always valid */}
