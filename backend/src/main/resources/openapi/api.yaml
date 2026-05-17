@@ -6563,7 +6563,6 @@ components:
           type: number
           format: double
           minimum: 0.1
-          default: 0.5
 
     StorefrontListingResponse:
       type: object

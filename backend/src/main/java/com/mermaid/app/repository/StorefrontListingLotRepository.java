@@ -13,8 +13,10 @@ public interface StorefrontListingLotRepository extends JpaRepository<Storefront
 
     List<StorefrontListingLot> findByIdLotId(Long lotId);
 
-    @Query("SELECT COUNT(sll) > 0 FROM StorefrontListingLot sll " +
-           "WHERE sll.id.lotId = :lotId " +
-           "AND EXISTS (SELECT 1 FROM StorefrontListing sl WHERE sl.id = sll.id.listingId AND sl.isDeleted = false)")
+    @Query(value = "SELECT EXISTS (" +
+                   "  SELECT 1 FROM storefront_listing_lots sll" +
+                   "  JOIN storefront_listings sl ON sl.id = sll.listing_id" +
+                   "  WHERE sll.lot_id = :lotId AND sl.is_deleted = false" +
+                   ")", nativeQuery = true)
     boolean existsByLotIdInActiveListing(@Param("lotId") Long lotId);
 }
