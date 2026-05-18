@@ -40,6 +40,20 @@ export default function Analytics({ setPage }) {
   const buyersQ  = useQuery({ queryKey: ['vendor', 'analytics', 'buyers', range],  queryFn: () => getRepeatBuyers(from, to) })
   const seriesQ  = useQuery({ queryKey: ['vendor', 'speciesSeries', days], queryFn: () => getSpeciesSeries(days) })
 
+  // Flatten species series into date-keyed chart data
+  const chartData = useMemo(() => {
+    if (!seriesQ.data?.length) return []
+    const map = {}
+    seriesQ.data.forEach(sp => {
+      sp.daily?.forEach(d => {
+        if (!map[d.date]) map[d.date] = { date: d.date, revenue: 0, spend: 0 }
+        map[d.date].revenue += d.revenue ?? 0
+        map[d.date].spend   += d.spend   ?? 0
+      })
+    })
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
+  }, [seriesQ.data])
+
   if (summaryQ.isLoading) return <div className="v-page"><StatTileSkeleton /><StatTileSkeleton /></div>
   if (summaryQ.error) return <div className="v-page"><ApiError error={summaryQ.error} onRetry={summaryQ.refetch} /></div>
 
@@ -54,20 +68,6 @@ export default function Analytics({ setPage }) {
   const topSpecies = bySpecies.length
     ? bySpecies.reduce((best, s) => s.totalRevenue > (best?.totalRevenue ?? 0) ? s : best, null)?.speciesName ?? '—'
     : '—'
-
-  // Flatten species series into date-keyed chart data
-  const chartData = useMemo(() => {
-    if (!seriesQ.data?.length) return []
-    const map = {}
-    seriesQ.data.forEach(sp => {
-      sp.daily?.forEach(d => {
-        if (!map[d.date]) map[d.date] = { date: d.date, revenue: 0, spend: 0 }
-        map[d.date].revenue += d.revenue ?? 0
-        map[d.date].spend   += d.spend   ?? 0
-      })
-    })
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date))
-  }, [seriesQ.data])
 
   return (
     <div className="v-page">
@@ -108,12 +108,12 @@ export default function Analytics({ setPage }) {
         </div>
         <div className="v-kpi-cell">
           <div className="v-kpi-cell__label">Orders</div>
-          <div className="v-kpi-cell__value">{a.totalOrders}</div>
+          <div className="v-kpi-cell__value">{a.totalOrders ?? 0}</div>
           <div className="v-kpi-cell__sub">completed</div>
         </div>
         <div className="v-kpi-cell">
           <div className="v-kpi-cell__label">Unique buyers</div>
-          <div className="v-kpi-cell__value">{a.uniqueBuyers}</div>
+          <div className="v-kpi-cell__value">{a.uniqueBuyers ?? 0}</div>
           <div className="v-kpi-cell__sub">distinct customers</div>
         </div>
         <div className="v-kpi-cell">
