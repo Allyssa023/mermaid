@@ -15,7 +15,6 @@ import { TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
 import { I } from '../icons'
 import OrderCard from '../components/OrderCard'
-import { useAuth } from '../context/AuthContext'
 
 const STATUS_FILTERS = ['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'DISPUTED', 'CANCELLED']
 
@@ -31,16 +30,14 @@ export default function ProcurementFeed({ pageState }) {
 
   const qc = useQueryClient()
   const navigate = useNavigate()
-  const { user } = useAuth()
-
   const feedQ   = useQuery({
     queryKey: ['vendor', 'feed', watchlistFilter],
     queryFn: () => getFeed(watchlistFilter?.speciesId),
   })
   const cartQ   = useQuery({ queryKey: ['vendor', 'cart'], queryFn: getCart })
   const ordersQ = useQuery({
-    queryKey: ['vendor', 'supplierOrders', statusFilter],
-    queryFn: () => listMySupplierOrders(statusFilter),
+    queryKey: ['vendor', 'supplierOrders'],
+    queryFn: () => listMySupplierOrders(),
     enabled: tab === 'orders' || tab === 'credits',
     refetchOnWindowFocus: true,
     refetchInterval: tab === 'credits' ? 10000 : false,
@@ -97,8 +94,10 @@ export default function ProcurementFeed({ pageState }) {
   const cartItems = Array.isArray(cartQ.data) ? cartQ.data : (cartQ.data?.items ?? [])
 
   const allOrders = ordersQ.data ?? []
-  const supplierOrders = allOrders.filter(o => (o.buyer?.id ?? o.buyerId) === user?.id)
-  const creditOrders = supplierOrders.filter(o =>
+  const displayOrders = statusFilter
+    ? allOrders.filter(o => o.status === statusFilter)
+    : allOrders
+  const creditOrders = allOrders.filter(o =>
     o.status === 'COMPLETED' && o.payment?.method === 'CREDIT' && o.payment?.status !== 'SETTLED'
   )
 
@@ -205,7 +204,7 @@ export default function ProcurementFeed({ pageState }) {
                       className="v-btn v-btn--primary v-btn--sm"
                       style={{ flex: 1 }}
                       onClick={() => startDealMut.mutate(a)}
-                      disabled={startDealMut.isPending || addMut.isPending || !canBuy}
+                      disabled={startDealMut.isPending || addMut.isPending || !canBuy || !!inCart}
                     >
                       <I.Arrow size={11} /> {startDealMut.isPending ? 'Starting…' : 'Start deal'}
                     </button>
@@ -299,7 +298,7 @@ export default function ProcurementFeed({ pageState }) {
           <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
             {STATUS_FILTERS.map(s => {
               const active = s === 'all' ? statusFilter === null : statusFilter === s
-              const count  = s === 'all' ? supplierOrders.length : supplierOrders.filter(o => o.status === s).length
+              const count  = s === 'all' ? allOrders.length : allOrders.filter(o => o.status === s).length
               return (
                 <button
                   key={s}
@@ -315,13 +314,13 @@ export default function ProcurementFeed({ pageState }) {
           </div>
           {ordersQ.isLoading && <TableRowSkeleton rows={4} />}
           {ordersQ.error && <ApiError error={ordersQ.error} onRetry={ordersQ.refetch} />}
-          {!ordersQ.isLoading && supplierOrders.length === 0 && (
+          {!ordersQ.isLoading && displayOrders.length === 0 && (
             <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-4)' }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>No orders yet</div>
               <p style={{ fontSize: 13 }}>Orders you place from the live feed will appear here.</p>
             </div>
           )}
-          {supplierOrders.map(order => (
+          {displayOrders.map(order => (
             <OrderCard key={order.id} order={order} viewerRole="BUYER" mutations={orderMutations} />
           ))}
         </div>
