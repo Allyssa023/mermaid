@@ -210,7 +210,7 @@ export default function VendorMessagesPage() {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                       <span style={{ fontFamily: 'var(--font-ui, Rubik)', fontWeight: 600, color: 'var(--ink-1)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                        {d.counterpartyName || `User #${d.counterpartyId}`}
+                        {d.speciesName || `Deal #${d.id}`}
                       </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                         {unread && (
@@ -219,13 +219,17 @@ export default function VendorMessagesPage() {
                             style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-lime)', flexShrink: 0 }}
                           />
                         )}
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--tide)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          DEAL
+                        <span className={`v-chip v-chip--${
+                          d.status === 'AGREED' ? 'kelp' :
+                          d.status === 'EXPIRED' || d.status === 'CANCELLED' ? 'coral' :
+                          'tide'
+                        }`} style={{ fontSize: 10, padding: '2px 6px' }}>
+                          {d.status}
                         </span>
                       </div>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 3, display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)', fontSize: 10 }}>CA-{d.catchAlertId}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)', fontSize: 10 }}>{d.counterpartyName || `User #${d.counterpartyId}`}</span>
                       {prop && (
                         <span>{prop.qtyKg}kg @ ₱{prop.pricePerKg}</span>
                       )}
