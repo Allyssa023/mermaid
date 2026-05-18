@@ -265,8 +265,15 @@ public class AnalyticsService {
             entry.put("orderCount", orderCount);
             entry.put("totalSpent", totalSpent);
             entry.put("lastOrder", lastOrder);
+            entry.put("tier", deriveTier(orderCount));
             result.add(entry);
         }
         return result;
+    }
+
+    String deriveTier(int orderCount) {
+        if (orderCount >= 10) return "VIP";
+        if (orderCount >= 3)  return "REGULAR";
+        return "NEW";
     }
 }

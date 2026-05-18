@@ -89,6 +89,10 @@ public class VendorAnalyticsController implements VendorAnalyticsApi {
             );
             dto.setBuyerName(JsonNullable.of((String) m.get("buyerName")));
             dto.setLastOrder(JsonNullable.of((OffsetDateTime) m.get("lastOrder")));
+            String tierStr = (String) m.get("tier");
+            if (tierStr != null) {
+                dto.setTier(JsonNullable.of(RepeatBuyer.TierEnum.fromValue(tierStr)));
+            }
             return dto;
         }).toList();
         return ResponseEntity.ok(dtos);
