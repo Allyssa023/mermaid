@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -121,6 +123,29 @@ public class StorefrontListingService {
         return listingRepo.findByIdAndIsDeletedFalse(listingId)
                 .filter(l -> l.getStatus() == StorefrontListingStatus.PUBLISHED)
                 .orElseThrow(() -> new ResourceNotFoundException("Listing not found: " + listingId));
+    }
+
+    @Transactional
+    public void incrementViewCount(Long listingId) {
+        listingRepo.findByIdAndIsDeletedFalse(listingId).ifPresent(l -> {
+            l.setViewCount(l.getViewCount() + 1);
+            listingRepo.save(l);
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getStorefrontStats(Long vendorId) {
+        List<StorefrontListing> listings = listingRepo.findByVendorIdAndIsDeletedFalse(vendorId);
+        int totalViews = listings.stream().mapToInt(StorefrontListing::getViewCount).sum();
+        List<Map<String, Object>> byListing = listings.stream()
+            .map(l -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("listingId", l.getId());
+                m.put("views", l.getViewCount());
+                return m;
+            })
+            .toList();
+        return Map.of("totalViews", totalViews, "byListing", byListing);
     }
 
     private StorefrontListing getOwnedListing(Long vendorId, Long listingId) {

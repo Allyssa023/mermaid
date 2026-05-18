@@ -5,6 +5,7 @@ import com.mermaid.app.model.ProcurementSpend;
 import com.mermaid.app.model.RepeatBuyer;
 import com.mermaid.app.model.RevenueBySpecies;
 import com.mermaid.app.model.SalesSummary;
+import com.mermaid.app.model.VendorSpeciesSeriesItem;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.AnalyticsService;
 import org.openapitools.jackson.nullable.JsonNullable;
@@ -66,6 +67,13 @@ public class VendorAnalyticsController implements VendorAnalyticsApi {
             ((Number) m.get("totalQtyKg")).doubleValue()
         )).toList();
         return ResponseEntity.ok(dtos);
+    }
+
+    @Override
+    public ResponseEntity<List<VendorSpeciesSeriesItem>> vendorSpeciesSeries(Integer days) {
+        Long vendorId = SecurityUtils.currentUserId();
+        int d = (days != null) ? days : 30;
+        return ResponseEntity.ok(analyticsService.speciesSeries(vendorId, d));
     }
 
     @Override

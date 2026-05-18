@@ -2,12 +2,16 @@ package com.mermaid.app.service;
 
 import com.mermaid.app.domain.Order;
 import com.mermaid.app.domain.OrderKind;
+import com.mermaid.app.model.VendorSpeciesSeriesItem;
+import com.mermaid.app.model.VendorSpeciesSeriesItemDailyInner;
+import com.mermaid.app.repository.InventoryLotRepository;
 import com.mermaid.app.repository.OrderRepository;
 import com.mermaid.app.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -19,10 +23,13 @@ public class AnalyticsService {
 
     private final OrderRepository orderRepo;
     private final UserRepository userRepo;
+    private final InventoryLotRepository lotRepo;
 
-    public AnalyticsService(OrderRepository orderRepo, UserRepository userRepo) {
+    public AnalyticsService(OrderRepository orderRepo, UserRepository userRepo,
+                            InventoryLotRepository lotRepo) {
         this.orderRepo = orderRepo;
         this.userRepo = userRepo;
+        this.lotRepo = lotRepo;
     }
 
     private void validateRange(LocalDate from, LocalDate to) {
@@ -127,6 +134,98 @@ public class AnalyticsService {
         result.sort(Comparator.<Map<String, Object>, Double>
                 comparing(m -> -(Double) m.get("totalSpend")));
         return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<VendorSpeciesSeriesItem> speciesSeries(Long vendorId, int days) {
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate windowStart = today.minusDays(days);
+        LocalDate priorStart = windowStart.minusDays(days);
+
+        List<Order> currentOrders = orderRepo.findCompletedByVendorAndKindInRange(
+                vendorId, OrderKind.RETAIL, startOf(windowStart), endOf(today));
+        List<Order> priorOrders = orderRepo.findCompletedByVendorAndKindInRange(
+                vendorId, OrderKind.RETAIL, startOf(priorStart), endOf(windowStart));
+
+        // Group current window by species, compute total revenue
+        Map<Long, List<Order>> currentBySpecies = currentOrders.stream()
+                .filter(o -> o.getSpecies() != null)
+                .collect(Collectors.groupingBy(o -> o.getSpecies().getId()));
+
+        // Compute total revenue across all species for share calculation
+        double totalRevenue = currentBySpecies.values().stream()
+                .flatMap(List::stream)
+                .filter(o -> o.getOrderedQtyKg() != null && o.getAgreedPricePerKg() != null)
+                .mapToDouble(o -> o.getAgreedPricePerKg().multiply(o.getOrderedQtyKg()).doubleValue())
+                .sum();
+
+        // Group prior window by species
+        Map<Long, Double> priorRevenueBySpecies = priorOrders.stream()
+                .filter(o -> o.getSpecies() != null && o.getOrderedQtyKg() != null && o.getAgreedPricePerKg() != null)
+                .collect(Collectors.groupingBy(
+                        o -> o.getSpecies().getId(),
+                        Collectors.summingDouble(o -> o.getAgreedPricePerKg().multiply(o.getOrderedQtyKg()).doubleValue())
+                ));
+
+        // Inventory lots count per species for the vendor
+        Map<Long, Long> lotsCountBySpecies = lotRepo.findByVendorIdOrderByReceivedAtAsc(vendorId)
+                .stream()
+                .filter(l -> l.getRemainingKg() != null && l.getRemainingKg().compareTo(BigDecimal.ZERO) > 0)
+                .collect(Collectors.groupingBy(
+                        com.mermaid.app.domain.InventoryLot::getSpeciesId,
+                        Collectors.counting()
+                ));
+
+        List<VendorSpeciesSeriesItem> result = new ArrayList<>();
+        currentBySpecies.forEach((speciesId, orders) -> {
+            String commonName = orders.get(0).getSpecies().getCommonName();
+            String localName = commonName; // no localName field in FishSpecies; use commonName as fallback
+
+            double currentRev = orders.stream()
+                    .filter(o -> o.getOrderedQtyKg() != null && o.getAgreedPricePerKg() != null)
+                    .mapToDouble(o -> o.getAgreedPricePerKg().multiply(o.getOrderedQtyKg()).doubleValue())
+                    .sum();
+            double priorRev = priorRevenueBySpecies.getOrDefault(speciesId, 0.0);
+
+            float share = totalRevenue > 0 ? (float) (currentRev / totalRevenue * 100) : 0f;
+            float delta = priorRev > 0 ? (float) ((currentRev - priorRev) / priorRev * 100) : 0f;
+
+            // Compute price per kg as average across current orders
+            double totalKg = orders.stream()
+                    .filter(o -> o.getOrderedQtyKg() != null)
+                    .mapToDouble(o -> o.getOrderedQtyKg().doubleValue()).sum();
+            double pricePerKg = totalKg > 0 ? currentRev / totalKg : 0.0;
+
+            int lotsCount = lotsCountBySpecies.getOrDefault(speciesId, 0L).intValue();
+
+            // Daily series
+            Map<LocalDate, double[]> dailyMap = new TreeMap<>();
+            for (int d = 0; d < days; d++) {
+                dailyMap.put(windowStart.plusDays(d), new double[]{0.0, 0.0});
+            }
+            orders.stream()
+                    .filter(o -> o.getCreatedAt() != null && o.getOrderedQtyKg() != null && o.getAgreedPricePerKg() != null)
+                    .forEach(o -> {
+                        LocalDate day = o.getCreatedAt().toLocalDate();
+                        dailyMap.computeIfPresent(day, (k, v) -> {
+                            v[0] += o.getAgreedPricePerKg().multiply(o.getOrderedQtyKg()).doubleValue();
+                            v[1] += o.getOrderedQtyKg().doubleValue();
+                            return v;
+                        });
+                    });
+
+            List<VendorSpeciesSeriesItemDailyInner> daily = dailyMap.entrySet().stream()
+                    .map(e -> new VendorSpeciesSeriesItemDailyInner(e.getKey(), e.getValue()[0], e.getValue()[1]))
+                    .collect(Collectors.toList());
+
+            result.add(new VendorSpeciesSeriesItem(
+                    speciesId, commonName, localName, share, delta,
+                    lotsCount, pricePerKg, priorRev, daily));
+        });
+
+        // Sort by current revenue descending, return top 3
+        result.sort(Comparator.comparingDouble(VendorSpeciesSeriesItem::getLastWindowRevenue).reversed());
+        return result.stream().limit(3).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)

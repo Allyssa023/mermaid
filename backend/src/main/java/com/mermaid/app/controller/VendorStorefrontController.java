@@ -6,6 +6,8 @@ import com.mermaid.app.mapper.StorefrontListingMapper;
 import com.mermaid.app.model.StorefrontListingRequest;
 import com.mermaid.app.model.StorefrontListingUpdateRequest;
 import com.mermaid.app.model.StorefrontListingResponse;
+import com.mermaid.app.model.StorefrontStats;
+import com.mermaid.app.model.StorefrontStatsByListingInner;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.InventoryService;
 import com.mermaid.app.service.StorefrontListingService;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -88,6 +91,21 @@ public class VendorStorefrontController implements VendorStorefrontApi {
         StorefrontListing listing = service.publish(vendorId, listingId);
         return ResponseEntity.ok(
                 mapper.toDto(listing, inventoryService.availableKg(vendorId, listing.getSpeciesId())));
+    }
+
+    @Override
+    public ResponseEntity<StorefrontStats> vendorGetStorefrontStats() {
+        Long vendorId = SecurityUtils.currentUserId();
+        Map<String, Object> raw = service.getStorefrontStats(vendorId);
+        int totalViews = (int) raw.get("totalViews");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> byListingRaw = (List<Map<String, Object>>) raw.get("byListing");
+        List<StorefrontStatsByListingInner> byListing = byListingRaw.stream()
+            .map(m -> new StorefrontStatsByListingInner(
+                (Long) m.get("listingId"),
+                (Integer) m.get("views")))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(new StorefrontStats(totalViews, byListing));
     }
 
     @Override
