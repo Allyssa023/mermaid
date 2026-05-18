@@ -158,26 +158,37 @@ export default function VendorMessagesPage() {
     return map
   }, [activeDeals])
 
+  const isThreadSelected = (mode === 'deal' && activeDealId != null) || (mode === 'dm' && !!active)
+
   return (
-    <div className="page" style={{ paddingBottom: 24 }}>
-      <div className="page__head" style={{ marginBottom: 14 }}>
+    <div className="v-page" style={{ paddingBottom: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      {/* Page header */}
+      <div className="v-page-header" style={{ flexShrink: 0 }}>
         <div>
-          <div className="eyebrow">Inbox</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}><em>Messages</em></h1>
-          <p className="page__sub">{contacts.length} conversation{contacts.length !== 1 ? 's' : ''}</p>
+          <h1 className="v-page-header__title">Messages</h1>
+          <p className="v-page-header__sub">Deal negotiations and chat</p>
         </div>
-        <div className="page__actions">
-          <button className="btn btn--sm"><I.Filter size={12} /> Filter</button>
+        <div className="v-page-header__actions">
+          <button className="v-btn v-btn--ghost v-btn--sm"><I.Filter size={12} /> Filter</button>
         </div>
       </div>
 
-      <div className="msgs">
-        <div className="msgs__list">
+      {/* Split layout */}
+      <div style={{ display: 'flex', flex: 1, gap: '1px', background: 'var(--hairline)', borderRadius: 'var(--radius-lg, 14px)', overflow: 'hidden', minHeight: 0 }}>
+
+        {/* Conversation list — 350px */}
+        <div style={{ width: 350, flexShrink: 0, background: 'var(--bg-card)', overflowY: 'auto', borderRadius: 'var(--radius-lg, 14px) 0 0 var(--radius-lg, 14px)' }}>
+
+          {/* Active deals section */}
           {activeDeals.length > 0 && (
             <>
-              <div className="msgs__head">
-                <strong style={{ fontSize: 13 }}>Active deals</strong>
-                <span className="kbd">{activeDeals.length}</span>
+              <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Active Deals
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent-lime)', background: 'var(--accent-soft)', padding: '1px 7px', borderRadius: 999 }}>
+                  {activeDeals.length}
+                </span>
               </div>
               {activeDeals.map(d => {
                 const prop = d.latestProposal
@@ -186,40 +197,38 @@ export default function VendorMessagesPage() {
                 return (
                   <div
                     key={`deal-${d.id}`}
-                    className={`contact${on ? ' contact--on' : ''}`}
                     onClick={() => handleSelectDeal(d)}
                     data-testid={`deal-row-${d.id}`}
+                    style={{
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid var(--hairline-2)',
+                      background: on ? 'var(--bg-card-2)' : 'transparent',
+                      transition: 'background 0.15s',
+                      boxShadow: on ? 'inset 2px 0 0 var(--accent-lime)' : 'none',
+                    }}
                   >
-                    <div className={`contact__avatar contact__avatar--${colorOf(d.id)}`}>
-                      {initials(d.counterpartyName)}
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div className="contact__name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {d.counterpartyName || `User #${d.counterpartyId}`}
-                        </span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ fontFamily: 'var(--font-ui, Rubik)', fontWeight: 600, color: 'var(--ink-1)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        {d.counterpartyName || `User #${d.counterpartyId}`}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                         {unread && (
                           <span
                             data-testid={`deal-unread-${d.id}`}
-                            style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent, #2a8)' }}
+                            style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-lime)', flexShrink: 0 }}
                           />
                         )}
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--tide)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          DEAL
+                        </span>
                       </div>
-                      <div className="contact__preview">
-                        <span style={{
-                          fontSize: 10,
-                          color: 'var(--ink-4)',
-                          fontFamily: 'var(--font-mono)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          marginRight: 6,
-                        }}>CA-{d.catchAlertId}</span>
-                        {prop && (
-                          <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
-                            {prop.qtyKg}kg @ ₱{prop.pricePerKg}
-                          </span>
-                        )}
-                      </div>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 3, display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)', fontSize: 10 }}>CA-{d.catchAlertId}</span>
+                      {prop && (
+                        <span>{prop.qtyKg}kg @ ₱{prop.pricePerKg}</span>
+                      )}
                     </div>
                   </div>
                 )
@@ -227,66 +236,96 @@ export default function VendorMessagesPage() {
             </>
           )}
 
-          <div className="msgs__head">
-            <strong style={{ fontSize: 13 }}>All conversations</strong>
-            <span className="kbd">{contacts.length}</span>
+          {/* All conversations section */}
+          <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Conversations
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-3)', background: 'var(--bg-elev)', padding: '1px 7px', borderRadius: 999 }}>
+              {contacts.length}
+            </span>
           </div>
-          <div className="msgs__search">
-            <input placeholder="Search contacts, messages…" readOnly />
+
+          {/* Search input */}
+          <div style={{ padding: '0 12px 8px' }}>
+            <input
+              placeholder="Search contacts, messages…"
+              readOnly
+              style={{
+                width: '100%',
+                background: 'var(--bg-card-2)',
+                border: '1px solid var(--hairline)',
+                borderRadius: 8,
+                padding: '7px 12px',
+                color: 'var(--ink-2)',
+                fontSize: 12,
+                fontFamily: 'var(--font-ui, Rubik)',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
           </div>
+
           {contactsQ.isLoading && (
-            <div style={{ padding: 16, fontSize: 12, color: 'var(--ink-3)' }}>Loading…</div>
+            <div style={{ padding: 16, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>Loading…</div>
           )}
-          {contacts.map(c => (
-            <div
-              key={c.id}
-              className={`contact${mode === 'dm' && activeUserId === c.id ? ' contact--on' : ''}`}
-              onClick={() => handleSelectContact(c.id)}
-            >
-              <div className={`contact__avatar contact__avatar--${colorOf(c.id)}`}>
-                {initials(c.fullName)}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div className="contact__name">{c.fullName}</div>
-                <div className="contact__preview">
-                  <span style={{
-                    fontSize: 10,
-                    color: 'var(--ink-4)',
-                    fontFamily: 'var(--font-mono)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    marginRight: 6,
-                  }}>{c.role}</span>
+
+          {contacts.map(c => {
+            const on = mode === 'dm' && activeUserId === c.id
+            return (
+              <div
+                key={c.id}
+                onClick={() => handleSelectContact(c.id)}
+                style={{
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid var(--hairline-2)',
+                  background: on ? 'var(--bg-card-2)' : 'transparent',
+                  transition: 'background 0.15s',
+                  boxShadow: on ? 'inset 2px 0 0 var(--tide)' : 'none',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-ui, Rubik)', fontWeight: 600, color: 'var(--ink-1)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    {c.fullName}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>
+                    {c.role}
+                  </span>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
+
           {!contactsQ.isLoading && contacts.length === 0 && (
-            <div style={{ padding: 16, fontSize: 12, color: 'var(--ink-3)' }}>No conversations yet.</div>
+            <div style={{ padding: 16, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>No conversations yet.</div>
           )}
         </div>
 
-        <div className="thread">
+        {/* Thread area — flex */}
+        <div style={{ flex: 1, background: 'var(--bg-canvas)', borderRadius: '0 var(--radius-lg, 14px) var(--radius-lg, 14px) 0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mode === 'deal' && activeDealId != null ? (
             <DealChatPane dealId={activeDealId} currentUserId={myId} apiClient={vendorDealsApi} />
           ) : active ? (
             <>
-              <div className="thread__head">
-                <div className={`contact__avatar contact__avatar--${colorOf(active.id)}`}>
+              {/* Thread header */}
+              <div style={{ height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, padding: '0 20px', borderBottom: '1px solid var(--hairline)', background: 'var(--bg-card)' }}>
+                <div className={`contact__avatar contact__avatar--${colorOf(active.id)}`} style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
                   {initials(active.fullName)}
                 </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>{active.fullName}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-1)', fontFamily: 'var(--font-ui, Rubik)' }}>{active.fullName}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     {active.role}
                   </div>
                 </div>
-                <div className="spacer" />
-                <button className="topbar__icon-btn"><I.Dots size={14} /></button>
+                <button className="v-btn v-btn--ghost v-btn--sm" style={{ padding: '4px 8px' }}><I.Dots size={14} /></button>
               </div>
-              <div className="thread__body" ref={bodyRef}>
+
+              {/* Message body */}
+              <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {convQ.isLoading && (
-                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--ink-3)' }}>Loading…</div>
+                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--ink-4)' }}>Loading…</div>
                 )}
                 {localMsgs.map((m) => {
                   const mine = m.senderId === myId
@@ -298,40 +337,52 @@ export default function VendorMessagesPage() {
                   )
                 })}
                 {!convQ.isLoading && localMsgs.length === 0 && (
-                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--ink-3)' }}>
+                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>
                     No messages yet. Say hi!
                   </div>
                 )}
               </div>
-              <div className="thread__input">
+
+              {/* Input bar */}
+              <div style={{ flexShrink: 0, padding: '12px 16px', borderTop: '1px solid var(--hairline)', background: 'var(--bg-card)', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                 <textarea
                   placeholder="Type a message…"
                   value={draft}
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={handleKey}
+                  style={{
+                    flex: 1,
+                    background: 'var(--bg-card-2)',
+                    border: '1px solid var(--hairline)',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    color: 'var(--ink-1)',
+                    fontSize: 13,
+                    fontFamily: 'var(--font-ui, Rubik)',
+                    resize: 'none',
+                    outline: 'none',
+                    minHeight: 38,
+                    maxHeight: 120,
+                  }}
                 />
-                <button className="btn btn--accent" onClick={handleSend} disabled={!draft.trim()}>
+                <button
+                  className="v-btn v-btn--primary v-btn--sm"
+                  onClick={handleSend}
+                  disabled={!draft.trim()}
+                  style={{ alignSelf: 'flex-end' }}
+                >
                   <I.Send size={12} /> Send
                 </button>
               </div>
             </>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--ink-3)', fontSize: 13 }}>
-              Select a conversation to start chatting.
+            /* Empty state */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>
+              <span style={{ fontSize: 32, opacity: 0.3 }}>💬</span>
+              <span style={{ fontSize: 14 }}>Select a conversation to start chatting</span>
             </div>
           )}
         </div>
-
-        {mode === 'dm' && active && (
-          <div className="thread__info">
-            <div>
-              <h4>Contact</h4>
-              <div className="info-item"><span className="l">Name</span><span className="v">{active.fullName}</span></div>
-              <div className="info-item"><span className="l">Role</span><span className="v">{active.role}</span></div>
-              <div className="info-item"><span className="l">Email</span><span className="v" style={{ fontSize: 11 }}>{active.email}</span></div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )
