@@ -30,12 +30,13 @@ function hoursFromShop(shop) {
 function toPayload(resolved) {
   // Backend ShopProfileRequest uses `hoursJson` (free-form object). Wrap our typed array.
   return {
-    displayName: resolved.displayName,
-    slug:        resolved.slug,
-    bio:         resolved.bio,
-    logoUrl:     resolved.logoUrl,
-    bannerUrl:   resolved.bannerUrl,
-    hoursJson:   { days: resolved.hoursDays },
+    displayName:    resolved.displayName,
+    slug:           resolved.slug,
+    bio:            resolved.bio,
+    logoUrl:        resolved.logoUrl,
+    bannerUrl:      resolved.bannerUrl,
+    pickupLocation: resolved.pickupLocation,
+    hoursJson:      { days: resolved.hoursDays },
   }
 }
 
@@ -68,7 +69,7 @@ export default function ShopProfile() {
 
   const qc = useQueryClient()
   const shopQ    = useQuery({ queryKey: ['vendor', 'shop'],    queryFn: getShopProfile })
-  const reviewsQ = useQuery({ queryKey: ['vendor', 'reviews'], queryFn: () => listVendorReviews(0, 100) })
+  const reviewsQ = useQuery({ queryKey: ['vendor', 'reviews', 'shop-kpi'], queryFn: () => listVendorReviews(0, 200) })
   const ordersQ  = useQuery({ queryKey: ['vendor', 'orders'],  queryFn: () => listInbox() })
 
   const updateMut = useMutation({
@@ -161,9 +162,10 @@ export default function ShopProfile() {
           <div className="v-kpi-cell__sub">avg from reviews</div>
         </div>
         <div className="v-kpi-cell">
-          <div className="v-kpi-cell__label">Total Orders</div>
+          {/* listInbox has no page-size param; count reflects first-page results only */}
+          <div className="v-kpi-cell__label">Orders (recent)</div>
           <div className="v-kpi-cell__value">{totalOrders != null ? totalOrders : '—'}</div>
-          <div className="v-kpi-cell__sub">all time</div>
+          <div className="v-kpi-cell__sub">recent inbox</div>
         </div>
         <div className="v-kpi-cell">
           <div className="v-kpi-cell__label">Member Since</div>
