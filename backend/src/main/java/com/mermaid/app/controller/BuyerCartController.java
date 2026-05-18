@@ -6,6 +6,7 @@ import com.mermaid.app.model.BuyerCartView;
 import com.mermaid.app.model.UpdateCartItemRequest;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.CartService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,7 +28,13 @@ public class BuyerCartController implements BuyerCartApi {
 
     @Override
     public ResponseEntity<BuyerCartView> addBuyerCartItem(AddCartItemRequest request) {
-        return ResponseEntity.ok(cartService.addItem(SecurityUtils.currentUserId(), request));
+        CartService.AddItemResult result = cartService.addItem(SecurityUtils.currentUserId(), request);
+        if (result.warning() != null) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("X-Cart-Warning", result.warning());
+            return ResponseEntity.ok().headers(headers).body(result.cart());
+        }
+        return ResponseEntity.ok(result.cart());
     }
 
     @Override

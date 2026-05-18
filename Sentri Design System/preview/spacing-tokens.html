@@ -1,0 +1,35 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 28px; }
+  .row { display: flex; align-items: center; gap: 16px; padding: 6px 0; }
+  .meta {
+    flex: 0 0 120px;
+    font-family: var(--font-code);
+    font-size: 11px;
+    color: var(--ink-deep);
+  }
+  .bar {
+    height: 14px;
+    background: var(--accent-lime);
+    border-radius: 3px;
+  }
+  .val {
+    font-family: var(--font-code);
+    font-size: 11px;
+    color: var(--accent-violet-mid);
+    margin-left: auto;
+  }
+</style></head>
+<body>
+<div class="card">
+  <div class="row"><div class="meta">--space-xxs</div><div class="bar" style="width:2px"></div><div class="val">2px</div></div>
+  <div class="row"><div class="meta">--space-xs</div><div class="bar" style="width:4px"></div><div class="val">4px</div></div>
+  <div class="row"><div class="meta">--space-sm</div><div class="bar" style="width:8px"></div><div class="val">8px</div></div>
+  <div class="row"><div class="meta">--space-md</div><div class="bar" style="width:12px"></div><div class="val">12px</div></div>
+  <div class="row"><div class="meta">--space-lg</div><div class="bar" style="width:16px"></div><div class="val">16px</div></div>
+  <div class="row"><div class="meta">--space-xl</div><div class="bar" style="width:24px"></div><div class="val">24px</div></div>
+  <div class="row"><div class="meta">--space-xxl</div><div class="bar" style="width:32px"></div><div class="val">32px</div></div>
+  <div class="row"><div class="meta">--space-section</div><div class="bar" style="width:96px"></div><div class="val">96px · between page bands</div></div>
+</div>
+</body></html>

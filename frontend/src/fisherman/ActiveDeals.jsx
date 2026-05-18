@@ -1,32 +1,43 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import gsap from 'gsap'
-import DealChatPane from '../components/DealChatPane'
+import { I } from '../icons'
 import {
-  listMyDeals,
-  submitProposal,
-  getDeal,
-  listDealMessages,
-  acceptProposal,
-  rejectProposal,
-  cancelDeal,
+  listMyDeals, submitProposal,
+  acceptProposal, cancelDeal,
 } from './api/deals'
 
-const GROUPS = ['NEGOTIATING', 'AGREED', 'REJECTED', 'EXPIRED', 'CANCELLED']
+const PAGE_SIZE = 10
 
-const GROUP_CHIP_COLOR = {
-  NEGOTIATING: '#a3e635',
-  AGREED: '#34d399',
-  REJECTED: '#f87171',
-  EXPIRED: 'rgba(255,255,255,0.35)',
-  CANCELLED: 'rgba(255,255,255,0.35)',
+function Pager({ page, total, onPage }) {
+  if (total <= 1) return null
+  return (
+    <div className="pager">
+      <button className="pager__btn" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Prev</button>
+      <span className="pager__info">{page} of {total}</span>
+      <button className="pager__btn" disabled={page >= total} onClick={() => onPage(page + 1)}>Next →</button>
+    </div>
+  )
+}
+
+const STATUS_CHIP = {
+  NEGOTIATING: 'chip--caution',
+  AGREED:      'chip--safe',
+  REJECTED:    'chip--unsafe',
+  EXPIRED:     'chip--muted',
+  CANCELLED:   'chip--muted',
+}
+
+const PIPE_CLASS = {
+  NEGOTIATING: 'deal-row__pipe--neg',
+  AGREED:      'deal-row__pipe--agreed',
+  REJECTED:    'deal-row__pipe--closed',
+  EXPIRED:     'deal-row__pipe--closed',
+  CANCELLED:   'deal-row__pipe--closed',
 }
 
 function timeAgo(iso) {
   if (!iso) return ''
-  const ms = Date.now() - new Date(iso).getTime()
-  if (Number.isNaN(ms)) return ''
-  const m = Math.max(0, Math.round(ms / 60000))
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000))
   if (m < 1) return 'just now'
   if (m < 60) return `${m}m ago`
   const h = Math.round(m / 60)
@@ -34,50 +45,26 @@ function timeAgo(iso) {
   return `${Math.round(h / 24)}d ago`
 }
 
+const FILTERS = [
+  { id: 'ALL',       label: 'All deals' },
+  { id: 'PROPOSALS', label: 'Negotiating' },
+  { id: 'AGREED',    label: 'Agreed' },
+  { id: 'CLOSED',    label: 'Closed' },
+]
+
 export default function ActiveDeals({ setPage }) {
   const qc = useQueryClient()
-
-  const dealsQ = useQuery({
-    queryKey: ['deals', 'mine', 'all'],
-    queryFn: () => listMyDeals(),
-  })
-
-  const [activeDealId, setActiveDealId] = useState(null)
-  const [counterModal, setCounterModal] = useState(null) // holds dealId
+  const dealsQ = useQuery({ queryKey: ['deals', 'mine', 'all'], queryFn: () => listMyDeals() })
+  const [filter, setFilter] = useState('ALL')
+  const [counterModal, setCounterModal] = useState(null)
   const [counterQty, setCounterQty] = useState('')
   const [counterPrice, setCounterPrice] = useState('')
+  const [dealsPage, setDealsPage] = useState(1)
 
-  const cardsRef = useRef(null)
-
-  // Group deals by status
-  const grouped = useMemo(() => {
-    const data = dealsQ.data ?? []
-    const map = {}
-    for (const d of data) {
-      if (!map[d.status]) map[d.status] = []
-      map[d.status].push(d)
-    }
-    return map
-  }, [dealsQ.data])
-
-  // GSAP stagger on mount / data change
-  useEffect(() => {
-    if (!cardsRef.current) return
-    const cards = cardsRef.current.querySelectorAll('.f-card')
-    if (cards.length === 0) return
-    gsap.from(cards, {
-      opacity: 0,
-      y: 16,
-      duration: 0.35,
-      stagger: 0.06,
-      ease: 'power2.out',
-      clearProps: 'opacity,transform',
-    })
-  }, [dealsQ.data])
+  const allDeals = dealsQ.data ?? []
 
   const counterMut = useMutation({
-    mutationFn: ({ dealId, qtyKg, pricePerKg }) =>
-      submitProposal(dealId, Number(qtyKg), Number(pricePerKg)),
+    mutationFn: ({ dealId, qtyKg, pricePerKg }) => submitProposal(dealId, Number(qtyKg), Number(pricePerKg)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['deals', 'mine', 'all'] })
       setCounterModal(null)
@@ -86,265 +73,228 @@ export default function ActiveDeals({ setPage }) {
     },
   })
 
-  const activeApiClient = { getDeal, listDealMessages, submitProposal, acceptProposal, rejectProposal }
+  const acceptMut = useMutation({
+    mutationFn: (dealId) => {
+      const deal = allDeals.find(d => d.id === dealId)
+      const pending = deal?.latestProposal?.status === 'PENDING' ? deal.latestProposal : null
+      return pending ? acceptProposal(dealId, pending.id) : Promise.reject(new Error('No pending proposal'))
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['deals', 'mine', 'all'] }),
+  })
 
-  // ── Loading / error states ─────────────────────────────────────────────
+  const cancelMut = useMutation({
+    mutationFn: (dealId) => cancelDeal(dealId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['deals', 'mine', 'all'] }),
+  })
+
+  const stats = useMemo(() => ({
+    negotiating: allDeals.filter(d => d.status === 'NEGOTIATING').length,
+    agreed:      allDeals.filter(d => d.status === 'AGREED').length,
+    closed:      allDeals.filter(d => ['REJECTED', 'EXPIRED', 'CANCELLED'].includes(d.status)).length,
+    total:       allDeals.length,
+    agreedValue: allDeals.filter(d => d.status === 'AGREED')
+                         .reduce((s, d) => s + (d.latestProposal?.pricePerKg ?? 0) * (d.latestProposal?.qtyKg ?? 0), 0),
+  }), [allDeals])
+
+  const CLOSED_STATUSES = ['REJECTED', 'EXPIRED', 'CANCELLED']
+
+  const filtered = useMemo(() => {
+    if (filter === 'PROPOSALS') return allDeals.filter(d => d.status === 'NEGOTIATING')
+    if (filter === 'AGREED')    return allDeals.filter(d => d.status === 'AGREED')
+    if (filter === 'CLOSED')    return allDeals.filter(d => CLOSED_STATUSES.includes(d.status))
+    return allDeals
+  }, [allDeals, filter])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paged = filtered.slice((dealsPage - 1) * PAGE_SIZE, dealsPage * PAGE_SIZE)
+
   if (dealsQ.isLoading) {
-    return (
-      <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-        <div style={{ width: 320, padding: '24px 16px', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
-          Loading deals…
-        </div>
-      </div>
-    )
+    return <div style={{ padding: '24px 28px', color: 'var(--ink-3)', fontSize: 13 }}>Loading deals…</div>
   }
-
   if (dealsQ.error) {
     return (
-      <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-        <div style={{ width: 320, padding: '24px 16px', color: '#f87171', fontSize: '0.85rem' }}>
-          Failed to load deals.{' '}
-          <button className="f-btn f-btn--secondary f-btn--sm" onClick={() => dealsQ.refetch()}>
-            Retry
-          </button>
-        </div>
+      <div style={{ padding: '24px 28px' }}>
+        <div className="f-error">Failed to load deals. <span className="f-error__retry" onClick={dealsQ.refetch}>Retry</span></div>
       </div>
     )
   }
 
-  const allDeals = dealsQ.data ?? []
-
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* ── Left panel: deal list ──────────────────────────────────────── */}
-      <div
-        style={{
-          width: 320,
-          flexShrink: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid rgba(255,255,255,0.08)',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Header */}
-        <div style={{ padding: '20px 16px 12px', flexShrink: 0 }}>
-          <div
-            style={{
-              fontFamily: 'Space Grotesk, sans-serif',
-              fontWeight: 700,
-              fontSize: '1.05rem',
-              color: '#fff',
-              marginBottom: 2,
-            }}
-          >
-            Active Deals
-          </div>
-          <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
-            {allDeals.length} total
-          </div>
+    <div className="fade-in" style={{ padding: '20px 24px', overflowY: 'auto', height: '100%' }}>
+      {/* Header */}
+      <div className="page__head" style={{ marginBottom: 20 }}>
+        <div>
+          <div className="eyebrow"><span className="dot" />Vendor negotiations</div>
+          <h1 className="page__title">Active <em className="chip-lime">Deals</em></h1>
+          <p className="page__sub">Proposals, engagements, and pending handoffs with your vendor network.</p>
         </div>
+        <div className="page__actions">
+          <button className="btn btn--ghost"><I.Filter size={12} /> Filter</button>
+        </div>
+      </div>
 
-        {/* Scrollable list */}
-        <div
-          ref={cardsRef}
-          style={{ flex: 1, overflowY: 'auto', padding: '0 12px 16px' }}
-        >
-          {allDeals.length === 0 ? (
-            <div
-              style={{
-                color: 'rgba(255,255,255,0.3)',
-                fontSize: '0.8rem',
-                textAlign: 'center',
-                marginTop: 40,
-              }}
+      {/* KPI strip */}
+      <div className="f-kpi-strip">
+        <div className="fk-cell">
+          <div className="fk-l">Total deals</div>
+          <div className="fk-v">{stats.total}</div>
+          <div className="fk-s">all time</div>
+        </div>
+        <div className="fk-cell">
+          <div className="fk-l">Negotiating</div>
+          <div className="fk-v" style={{ color: 'var(--caution)' }}>{stats.negotiating}</div>
+          <div className="fk-s">awaiting response</div>
+        </div>
+        <div className="fk-cell">
+          <div className="fk-l">Agreed</div>
+          <div className="fk-v" style={{ color: 'var(--safe)' }}>{stats.agreed}</div>
+          <div className="fk-s">deals running</div>
+        </div>
+        <div className="fk-cell">
+          <div className="fk-l">Agreed value</div>
+          <div className="fk-v">₱{(stats.agreedValue / 1000).toFixed(1)}<small>k</small></div>
+          <div className="fk-s">across agreed deals</div>
+        </div>
+      </div>
+
+      {/* Pipeline */}
+      <div className="f-pipeline">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div className="f-pipeline__head">Deal pipeline</div>
+            <div className="f-pipeline__sub">Distribution across negotiation stages</div>
+          </div>
+          <span className="chip chip--safe" style={{ fontSize: 11 }}>{stats.agreed} agreed</span>
+        </div>
+        <div className="f-pipeline__bars">
+          <div className="f-pipeline__bar f-pipeline__bar--neg"    style={{ flex: stats.negotiating || 0.5 }} />
+          <div className="f-pipeline__bar f-pipeline__bar--agreed" style={{ flex: stats.agreed || 0.5 }} />
+          <div className="f-pipeline__bar f-pipeline__bar--closed" style={{ flex: stats.closed || 0.5 }} />
+        </div>
+        <div className="f-pipeline__labels">
+          <span><span className="sw" style={{ background: 'var(--caution)' }} /><strong>{stats.negotiating}</strong> Negotiating</span>
+          <span><span className="sw" style={{ background: 'var(--safe)' }} /><strong>{stats.agreed}</strong> Agreed</span>
+          <span><span className="sw" style={{ background: 'var(--ink-5)' }} /><strong>{stats.closed}</strong> Closed</span>
+        </div>
+      </div>
+
+      {/* Filter pills */}
+      <div className="f-filter-pills">
+        {FILTERS.map(({ id, label }) => {
+          const count = id === 'ALL' ? allDeals.length
+            : id === 'PROPOSALS' ? stats.negotiating
+            : id === 'AGREED'    ? stats.agreed
+            : stats.closed
+          return (
+            <span
+              key={id}
+              className={`f-pill-btn${filter === id ? ' on' : ''}`}
+              onClick={() => { setFilter(id); setDealsPage(1) }}
             >
-              No deals yet. Vendors will propose when you post catch alerts.
-            </div>
-          ) : (
-            GROUPS.filter(g => grouped[g] && grouped[g].length > 0).map(group => (
-              <div key={group} style={{ marginBottom: 20 }}>
-                {/* Group heading */}
-                <div
-                  style={{
-                    fontFamily: 'Space Grotesk, sans-serif',
-                    fontWeight: 600,
-                    marginBottom: 8,
-                    color: 'rgba(255,255,255,0.5)',
-                    fontSize: '0.75rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                  }}
-                >
-                  {group}
-                </div>
+              {label}
+              <span style={{ marginLeft: 6, opacity: 0.6, fontFamily: 'var(--font-code)', fontSize: 10 }}>{count}</span>
+            </span>
+          )
+        })}
+      </div>
 
-                {/* Deal cards */}
-                {grouped[group].map(deal => {
-                  const isActive = activeDealId === deal.id
-                  return (
-                    <div
-                      key={deal.id}
-                      className="f-card"
-                      style={{
-                        padding: 18,
-                        marginBottom: 10,
-                        cursor: 'pointer',
-                        outline: isActive ? '2px solid #a3e635' : '2px solid transparent',
-                        transition: 'outline 0.15s',
-                      }}
-                      onClick={() => setActiveDealId(isActive ? null : deal.id)}
-                    >
-                      {/* Vendor name */}
-                      <div
-                        style={{
-                          fontFamily: 'Space Grotesk, sans-serif',
-                          fontWeight: 600,
-                          fontSize: '0.9rem',
-                          color: '#fff',
-                          marginBottom: 6,
-                        }}
-                      >
-                        {deal.vendorName || `Vendor #${deal.vendorId}`}
-                      </div>
-
-                      {/* Species + qty + price */}
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                        <span className="f-chip f-chip--muted">
-                          {deal.speciesName || 'Unknown'}
-                        </span>
-                        <span className="f-chip f-chip--muted">
-                          {deal.qtyKg ?? '—'} kg
-                        </span>
-                        {deal.latestProposalPricePerKg != null && (
-                          <span className="f-chip f-chip--lime">
-                            ₱{deal.latestProposalPricePerKg}/kg
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Footer row: time + counter button */}
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 8,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '0.7rem',
-                            color: 'rgba(255,255,255,0.35)',
-                          }}
-                        >
-                          {timeAgo(deal.updatedAt)}
-                        </span>
-
-                        {group === 'NEGOTIATING' && (
-                          <button
-                            className="f-btn f-btn--secondary f-btn--sm"
-                            onClick={e => {
-                              e.stopPropagation()
-                              setCounterModal(deal.id)
-                              setCounterQty(deal.qtyKg ?? '')
-                              setCounterPrice(deal.latestProposalPricePerKg ?? '')
-                            }}
-                          >
-                            Counter
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ))
-          )}
+      {/* Deal rows */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--ink-4)' }}>
+          <div style={{ marginBottom: 8 }}>No deals here.</div>
+          <p style={{ fontSize: 12, color: 'var(--ink-4)', margin: 0 }}>Vendors will propose when you post catch alerts.</p>
         </div>
-      </div>
-
-      {/* ── Right panel: chat pane or placeholder ─────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {activeDealId ? (
-          <DealChatPane
-            dealId={activeDealId}
-            apiClient={activeApiClient}
-          />
-        ) : (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: 10,
-              color: 'rgba(255,255,255,0.25)',
-            }}
-          >
-            <div style={{ fontSize: '2rem' }}>💬</div>
-            <div style={{ fontSize: '0.85rem' }}>Select a deal to open chat</div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {paged.map(deal => {
+              const latest = deal.latestProposal
+              const vendorLabel = deal.counterpartyName ?? deal.vendorName ?? null
+              const vendorRef   = vendorLabel ?? `Vendor #${deal.counterpartyId ?? deal.vendorId ?? ''}`
+              const initials    = (vendorLabel ?? 'V').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+              const displayQty  = latest?.qtyKg ?? null
+              const displayPrice = latest?.pricePerKg ?? null
+              const canActOnPending = deal.status === 'NEGOTIATING' && latest?.status === 'PENDING'
+              return (
+                <div key={deal.id} className="deal-row">
+                  <div className={`deal-row__pipe ${PIPE_CLASS[deal.status] ?? ''}`} />
+                  {/* col 1 — vendor identity */}
+                  <div className="deal-row__identity">
+                    <div className="deal-row__avatar">{initials}</div>
+                    <div className="deal-row__info">
+                      <div className="deal-row__vendor">{vendorRef} <span style={{ fontFamily: 'var(--font-code)', fontSize: 10, color: 'var(--ink-4)', fontWeight: 400 }}>D-{deal.id}</span></div>
+                      <div className="deal-row__meta">{deal.speciesName ?? '—'} · {timeAgo(deal.updatedAt)}</div>
+                    </div>
+                  </div>
+                  {/* col 2 — status */}
+                  <div className="deal-row__status">
+                    <span className={`chip ${STATUS_CHIP[deal.status] ?? 'chip--muted'}`}>
+                      <span className="chip__dot" />{deal.status}
+                    </span>
+                  </div>
+                  {/* col 3 — qty */}
+                  <div className="deal-row__metric">
+                    <div className="deal-row__val">{displayQty != null ? `${displayQty}` : '—'}<span style={{ fontSize: 11, color: 'var(--accent-lime)', marginLeft: 3 }}>{displayQty != null ? 'kg' : ''}</span></div>
+                    <div className="deal-row__sub">{deal.speciesName ?? '—'}</div>
+                  </div>
+                  {/* col 4 — price */}
+                  <div className="deal-row__metric">
+                    <div className="deal-row__val deal-row__val--lime">
+                      {displayPrice != null ? `₱${displayPrice}/kg` : '—'}
+                    </div>
+                    <div className="deal-row__sub">{deal.status === 'AGREED' ? 'agreed' : 'latest offer'}</div>
+                  </div>
+                  {/* col 5 — actions */}
+                  <div className="deal-row__actions">
+                    <button className="btn btn--sm btn--ghost" onClick={() => setPage?.('messages')}><I.Message size={11} /> Chat</button>
+                    {canActOnPending && (
+                      <>
+                        <button className="btn btn--sm btn--ghost"
+                          onClick={() => { setCounterModal(deal.id); setCounterQty(latest.qtyKg ?? ''); setCounterPrice(latest.pricePerKg ?? '') }}>
+                          Counter
+                        </button>
+                        <button className="btn btn--sm" style={{ background: 'var(--safe-soft)', color: 'var(--safe)', borderColor: 'rgba(110,231,183,0.3)' }}
+                          onClick={() => acceptMut.mutate(deal.id)} disabled={acceptMut.isPending}>
+                          Accept
+                        </button>
+                      </>
+                    )}
+                    {deal.status === 'NEGOTIATING' && (
+                      <button className="btn btn--sm btn--icon"
+                        style={{ background: 'var(--unsafe-soft)', color: 'var(--unsafe)', borderColor: 'rgba(251,113,133,0.3)' }}
+                        title="Cancel deal"
+                        onClick={() => cancelMut.mutate(deal.id)} disabled={cancelMut.isPending}>
+                        <I.X size={11} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        )}
-      </div>
+          <Pager page={dealsPage} total={totalPages} onPage={setDealsPage} />
+        </>
+      )}
 
-      {/* ── Counter proposal modal ─────────────────────────────────────── */}
-      {counterModal !== null && (
-        <div className="f-modal-backdrop" onClick={() => setCounterModal(null)}>
-          <div
-            className="f-modal"
-            onClick={e => e.stopPropagation()}
-            style={{ minWidth: 320 }}
-          >
+      {/* Counter modal */}
+      {counterModal && (
+        <div className="f-modal-backdrop" onClick={(e) => e.target === e.currentTarget && setCounterModal(null)}>
+          <div className="f-modal">
             <div className="f-modal__title">Counter Proposal</div>
-
-            <div className="f-field" style={{ marginBottom: 14 }}>
+            <div className="f-field">
               <label className="f-label">Quantity (kg)</label>
-              <input
-                className="f-input"
-                type="number"
-                min="0"
-                step="0.1"
-                value={counterQty}
-                onChange={e => setCounterQty(e.target.value)}
-                placeholder="e.g. 10"
-              />
+              <input className="f-input" type="number" min={0} value={counterQty} onChange={e => setCounterQty(e.target.value)} />
             </div>
-
-            <div className="f-field" style={{ marginBottom: 20 }}>
+            <div className="f-field">
               <label className="f-label">Price per kg (₱)</label>
-              <input
-                className="f-input"
-                type="number"
-                min="0"
-                step="0.5"
-                value={counterPrice}
-                onChange={e => setCounterPrice(e.target.value)}
-                placeholder="e.g. 200"
-              />
+              <input className="f-input" type="number" min={0} value={counterPrice} onChange={e => setCounterPrice(e.target.value)} />
             </div>
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                className="f-btn f-btn--secondary f-btn--sm"
-                onClick={() => setCounterModal(null)}
-                disabled={counterMut.isPending}
-              >
-                Cancel
-              </button>
-              <button
-                className="f-btn f-btn--primary f-btn--sm"
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button className="btn btn--ghost" onClick={() => setCounterModal(null)}>Cancel</button>
+              <button className="btn btn--lime"
                 disabled={counterMut.isPending || !counterQty || !counterPrice}
-                onClick={() =>
-                  counterMut.mutate({
-                    dealId: counterModal,
-                    qtyKg: counterQty,
-                    pricePerKg: counterPrice,
-                  })
-                }
-              >
-                {counterMut.isPending ? 'Sending…' : 'Send Counter'}
+                onClick={() => counterMut.mutate({ dealId: counterModal, qtyKg: counterQty, pricePerKg: counterPrice })}>
+                {counterMut.isPending ? 'Sending…' : 'Send counter'}
               </button>
             </div>
           </div>

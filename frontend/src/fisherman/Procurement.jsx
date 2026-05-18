@@ -93,10 +93,9 @@ export default function ProcurementPage({ setPage }) {
                   {o.status === 'ACCEPTED' && (
                     <button className="btn btn--sm btn--accent" style={{flex: 1}} onClick={() => readyMut.mutate(o.id)} disabled={readyMut.isPending}>Mark ready</button>
                   )}
-                  {o.status === 'READY' && (<>
+                  {o.status === 'READY' && (
                     <button className="btn btn--sm btn--accent" style={{flex: 1}} onClick={() => completeMut.mutate(o.id)} disabled={completeMut.isPending}>Mark completed</button>
-                    <button className="btn btn--sm btn--ghost"  style={{flex: 1}} onClick={() => disputeMut.mutate(o.id)}  disabled={disputeMut.isPending}>Report dispute</button>
-                  </>)}
+                  )}
                   {o.status === 'COMPLETED' && (
                     <span className="chip chip--safe" style={{flex: 1, textAlign: 'center', padding: '6px 0'}}>Completed</span>
                   )}

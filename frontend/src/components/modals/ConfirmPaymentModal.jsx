@@ -21,7 +21,7 @@ export default function ConfirmPaymentModal({ order, payment, onClose, onConfirm
       confirmLabel={confirmLabel}
       loading={loading}
     >
-      <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         {isCredit
           ? 'The buyer recorded this as credit (pay later). Confirm to settle the order — this amount will appear as outstanding in your earnings until paid.'
           : isCash

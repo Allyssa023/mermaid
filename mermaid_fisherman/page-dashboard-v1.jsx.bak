@@ -1,0 +1,460 @@
+/* Home / Dashboard page — primary canvas */
+
+function ZoneCard({ zone, onOpen }) {
+  return (
+    <div className="asset-card" onClick={onOpen}>
+      <div className="asset-card__head">
+        <div className="asset-card__id">
+          <div className="asset-card__icon">
+            <window.I.Compass size={16} style={{ color: zone.risk === "SAFE" ? "var(--safe)" : zone.risk === "CAUTION" ? "var(--caution)" : "var(--unsafe)" }} />
+          </div>
+          <div>
+            <div className="asset-card__type">{zone.risk === "SAFE" ? "Favorable conditions" : zone.risk === "CAUTION" ? "Caution advisory" : "Unsafe waters"}</div>
+            <div className="asset-card__name">{zone.name}</div>
+          </div>
+        </div>
+        <div className="asset-card__arrow">
+          <window.I.ArrowUpRight size={13} />
+        </div>
+      </div>
+      <div className="asset-card__label">Wave Height (avg, 24h)</div>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+        <div className="asset-card__value">{zone.waveM.toFixed(2)}<small>m</small></div>
+      </div>
+      <div className={`asset-card__delta asset-card__delta--${zone.deltaTone}`}>
+        <span className="pill" />
+        {zone.delta}
+      </div>
+      <div className="asset-card__chart">
+        <window.Sparkline data={zone.spark} color={zone.sparkColor} showDot showLabel labelText={zone.ledePrice} />
+      </div>
+    </div>
+  );
+}
+
+function ActiveTripPromo({ trip, totalKg, onView, onLogCatch }) {
+  return (
+    <div className="promo-card">
+      <div className="promo-card__head">
+        <div className="promo-card__brand">
+          <div className="promo-card__brand-mark">M</div>
+          Mermaid<sup style={{ fontSize: 7, marginLeft: 1 }}>®</sup>
+        </div>
+        <span className="promo-card__tag">Live</span>
+      </div>
+      <div className="promo-card__title">Active Trip Console</div>
+      <div className="promo-card__desc">
+        Track your current voyage in real-time — catch logs, weather drift, and live vendor matches all in one panel.
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 14 }}>
+        <div style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 600, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1 }}>
+          {totalKg.toFixed(1)}<small style={{ fontSize: 13, color: "var(--ink-3)", fontFamily: "var(--font-ui)", fontWeight: 500, marginLeft: 3 }}>kg logged</small>
+        </div>
+      </div>
+      <div className="promo-card__actions">
+        <button className="promo-card__btn promo-card__btn--lime" onClick={onLogCatch}>
+          <window.I.Plus size={12} /> Log Catch Entry
+        </button>
+        <button className="promo-card__btn promo-card__btn--ghost" onClick={onView}>
+          <window.I.Eye size={12} /> View Full Trip
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DashboardPage({ setPage }) {
+  const [selectedZone, setSelectedZone] = React.useState(0);
+  const zone = DATA.zones[selectedZone];
+  const totalKg = DATA.catchLogs.reduce((s, c) => s + c.quantityKg, 0);
+  const totalRevenue = DATA.catchLogs.reduce((s, c) => s + c.quantityKg * c.pricePerKg, 0);
+  const speciesCount = new Set(DATA.catchLogs.map(c => c.species)).size;
+
+  const elapsed = Date.now() - DATA.activeTrip.startedAt;
+  const hours = Math.floor(elapsed / 3600000);
+  const minutes = Math.floor((elapsed % 3600000) / 60000);
+
+  // Risk overall
+  const overallTone = DATA.zones.some(z => z.risk === "UNSAFE") ? "unsafe"
+                    : DATA.zones.some(z => z.risk === "CAUTION") ? "caution" : "safe";
+  const riskLabel = overallTone === "safe" ? "Favorable" : overallTone === "caution" ? "Manageable" : "Dangerous";
+
+  return (
+    <div className="fade-in">
+      {/* Page head */}
+      <div className="page__head" style={{ marginBottom: 24 }}>
+        <div>
+          <div className="eyebrow">
+            <span className="dot" />
+            Recommended zones · last 24h · <span style={{ color: "var(--accent-lime)" }}>{DATA.zones.length} active</span>
+          </div>
+          <h1 className="page__title">Top Fishing <em className="chip-lime">Grounds</em></h1>
+        </div>
+        <div className="page__actions">
+          <div className="seg">
+            <button className="on">24H</button>
+            <button>7D</button>
+            <button>30D</button>
+          </div>
+          <button className="btn btn--ghost"><window.I.Filter size={12} /> Conditions</button>
+          <button className="btn btn--ghost">
+            <window.I.ChevronDown size={11} style={{ transform: "rotate(180deg)" }} /> Sort
+          </button>
+        </div>
+      </div>
+
+      {/* Top zone KPI cards + active trip promo (Stakent top row) */}
+      <div className="grid grid--top" style={{ marginBottom: 22 }}>
+        {DATA.zones.slice(0, 3).map((z, i) => (
+          <ZoneCard key={z.id} zone={z} onOpen={() => setSelectedZone(i)} />
+        ))}
+        <ActiveTripPromo
+          trip={DATA.activeTrip}
+          totalKg={totalKg}
+          onView={() => setPage("trips")}
+          onLogCatch={() => setPage("trips")}
+        />
+      </div>
+
+      {/* Detail panel — active trip / selected zone */}
+      <div className="detail-panel" style={{ marginBottom: 22 }}>
+        <div className="detail-panel__head">
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", marginBottom: 2 }}>Your active stakings</div>
+          </div>
+          <div className="detail-panel__tools">
+            <button className="topbar__icon-btn" title="Chart"><window.I.Chart size={14} /></button>
+            <button className="topbar__icon-btn" title="Details"><window.I.Globe size={14} /></button>
+            <button className="topbar__icon-btn" title="Refresh"><window.I.Refresh size={14} /></button>
+            <button className="topbar__icon-btn" title="Filter"><window.I.Filter size={14} /></button>
+          </div>
+        </div>
+
+        <div className="detail-panel__update">
+          <window.I.Clock size={11} /> Last update · 45 minutes ago
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 24, alignItems: "start", marginTop: 8 }}>
+          <div>
+            <div className="detail-panel__title-row">
+              <div className="detail-panel__title">Trip {DATA.activeTrip.code} · <em style={{ fontStyle: "italic", color: "var(--ink-2)" }}>{zone.name}</em></div>
+              <div className="detail-panel__icon-badge">
+                <window.I.Anchor size={16} />
+              </div>
+              <button className="detail-panel__action-pill"><window.I.Eye size={11} /> View vessel</button>
+              <button className="detail-panel__action-pill"><window.I.Send size={11} /> Share trip</button>
+            </div>
+            <div className="detail-panel__lede">Current catch volume · {DATA.activeTrip.vesselName} · {speciesCount} species</div>
+            <div className="detail-panel__metric">{totalKg.toFixed(2)}<small> kg</small></div>
+            <div className="detail-panel__cta-row">
+              <button className="detail-panel__cta detail-panel__cta--violet" onClick={() => setPage("trips")}>Log catch</button>
+              <button className="detail-panel__cta detail-panel__cta--ghost" onClick={() => setPage("alerts")}>End trip</button>
+            </div>
+          </div>
+
+          <div className="period-card">
+            <div className="period-card__head">
+              <div className="period-card__title">Trip Duration</div>
+              <div className="period-card__tag">{hours}h elapsed</div>
+            </div>
+            <div className="period-card__sub">Voyage time (target 12h)</div>
+            <div className="period-card__track">
+              <div className="period-card__fill" style={{ width: `${Math.min(95, (hours / 12) * 100)}%` }} />
+              <div className="period-card__handle" style={{ left: `${Math.min(95, (hours / 12) * 100)}%` }}>
+                {hours}h{minutes ? `${minutes}m` : ""}
+              </div>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-4)", marginTop: 4 }}>
+              <span>Depart</span><span>+6h</span><span>Target</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric strip below */}
+        <div className="metric-strip">
+          <div className="metric-strip__col">
+            <div className="metric-strip__head">
+              <div>
+                <div className="metric-strip__name">Wave Height</div>
+                <div className="metric-strip__hint">Conditions at zone</div>
+              </div>
+              <div className="metric-strip__tag">24H</div>
+            </div>
+            <div className="metric-strip__value metric-strip__value--down">
+              {zone.waveM.toFixed(2)}<small>m</small>
+            </div>
+            <div className="metric-strip__sub">{zone.swellM}m swell · {zone.swellS}s period</div>
+          </div>
+
+          <div className="metric-strip__col">
+            <div className="metric-strip__head">
+              <div>
+                <div className="metric-strip__name">Asking Price</div>
+                <div className="metric-strip__hint">Avg ₱/kg across catch</div>
+              </div>
+              <div className="metric-strip__tag">24H</div>
+            </div>
+            <div className="metric-strip__value">
+              ₱{Math.round(totalRevenue / Math.max(totalKg, 1))} <span style={{ color: "var(--unsafe)", fontSize: 13, fontWeight: 500, fontFamily: "var(--font-ui)", marginLeft: 4 }}>-1.0%</span>
+            </div>
+            <div className="metric-strip__sub">vs BFAR reference ₱165/kg</div>
+          </div>
+
+          <div className="metric-strip__col">
+            <div className="metric-strip__head">
+              <div>
+                <div className="metric-strip__name">Match Ratio</div>
+                <div className="metric-strip__hint">Vendor engagement</div>
+              </div>
+              <div className="metric-strip__tag">24H</div>
+            </div>
+            <div className="metric-strip__value">60.6<small>%</small></div>
+            <div className="metric-strip__sub">3 of 5 alerts matched</div>
+          </div>
+
+          <div className="metric-strip__col">
+            <div className="metric-strip__head">
+              <div>
+                <div className="metric-strip__name">Catch Rate</div>
+                <div className="metric-strip__hint">Volume per hour</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+              <div style={{ fontSize: 14, color: "var(--safe)", fontWeight: 600, fontFamily: "var(--font-display)" }}>
+                52.4 kg/h <span style={{ color: "var(--ink-4)", fontSize: 11, fontWeight: 500, fontFamily: "var(--font-ui)", marginLeft: 4 }}>24H</span>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--ink-3)", fontFamily: "var(--font-display)", fontWeight: 600 }}>
+                34.1 kg/h <span style={{ color: "var(--ink-4)", fontSize: 11, fontWeight: 500, fontFamily: "var(--font-ui)", marginLeft: 4 }}>48H ago</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Second row — marketplace (catch alerts + procurement) */}
+      <div className="grid grid--2" style={{ marginBottom: 22 }}>
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Outgoing — Catch Alerts</div>
+              <div className="card__sub">{DATA.catchAlerts.filter(a => a.status === "ACTIVE" || a.status === "MATCHED").length} live to vendors</div>
+            </div>
+            <button className="btn btn--sm btn--ghost" onClick={() => setPage("alerts")}>
+              View all <window.I.Arrow size={11} />
+            </button>
+          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Alert</th>
+                <th>Species</th>
+                <th>Qty</th>
+                <th>Ask</th>
+                <th>Offers</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DATA.catchAlerts.slice(0, 4).map(a => (
+                <tr key={a.id}>
+                  <td><span className="kbd">CA-{a.id}</span></td>
+                  <td><strong>{a.species}</strong></td>
+                  <td className="mono">{a.quantityKg}kg</td>
+                  <td className="mono">₱{a.askingPricePerKg}</td>
+                  <td>
+                    {a.offers > 0 ? (
+                      <span className="chip chip--violet"><span className="chip__dot" />{a.offers}</span>
+                    ) : <span className="muted">—</span>}
+                  </td>
+                  <td>
+                    <span className={`chip chip--${a.status === "MATCHED" || a.status === "SOLD" ? "safe" : a.status === "ACTIVE" ? "lime" : "unsafe"}`}>
+                      <span className="chip__dot" />{a.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Incoming — Procurement</div>
+              <div className="card__sub">Ice, fuel & bait supplies</div>
+            </div>
+            <button className="btn btn--sm btn--ghost" onClick={() => setPage("orders")}>
+              View all <window.I.Arrow size={11} />
+            </button>
+          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Item</th>
+                <th>Qty</th>
+                <th>Total</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {DATA.procurement.map(p => (
+                <tr key={p.id}>
+                  <td><span className="kbd">P-{p.id}</span></td>
+                  <td>
+                    <strong>{p.species}</strong>
+                    <div style={{ fontSize: 10, color: "var(--ink-4)", marginTop: 2 }}>{p.vendor}</div>
+                  </td>
+                  <td className="mono">{p.qtyKg}{p.species === "Diesel" ? "L" : "kg"}</td>
+                  <td className="mono">₱{(p.qtyKg * p.pricePerKg).toLocaleString()}</td>
+                  <td>
+                    <span className={`chip chip--${p.status === "ACCEPTED" ? "safe" : "caution"}`}>
+                      <span className="chip__dot" />{p.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Third row — earnings snapshot + advisories + activity */}
+      <div className="grid grid--top" style={{ gridTemplateColumns: "1.4fr 1fr 1fr 1fr", marginBottom: 22 }}>
+        <div className="card" style={{ gridColumn: "span 2" }}>
+          <div className="card__head">
+            <div>
+              <div className="card__title">Earnings · last 30 days</div>
+              <div className="card__sub">Cash collected vs credit outstanding</div>
+            </div>
+            <button className="btn btn--sm btn--ghost" onClick={() => setPage("earnings")}>
+              Open ledger <window.I.Arrow size={11} />
+            </button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 4 }}>Total gross</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 30, fontWeight: 600, color: "#fff", letterSpacing: "-0.02em" }}>
+                ₱{DATA.earnings.totalGross.toLocaleString()}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--safe)", marginTop: 4, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <window.I.ArrowUpRight size={11} /> +14.2% vs prev 30d
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-4)", marginBottom: 4 }}>Cash collected</div>
+              <div style={{ fontFamily: "var(--font-display)", fontSize: 22, fontWeight: 600, color: "var(--safe)", letterSpacing: "-0.015em" }}>
+                ₱{DATA.earnings.cashCollected.toLocaleString()}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--caution)", marginTop: 4 }}>
+                ₱{DATA.earnings.creditOutstanding.toLocaleString()} outstanding
+              </div>
+            </div>
+          </div>
+
+          {/* Bar chart */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 80, marginBottom: 6 }}>
+            {DATA.earnings.monthlyChart.map((d, i) => {
+              const max = Math.max(...DATA.earnings.monthlyChart.map(x => x.value));
+              const h = (d.value / max) * 100;
+              return (
+                <div key={i} style={{ flex: 1, height: `${Math.max(h, 4)}%`, background: d.value === 0 ? "rgba(255,255,255,0.06)" : i >= 25 ? "var(--accent-lime)" : "rgba(106, 95, 193, 0.6)", borderRadius: "2px 2px 0 0", transition: "all 200ms" }} />
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-4)", fontFamily: "var(--font-code)" }}>
+            <span>May 1</span><span>May 10</span><span>May 20</span><span>May 30</span>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Marine advisories</div>
+              <div className="card__sub">{DATA.zones.filter(z => z.advisory).length} active</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {DATA.zones.filter(z => z.advisory).map(z => (
+              <div key={z.id} style={{ display: "flex", gap: 10, padding: "10px 12px", background: "var(--caution-soft)", border: "1px solid rgba(252, 211, 77, 0.25)", borderRadius: 10, fontSize: 12 }}>
+                <window.I.Alert size={13} style={{ color: "var(--caution)", flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <div style={{ fontWeight: 600, color: "var(--caution)", marginBottom: 2 }}>{z.name}</div>
+                  <div style={{ color: "var(--ink-2)" }}>{z.advisory}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, padding: "10px 12px", background: "var(--safe-soft)", border: "1px solid rgba(110, 231, 183, 0.25)", borderRadius: 10, fontSize: 12 }}>
+              <window.I.Check size={13} style={{ color: "var(--safe)", flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <div style={{ fontWeight: 600, color: "var(--safe)", marginBottom: 2 }}>Tayabas Bay North</div>
+                <div style={{ color: "var(--ink-2)" }}>Conditions favorable for the next 8 hours.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div>
+              <div className="card__title">Recent activity</div>
+              <div className="card__sub">Last 24 hours</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {DATA.activity.slice(0, 4).map(a => {
+              const Icon = window.I[a.icon] || window.I.Bell;
+              return (
+                <div key={a.id} className="feed-item">
+                  <div className={`feed-item__icon feed-item__icon--${a.tone}`}><Icon size={13} /></div>
+                  <div className="feed-item__body">
+                    <div className="feed-item__title" style={{ fontSize: 12 }}>{a.title}</div>
+                    <div className="feed-item__meta" style={{ fontSize: 10 }}>
+                      <span>{a.time}</span>
+                      <span>·</span>
+                      <span>{a.meta}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom — fishing grounds (other zones) */}
+      <div className="card">
+        <div className="card__head">
+          <div>
+            <div className="card__title">All fishing grounds</div>
+            <div className="card__sub">Live marine conditions across your operating zones</div>
+          </div>
+          <div className="seg">
+            <button className="on">Risk</button>
+            <button>Wave</button>
+            <button>Wind</button>
+          </div>
+        </div>
+        <div className="zone-list" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+          {DATA.zones.map((z, i) => (
+            <div key={z.id} className={`zone-item ${selectedZone === i ? "zone-item--on" : ""}`} onClick={() => setSelectedZone(i)}>
+              <div className={`zone-item__pip zone-item__pip--${z.risk.toLowerCase()}`}>
+                <window.I.MapPin size={14} />
+              </div>
+              <div className="zone-item__body">
+                <div className="zone-item__name">{z.name}</div>
+                <div className="zone-item__meta">{z.region} · {z.windDir} {z.windKmh}km/h</div>
+              </div>
+              <div className="zone-item__metric">
+                {z.waveM}<small style={{ color: "var(--ink-4)" }}>m</small>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.DashboardPage = DashboardPage;

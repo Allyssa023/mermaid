@@ -84,16 +84,6 @@ function Rail({ user, onLogout, badges = {} }) {
           <div className="rail-item__icon" aria-hidden="true"><I.Logout size={18} /></div>
           <div className="rail-item__text">Sign Out</div>
         </button>
-        <button
-          type="button"
-          className="rail-item"
-          data-tip="Help"
-          aria-label="Help"
-          style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', font: 'inherit', color: 'inherit' }}
-        >
-          <div className="rail-item__icon" aria-hidden="true"><I.Help size={18} /></div>
-          <div className="rail-item__text">Help</div>
-        </button>
       </div>
 
       <div className="rail__bottom">

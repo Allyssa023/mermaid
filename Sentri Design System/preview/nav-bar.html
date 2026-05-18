@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 0; background: #fff; overflow: hidden; }
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--hairline-cloud);
+  }
+  .nav__logo svg { display: block; width: 110px; height: auto; }
+  .nav__items {
+    display: flex;
+    gap: 20px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-deep);
+  }
+  .nav__items span::after {
+    content: " ▾";
+    font-size: 9px;
+    color: var(--accent-violet-mid);
+  }
+  .nav__cta { margin-left: auto; display: flex; gap: 8px; }
+  .btn {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+  }
+  .btn--ghost { background: transparent; color: var(--ink-deep); border: 1px solid var(--hairline-cool); font-weight: 500; }
+  .btn--primary { background: var(--primary); color: #fff; }
+
+  .nav-dark { background: var(--surface-canvas-dark); border-bottom: 1px solid var(--hairline-violet); }
+  .nav-dark .nav__items { color: #fff; }
+  .nav-dark .btn--ghost { background: var(--on-dark-faint); border: none; color: #fff; }
+  .nav-dark .btn--primary { background: #fff; color: var(--ink-deep); }
+</style></head>
+<body>
+<div class="card">
+  <div class="nav">
+    <div class="nav__logo" style="color:#1f1633">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 64"><text x="0" y="48" font-family="Space Grotesk, Rubik, sans-serif" font-weight="700" font-size="44" letter-spacing="-1.4" fill="currentColor">sentri</text><rect x="124" y="14" width="9" height="9" rx="1.5" fill="#c2ef4e"/></svg>
+    </div>
+    <div class="nav__items"><span>Product</span><span>Pricing</span><span>Docs</span><span>Customers</span></div>
+    <div class="nav__cta">
+      <button class="btn btn--ghost">Get demo</button>
+      <button class="btn btn--primary">Get started</button>
+    </div>
+  </div>
+  <div class="nav nav-dark">
+    <div class="nav__logo" style="color:#ffffff">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 64"><text x="0" y="48" font-family="Space Grotesk, Rubik, sans-serif" font-weight="700" font-size="44" letter-spacing="-1.4" fill="currentColor">sentri</text><rect x="124" y="14" width="9" height="9" rx="1.5" fill="#c2ef4e"/></svg>
+    </div>
+    <div class="nav__items"><span>Product</span><span>Pricing</span><span>Docs</span><span>Customers</span></div>
+    <div class="nav__cta">
+      <button class="btn btn--ghost">Get demo</button>
+      <button class="btn btn--primary">Get started</button>
+    </div>
+  </div>
+</div>
+</body></html>

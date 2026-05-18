@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card--dark { padding: 28px; }
+  pre {
+    margin: 0;
+    padding: 18px;
+    background: var(--surface-night);
+    border: 1px solid var(--hairline-violet);
+    border-radius: 8px;
+    color: var(--on-primary);
+  }
+  .kw { color: var(--accent-lime); font-weight: 700; }
+  .str { color: var(--accent-pink); }
+  .cm { color: var(--on-dark-muted); }
+  .meta {
+    font-family: var(--font-code);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--on-dark-muted);
+    margin-bottom: 10px;
+  }
+</style></head>
+<body>
+<div class="card card--dark">
+  <div class="meta">CODE · 16 · 400 · Monaco / Menlo / Ubuntu Mono</div>
+  <pre class="t-code"><span class="cm">// install the SDK</span>
+<span class="kw">npm</span> install <span class="str">@sentri/browser</span>
+<span class="kw">Sentri</span>.init({ dsn: <span class="str">"https://…"</span> })</pre>
+</div>
+</body></html>

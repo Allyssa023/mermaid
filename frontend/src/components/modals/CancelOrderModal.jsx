@@ -14,10 +14,10 @@ export default function CancelOrderModal({ order, onClose, onConfirm, loading })
       loading={loading}
       disabled={!reason.trim()}
     >
-      <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         This cannot be undone. Both parties will be notified.
       </p>
-      <label className="field-label" htmlFor="reason">Reason <span style={{color:'var(--danger)'}}>*</span></label>
+      <label className="field-label" htmlFor="reason">Reason <span style={{color:'var(--unsafe, #fb7185)'}}>*</span></label>
       <textarea id="reason" aria-label="reason" className="input" rows={3}
         value={reason} onChange={e => setReason(e.target.value)}
         placeholder="Explain why you are cancelling this order…" />

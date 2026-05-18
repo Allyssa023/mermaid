@@ -1,0 +1,68 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card--dark { padding: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .feat {
+    padding: 22px;
+    border-radius: 18px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .feat--dark { background: var(--ink-deep); border: 1px solid var(--hairline-violet); }
+  .feat--spotlight { background: var(--accent-violet-deep); }
+  .feat__eyebrow {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    color: var(--accent-lime);
+  }
+  .feat--spotlight .feat__eyebrow { color: var(--accent-lime); }
+  .feat__title {
+    font-family: var(--font-ui);
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  .feat__body {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--on-dark-muted);
+  }
+  .label {
+    font-family: var(--font-code);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--on-dark-muted);
+    margin-top: 6px;
+  }
+</style></head>
+<body>
+<div class="card card--dark">
+  <div class="grid">
+    <div>
+      <div class="feat feat--dark">
+        <div class="feat__eyebrow">Error monitoring</div>
+        <div class="feat__title">See every break in your stack, with the line that broke it.</div>
+        <div class="feat__body">Source maps, breadcrumbs, the user who hit it — packed in one view.</div>
+      </div>
+      <div class="label">card-feature-dark</div>
+    </div>
+    <div>
+      <div class="feat feat--spotlight">
+        <div class="feat__eyebrow">Sentri only</div>
+        <div class="feat__title">Cross-project insights, no glue code.</div>
+        <div class="feat__body">Correlate releases across every service without a bespoke pipeline.</div>
+      </div>
+      <div class="label">card-spotlight-violet</div>
+    </div>
+  </div>
+</div>
+</body></html>

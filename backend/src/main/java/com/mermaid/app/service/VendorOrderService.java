@@ -31,7 +31,7 @@ public class VendorOrderService {
         "PENDING",          Set.of("CONFIRMED", "CANCELLED"),
         "CONFIRMED",        Set.of("PREPARING", "CANCELLED"),
         "PREPARING",        Set.of("READY", "OUT_FOR_DELIVERY", "CANCELLED"),
-        "READY",            Set.of("AWAITING_RECEIPT"),
+        "READY",            Set.of("AWAITING_RECEIPT", "COMPLETED"),
         "OUT_FOR_DELIVERY", Set.of("CANCELLED"),
         "AWAITING_RECEIPT", Set.of("COMPLETED", "DISPUTED"),
         "COMPLETED",        Set.of(),
@@ -185,7 +185,16 @@ public class VendorOrderService {
 
     @Transactional
     public Order completePickup(Long vendorId, Long orderId, Double codAmount) {
-        Order order = transition(vendorId, orderId, "AWAITING_RECEIPT", "Order handed to buyer — awaiting receipt confirmation");
+        if (!paymentRepo.existsByOrderId(orderId) && codAmount == null) {
+            Order pre = orderRepo.findById(orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+            java.math.BigDecimal qty   = pre.getOrderedQtyKg();
+            java.math.BigDecimal price = pre.getAgreedPricePerKg();
+            if (qty != null && price != null) {
+                codAmount = qty.multiply(price).doubleValue();
+            }
+        }
+        Order order = transition(vendorId, orderId, "COMPLETED", "Vendor confirmed pickup — order complete");
         if (!paymentRepo.existsByOrderId(orderId)) {
             if (codAmount == null) {
                 throw new IllegalArgumentException("codAmount is required for COD pickup orders");
@@ -199,6 +208,9 @@ public class VendorOrderService {
             payment.setStatus("CONFIRMED");
             payment.setPaidAt(OffsetDateTime.now());
             paymentRepo.save(payment);
+        }
+        if (OrderKind.RETAIL.equals(order.getKind()) && order.getStorefrontListingId() != null) {
+            inventoryService.deductForOrder(orderId);
         }
         return order;
     }

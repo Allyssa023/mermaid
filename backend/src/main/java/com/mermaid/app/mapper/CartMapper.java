@@ -86,6 +86,8 @@ public class CartMapper {
 
         item.setLocationName(JsonNullable.of(null));
         item.setNotes(JsonNullable.of(ci.getNotes()));
+        item.setDeliveryFee(JsonNullable.of(
+                l.getDeliveryFee() != null ? l.getDeliveryFee().doubleValue() : 0.0));
 
         String warning = computeWarning(l, snapshot, current);
         item.setWarning(JsonNullable.of(warning));

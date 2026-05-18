@@ -5732,6 +5732,11 @@ components:
         addedAt:
           type: string
           format: date-time
+        deliveryFee:
+          type: number
+          format: double
+          nullable: true
+          description: Delivery fee set by the vendor; null or 0 means pickup-only
         warning:
           type: string
           nullable: true
@@ -7050,6 +7055,11 @@ components:
         availableKg:
           type: number
           format: double
+        initialKg:
+          type: number
+          format: double
+          description: "Total initial kg from linked lots at time of listing"
+          nullable: true
         status:
           type: string
           enum: [DRAFT, PUBLISHED, UNPUBLISHED, SOLD_OUT]

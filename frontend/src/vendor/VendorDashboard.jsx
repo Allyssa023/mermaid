@@ -7,6 +7,7 @@ import '../design-system.css'
 import './vendor-shell.css'
 import { StompProvider } from '../context/StompContext'
 import { getVendorHome } from './api/home'
+import { listListings } from './api/storefront'
 import Home from './Home'
 import StorefrontEditor from './StorefrontEditor'
 import Inventory from './Inventory'
@@ -16,18 +17,6 @@ import Analytics from './Analytics'
 import Reviews from './Reviews'
 import ShopProfile from './ShopProfile'
 import VendorMessagesPage from './Messages'
-
-const VENDOR_NAV_ITEMS = [
-  { id: 'vdashboard',   icon: 'Dashboard', label: 'Dashboard' },
-  { id: 'vstore',       icon: 'Receipt',   label: 'Storefront' },
-  { id: 'vinventory',   icon: 'Box',       label: 'Inventory' },
-  { id: 'vorders',      icon: 'Clipboard', label: 'Orders' },
-  { id: 'vprocurement', icon: 'Fish',      label: 'Source Catch' },
-  { id: 'vmessages',    icon: 'Message',   label: 'Messages' },
-  { id: 'vanalytics',   icon: 'Bars',      label: 'Analytics' },
-  { id: 'vreviews',     icon: 'Heart',     label: 'Reviews' },
-  { id: 'vshop',        icon: 'User',      label: 'Shop profile' },
-]
 
 const PAGE_LABELS = {
   vdashboard:   'Dashboard',
@@ -41,54 +30,121 @@ const PAGE_LABELS = {
   vshop:        'Shop Profile',
 }
 
-function Rail({ page, navigate, user, onLogout, badgeCounts, onMouseEnter, onMouseLeave }) {
-  const initials = user
-    ? (user.fullName || user.first || 'V').slice(0, 1) +
-      ((user.fullName || '').split(' ')[1]?.slice(0, 1) || '')
-    : 'V'
-  const displayName = user?.first || user?.fullName?.split(' ')[0] || 'Vendor'
-  const displaySub  = user?.businessName || user?.business || 'Vendor'
+const NAV_GROUPS = [
+  {
+    label: 'Workspace',
+    items: [
+      { id: 'vdashboard',   icon: 'Dashboard', label: 'Dashboard' },
+      { id: 'vstore',       icon: 'Store',     label: 'Storefront' },
+      { id: 'vinventory',   icon: 'Box',       label: 'Inventory' },
+      { id: 'vorders',      icon: 'Clipboard', label: 'Orders' },
+      { id: 'vprocurement', icon: 'Fish',      label: 'Source Catch' },
+      { id: 'vmessages',    icon: 'Message',   label: 'Messages' },
+    ],
+  },
+  {
+    label: 'Insights',
+    items: [
+      { id: 'vanalytics',   icon: 'Bars',      label: 'Analytics' },
+      { id: 'vreviews',     icon: 'Heart',     label: 'Reviews' },
+      { id: 'vshop',        icon: 'Settings',  label: 'Shop profile' },
+    ],
+  },
+]
+
+function Rail({ page, navigate, badgeCounts, listings, onLogout, onMouseEnter, onMouseLeave }) {
+  const [activeOpen, setActiveOpen] = useState(true)
+  const activeListings = (listings ?? []).filter(l => l.status === 'PUBLISHED').slice(0, 4)
 
   return (
-    <nav className="v-rail" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
-      <div className="v-rail__brand">
-        <div className="v-rail__mark">M</div>
-        <div className="v-rail__wordmark">
-          <span className="v-rail__name">MERMAID</span>
-          <span className="v-rail__role">Vendor console</span>
+    <aside className="rail" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      <div className="rail__brand">
+        <div className="rail__mark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M6.5 12c.94-3.46 4.94-6 8.5-6 3.56 0 6.06 2.54 7 6-.94 3.46-3.44 6-7 6s-7.56-2.54-8.5-6Z"/>
+            <path d="M18 12h.01"/>
+            <path d="M6.5 12C4 12 1.5 9.5 2 6c.5-3 3-4 5 0"/>
+          </svg>
+        </div>
+        <div className="rail__wordmark">
+          <span className="rail__name">MERMAID<sup>®</sup></span>
+          <span className="rail__role">Vendor console</span>
         </div>
       </div>
 
-      <div className="v-rail__items">
-        {VENDOR_NAV_ITEMS.map(it => {
-          const Icon = I[it.icon]
-          const badge = badgeCounts?.[it.id] ?? 0
-          return (
-            <div
-              key={it.id}
-              className={`v-rail-item${page === it.id ? ' v-rail-item--on' : ''}`}
-              onClick={() => navigate(it.id)}
-              title={it.label}
-            >
-              <span className="v-rail-item__icon"><Icon size={17} /></span>
-              <span className="v-rail-item__label">{it.label}</span>
-              {badge > 0 && <span className="v-rail-item__dot" />}
-              {badge > 0 && <span className="v-rail-item__pill">{badge}</span>}
-            </div>
-          )
-        })}
+      <div className="rail__seg">
+        <button className="on" onClick={() => navigate('vdashboard')}>Vendor</button>
+        <button onClick={() => navigate('vshop')}>Public shop</button>
       </div>
 
-      <div className="v-rail__bottom">
-        <div className="v-rail__user" onClick={onLogout} title="Log out">
-          <div className="v-rail__avatar">{initials}</div>
-          <div className="v-rail__user-info">
-            <span className="v-rail__user-name">{displayName}</span>
-            <span className="v-rail__user-role">VENDOR · {displaySub}</span>
+      {NAV_GROUPS.map(g => (
+        <div key={g.label}>
+          <div className="rail__group">{g.label}</div>
+          <div className="rail__list">
+            {g.items.map(it => {
+              const Icon = I[it.icon]
+              const badge = badgeCounts?.[it.id] ?? 0
+              return (
+                <div
+                  key={it.id}
+                  className={`rail-item${page === it.id ? ' rail-item--on' : ''}`}
+                  onClick={() => navigate(it.id)}
+                  title={it.label}
+                >
+                  <span className="ric">{Icon && <Icon size={17} />}</span>
+                  <span className="rail-item__label">{it.label}</span>
+                  {badge > 0 && <span className="rail-item__count">{badge}</span>}
+                </div>
+              )
+            })}
           </div>
         </div>
+      ))}
+
+      <div className={`rail-expandable${activeOpen ? ' open' : ''}`}>
+        <div className="rail-item" onClick={() => setActiveOpen(o => !o)} style={{ cursor: 'pointer' }}>
+          <span className="ric"><I.Bars size={17} /></span>
+          <span className="rail-item__label">Active listings</span>
+          <span className="chev"><I.ChevR size={13} /></span>
+        </div>
+        {activeOpen && (
+          <div className="rail-sub">
+            {activeListings.length === 0 && (
+              <div style={{ fontSize: 11, color: 'var(--muted-2)', padding: '6px 8px' }}>No active listings</div>
+            )}
+            {activeListings.map(l => (
+              <div key={l.id} className="rail-sub__item" onClick={() => navigate('vstore')}>
+                <div className="rail-sub__thumb" style={{ '--c': 'var(--accent-lime)' }}>
+                  {(l.speciesName || l.title || 'L')[0].toUpperCase()}
+                </div>
+                <div className="rail-sub__body">
+                  <div className="rail-sub__name">{l.speciesName || l.title || 'Listing'}</div>
+                  <div className="rail-sub__sub">₱{l.pricePerKg}/kg · {l.availableKg}kg left</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </nav>
+
+      <div className="rail__group" style={{ marginTop: 8 }}>Account</div>
+      <div className="rail__list">
+        <div className="rail-item" onClick={onLogout} title="Sign out" style={{ cursor: 'pointer' }}>
+          <span className="ric"><I.Logout size={17} /></span>
+          <span className="rail-item__label">Sign Out</span>
+        </div>
+      </div>
+
+      <div className="rail__spacer" />
+
+      <div className="rail__cta" onClick={() => navigate('vanalytics')}>
+        <div className="rail__cta-icon"><I.Trend size={16} /></div>
+        <div className="rail__cta-body">
+          <div className="rail__cta-title">Activate Super Tier</div>
+          <div className="rail__cta-sub">Unlock storefront ads + insights</div>
+        </div>
+      </div>
+    </aside>
   )
 }
 
@@ -99,29 +155,44 @@ function Topbar({ page, user, onNewListing }) {
       ((user.fullName || '').split(' ')[1]?.slice(0, 1) || '')
     : 'V'
   const displayName = user?.first || user?.fullName?.split(' ')[0] || 'Vendor'
+
   return (
-    <div className="v-topbar">
-      <div className="v-crumbs">
-        <span>Mermaid</span>
-        <span className="sep"> / </span>
-        <span>Vendor</span>
-        <span className="sep"> / </span>
-        <strong>{label}</strong>
-      </div>
-      <div className="v-topbar__search">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input placeholder="Search orders, lots, alerts…" />
-        <kbd>⌘K</kbd>
-      </div>
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button className="v-topbar__icon" title="Notifications">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        </button>
-        <div className="v-topbar__user">
-          <div className="v-topbar__avatar">{initials}</div>
-          <span className="v-topbar__name">{displayName}</span>
+    <div className="topbar">
+      <div className="topbar__user">
+        <div className="topbar__avatar">{initials}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, lineHeight: 1.1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 10, color: 'var(--muted-2)', fontFamily: 'var(--font-mono)' }}>{user?.email || ''}</span>
+            <span className="topbar__user-name">{displayName}</span>
+          </div>
+          <span className="topbar__user-role">VENDOR</span>
         </div>
       </div>
+
+      <button className="topbar__deposit" onClick={onNewListing}>
+        <I.Plus size={12} />
+        New listing
+      </button>
+
+      <div className="topbar__search">
+        <I.Search size={14} />
+        <input placeholder="Search orders, lots, alerts, buyers…" />
+        <kbd>⌘K</kbd>
+      </div>
+
+      <div className="crumbs" style={{ marginLeft: 'auto' }}>
+        <span>Mermaid</span>
+        <span className="sep">/</span>
+        <span>Vendor</span>
+        <span className="sep">/</span>
+        <strong>{label}</strong>
+      </div>
+
+      <button className="topbar__icon" title="Notifications">
+        <I.Bell size={15} />
+        <span className="dot" />
+      </button>
+      <button className="topbar__icon" title="Settings"><I.Settings size={15} /></button>
     </div>
   )
 }
@@ -150,21 +221,24 @@ export default function VendorDashboard({ user, onLogout }) {
   const routerNavigate = useNavigate()
 
   const homeQ = useQuery({
-    queryKey: ['vendor-home'],
+    queryKey: ['vendor', 'home'],
     queryFn: getVendorHome,
     staleTime: 60_000,
   })
+  const listingsQ = useQuery({
+    queryKey: ['vendor', 'storefront'],
+    queryFn: listListings,
+    staleTime: 60_000,
+  })
   const home = homeQ.data
+  const listings = listingsQ.data ?? []
   const badgeCounts = {
-    vinventory:   home?.lots?.length ?? 0,
+    vinventory:   home?.lowStockSpecies?.length ?? 0,
     vorders:      (home?.openOrders?.new ?? 0) + (home?.openOrders?.preparing ?? 0),
-    vprocurement: home?.recentMatchedCatchAlerts?.length ?? 0,
-    vmessages:    home?.unreadMessageCount ?? 0,
+    vprocurement: home?.recentMatchedAlerts?.length ?? 0,
+    vmessages:    home?.unreadNotifications ?? 0,
   }
 
-  // Bridge real URLs (e.g. /vendor/messages?deal=42 from ProcurementFeed) into
-  // the tab-state shell. The Messages page itself reads ?deal=... via
-  // useSearchParams, so we only need to flip the tab here.
   useEffect(() => {
     if (location.pathname.startsWith('/vendor/messages') && page !== 'vmessages') {
       setPage('vmessages')
@@ -172,8 +246,6 @@ export default function VendorDashboard({ user, onLogout }) {
     }
   }, [location.pathname, page])
 
-  // Handle Xendit payment return: /payment/return?orderId=...
-  // Verifies the payment with Xendit and redirects to procurement orders tab.
   useEffect(() => {
     if (location.pathname === '/payment/return') {
       const params = new URLSearchParams(location.search)
@@ -206,26 +278,20 @@ export default function VendorDashboard({ user, onLogout }) {
 
   return (
     <StompProvider>
-      <div
-        className="app"
-        data-vendor-shell=""
-        data-rail-open={String(railOpen)}
-      >
+      <div className="shell" data-rail-open={String(railOpen)}>
+        <div className="app-bg" />
         <Rail
           page={page}
           navigate={navigate}
-          user={user}
-          onLogout={onLogout}
           badgeCounts={badgeCounts}
+          listings={listings}
+          onLogout={onLogout}
           onMouseEnter={() => setRailOpen(true)}
           onMouseLeave={() => setRailOpen(false)}
         />
-        <div
-          className="v-main"
-          onMouseEnter={() => setRailOpen(false)}
-        >
+        <div className="main">
           <Topbar page={page} user={user} onNewListing={() => navigate('vstore')} />
-          <div className="v-page" ref={pageRef}>
+          <div ref={pageRef} style={{ flex: 1, overflowY: 'auto' }}>
             <PageContent page={page} pageState={pageState} navigate={navigate} />
           </div>
         </div>

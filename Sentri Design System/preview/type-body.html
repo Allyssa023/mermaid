@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 28px; color: var(--ink-deep); }
+  .row { display: flex; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--hairline-cloud); align-items: flex-start; }
+  .row:last-child { border-bottom: none; }
+  .meta {
+    flex: 0 0 96px;
+    font-family: var(--font-code);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent-violet-mid);
+    line-height: 1.4;
+    padding-top: 4px;
+  }
+  .sample { flex: 1; max-width: 480px; }
+</style></head>
+<body>
+<div class="card">
+  <div class="row">
+    <div class="meta">BODY LG<br>16 · 400<br>lh 2.0</div>
+    <div class="sample t-body-lg">Marketing prose. Airy two-line leading lets a paragraph breathe across a hero subhead — generous, deliberate, the opposite of console output.</div>
+  </div>
+  <div class="row">
+    <div class="meta">BODY MD<br>16 · 500<br>lh 1.5</div>
+    <div class="sample t-body-md">Default UI body. Denser leading, closer to log output. Use for product UI, table cells, form labels.</div>
+  </div>
+  <div class="row">
+    <div class="meta">BODY STRONG<br>16 · 600<br>lh 1.5</div>
+    <div class="sample t-body-strong">Emphasized run or lead sentence.</div>
+  </div>
+</div>
+</body></html>

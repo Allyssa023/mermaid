@@ -1,0 +1,271 @@
+/* =============================================================
+   MERMAID Buyer Dashboard — Sentri Component Overrides
+   Ported verbatim from mermaid_buyer/styles.css reference
+   ============================================================= */
+
+/* ---- Page head ---- */
+.page-head { display: flex; flex-direction: column; gap: 10px; }
+.page-head__eyebrow {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: var(--on-dark-muted);
+  letter-spacing: 0.3px;
+}
+.page-head__count {
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--layer-3); font-family: var(--font-code);
+  font-size: 10px; font-weight: 600;
+}
+.page-head__row {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.page-head__title {
+  font-family: var(--font-display); font-size: 36px; font-weight: 700;
+  letter-spacing: -0.5px; line-height: 1; margin: 0;
+}
+.page-head__title em {
+  font-style: normal; background: var(--accent-lime);
+  color: var(--ink-deep); padding: 0 10px; border-radius: 6px;
+}
+.page-head__filters { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.filter-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--layer-2); border: 1px solid var(--hairline);
+  font-size: 11px; color: var(--on-dark-muted);
+  cursor: pointer; transition: all 150ms;
+}
+.filter-pill:hover { color: var(--on-primary); border-color: var(--accent-lime); }
+.filter-pill--on {
+  background: var(--accent-lime); color: var(--ink-deep);
+  border-color: var(--accent-lime); font-weight: 600;
+}
+
+/* ---- Card base (Sentri) ---- */
+.s-card {
+  background: var(--layer-2); border: 1px solid var(--hairline);
+  border-radius: 16px; padding: 18px;
+  display: flex; flex-direction: column;
+}
+.s-card__head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 14px;
+}
+.s-card__title { font-size: 13px; font-weight: 500; color: var(--on-primary); }
+.s-card__sub { font-size: 11px; color: var(--on-dark-muted); margin-top: 2px; }
+
+/* ---- Icon button ---- */
+.icon-btn {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: grid; place-items: center;
+  background: var(--layer-3); border: 1px solid var(--hairline);
+  color: var(--on-dark-muted); cursor: pointer;
+  transition: all 150ms; flex-shrink: 0;
+}
+.icon-btn:hover { color: var(--on-primary); border-color: var(--accent-lime); }
+
+/* ---- Top row grid ---- */
+.dash-top {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+}
+@media (max-width: 1180px) { .dash-top { grid-template-columns: 1fr; } }
+
+/* ---- KPI grid ---- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+@media (max-width: 900px) { .kpi-grid { grid-template-columns: 1fr; } }
+
+/* ---- KPI card ---- */
+.kpi {
+  background:
+    radial-gradient(180px 80px at 0% 0%, rgba(194,239,78,0.06), transparent 60%),
+    radial-gradient(220px 100px at 100% 0%, rgba(106,95,193,0.08), transparent 60%),
+    var(--layer-2);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+  transition: transform 200ms, border-color 200ms;
+  cursor: pointer;
+}
+.kpi:hover { transform: translateY(-2px); border-color: var(--accent-lime); }
+.kpi__head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.kpi__badge {
+  display: flex; align-items: center; gap: 8px;
+}
+.kpi__badge-icon {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--layer-3); border: 1px solid var(--hairline);
+  font-size: 16px;
+}
+.kpi__badge-text { display: flex; flex-direction: column; line-height: 1.2; }
+.kpi__badge-eyebrow {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--on-dark-muted);
+}
+.kpi__badge-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  color: var(--on-primary);
+}
+.kpi__label {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--on-dark-muted); margin-bottom: 4px;
+}
+.kpi__value {
+  font-family: var(--font-display); font-size: 38px; font-weight: 700;
+  letter-spacing: -1px; line-height: 1; color: var(--on-primary);
+}
+.kpi__value small {
+  font-size: 16px; font-weight: 500; color: var(--on-dark-muted); margin-left: 2px;
+}
+.kpi__delta {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-code); font-size: 11px; font-weight: 600;
+  margin-top: 6px; color: var(--on-dark-muted);
+}
+.kpi__delta-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+.kpi__delta--up { color: var(--aqua); }
+.kpi__delta--down { color: var(--danger); }
+.kpi__rows {
+  display: flex; flex-direction: column; gap: 0;
+  margin-top: 10px; border-top: 1px solid var(--hairline);
+  padding-top: 8px;
+}
+.kpi__row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; font-size: 11px;
+  border-bottom: 1px solid var(--hairline);
+}
+.kpi__row:last-child { border-bottom: none; }
+.kpi__row-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.kpi__row-label {
+  flex: 1; color: var(--on-dark-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.kpi__row-code {
+  font-family: var(--font-code); font-size: 10px; color: var(--on-dark-muted);
+}
+.kpi__row-val {
+  font-family: var(--font-code); font-weight: 600; font-size: 11px;
+  color: var(--on-primary); text-align: right;
+}
+
+/* ---- BFAR reference card ---- */
+.bfar-card {
+  background:
+    radial-gradient(200px 120px at 90% 10%, rgba(106,95,193,0.12), transparent 60%),
+    var(--layer-2);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+}
+.bfar-card__head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.bfar-card__seal {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: var(--ink-deep); font-size: 16px; font-weight: 800;
+  font-family: var(--font-display);
+  box-shadow: 0 4px 12px rgba(251,191,36,0.25);
+}
+.bfar-card__sync {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 8px; border-radius: 999px;
+  background: var(--aqua-soft); font-size: 10px;
+  font-family: var(--font-code); color: var(--aqua);
+  font-weight: 600; letter-spacing: 0.4px;
+}
+.bfar-card__sync::before {
+  content: ""; width: 6px; height: 6px; border-radius: 999px;
+  background: var(--aqua); box-shadow: 0 0 8px var(--aqua);
+  animation: bfar-pulse 1.5s ease-in-out infinite;
+}
+@keyframes bfar-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.4); }
+}
+.bfar-card__title {
+  font-size: 13px; font-weight: 500; margin-top: 2px;
+}
+.bfar-card__sub {
+  font-size: 11px; color: var(--on-dark-muted); margin-top: 2px;
+}
+.bfar-card__table {
+  display: flex; flex-direction: column; gap: 0;
+  margin-top: 12px; flex: 1;
+}
+.bfar-row {
+  display: grid;
+  grid-template-columns: minmax(0,1.2fr) minmax(0,0.8fr) minmax(0,1fr);
+  align-items: center; gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 12px;
+}
+.bfar-row:last-child { border-bottom: none; }
+.bfar-row__sp {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+}
+.bfar-row__sp > span:last-child {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bfar-row__avatar {
+  width: 20px; height: 20px; border-radius: 5px;
+  display: grid; place-items: center;
+  font-size: 9px; font-weight: 700;
+  color: var(--ink-deep); flex-shrink: 0;
+}
+.bfar-row__ref {
+  text-align: right; font-size: 12px; color: var(--on-dark-muted);
+}
+.bfar-row__price {
+  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+  font-size: 12px; font-weight: 600;
+}
+.bfar-row__delta {
+  font-family: var(--font-code); font-size: 10px; font-weight: 700;
+  padding: 1px 5px; border-radius: 4px;
+  min-width: 30px; text-align: center;
+}
+.bfar-row__delta--good { background: var(--aqua-soft); color: var(--aqua); }
+.bfar-row__delta--bad { background: var(--danger-soft); color: var(--danger); }
+.bfar-row__delta--flat { background: var(--layer-3); color: var(--on-dark-muted); }
+.bfar-card__foot {
+  margin-top: auto; padding-top: 10px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11px; color: var(--on-dark-muted);
+  font-weight: 500; letter-spacing: 0.2px;
+  position: relative; z-index: 1;
+}
+.bfar-card__foot:hover { color: var(--accent-lime); }
+
+/* ---- Content wrapper for buyer home page ---- */
+.app__content {
+  padding: 22px 24px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---- Rail promo subtitle ---- */
+.rail__promo-sub { font-size: 10px; color: var(--on-dark-muted); margin-top: 2px; }

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { apiPost, apiPut } from '../api'
+import { I } from '../icons'
 
 // ── La Union Municipality → Departure Points → Target Areas reference data ──
 const LA_UNION_DATA = [
@@ -159,152 +160,65 @@ export default function StartTripModal({ token, initialDate, initialStatus = 'AC
   const totalSteps = isPlanned ? 1 : 2
 
   return (
-    <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="trip-modal">
+    <div className="f-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="f-modal f-modal--wide">
 
         {/* Header */}
-        <div className="trip-modal__header">
+        <div className="f-modal__title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h2 className="trip-modal__title">
-              {isPlanned ? 'Schedule Trip' : 'Start a Trip'}
-            </h2>
+            {isPlanned ? 'Schedule Trip' : 'Start a Trip'}
             {!isPlanned && (
-              <p style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 2, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', color: 'var(--ink-3)', marginTop: 4, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-ui)', fontWeight: 500 }}>
                 Step {step} of {totalSteps} — {step === 1 ? 'Trip Details' : 'Safety Checklist'}
-              </p>
+              </div>
             )}
           </div>
-          <button className="trip-modal__close" onClick={onClose}>✕</button>
+          <button style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', padding: 4 }} onClick={onClose}><I.X size={16} /></button>
         </div>
-
-        {/* Step indicator (active trips only) */}
-        {!isPlanned && (
-          <div style={{ display: 'flex', gap: 0, margin: '0 0 20px', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-2)' }}>
-            {['Trip Details', 'Safety Check'].map((label, i) => {
-              const s = i + 1
-              const done = step > s
-              const active = step === s
-              return (
-                <div
-                  key={s}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 7,
-                    background: active ? 'var(--accent-dim)' : done ? 'rgba(0,229,160,0.08)' : 'transparent',
-                    borderRight: i === 0 ? '1px solid var(--border-2)' : 'none',
-                    transition: 'background 0.2s',
-                  }}
-                >
-                  <span style={{
-                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '10px', fontWeight: 700,
-                    background: active ? 'var(--accent)' : done ? 'var(--safe)' : 'var(--border-2)',
-                    color: active || done ? '#fff' : 'var(--text-3)',
-                  }}>
-                    {done ? '✓' : s}
-                  </span>
-                  <span style={{
-                    fontSize: '12px', fontWeight: 600,
-                    color: active ? 'var(--accent)' : done ? 'var(--safe)' : 'var(--text-3)',
-                  }}>
-                    {label}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {isPlanned && initialDate && (
-          <p style={{ fontSize: 13, color: 'var(--accent)', marginBottom: 12 }}>
-            Scheduling for <strong>{initialDate.toLocaleDateString('en-PH', { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
-          </p>
-        )}
 
         {/* ── Step 1: Trip Details ── */}
         {step === 1 && (
-          <form className="trip-form" onSubmit={isPlanned ? submit : handleNext}>
-            {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+          <form onSubmit={isPlanned ? submit : handleNext}>
+            {error && <p style={{ color: 'var(--unsafe)', fontSize: '13px', margin: '0 0 12px' }}>{error}</p>}
 
-            <label className="trip-form__label">
-              Municipality *
-              <select
-                className="trip-form__input"
-                value={municipality}
-                onChange={e => handleMunicipalityChange(e.target.value)}
-                required
-              >
+            <div className="f-field">
+              <label className="f-label">Municipality *</label>
+              <select className="f-input" value={municipality} onChange={e => handleMunicipalityChange(e.target.value)} required>
                 <option value="">Select municipality…</option>
-                {LA_UNION_DATA.map(m => (
-                  <option key={m.municipality} value={m.municipality}>{m.municipality}</option>
-                ))}
+                {LA_UNION_DATA.map(m => <option key={m.municipality} value={m.municipality}>{m.municipality}</option>)}
               </select>
-            </label>
+            </div>
 
-            <label className="trip-form__label">
-              Departure Point
-              <select
-                className="trip-form__input"
-                value={departurePoint}
-                onChange={e => setDeparturePoint(e.target.value)}
-                disabled={!municipality}
-              >
+            <div className="f-field">
+              <label className="f-label">Departure Point</label>
+              <select className="f-input" value={departurePoint} onChange={e => setDeparturePoint(e.target.value)} disabled={!municipality}>
                 <option value="">{municipality ? 'Select departure point… (optional)' : 'Select municipality first'}</option>
-                {departureOptions.map(dp => (
-                  <option key={dp} value={dp}>{dp}</option>
-                ))}
+                {departureOptions.map(dp => <option key={dp} value={dp}>{dp}</option>)}
               </select>
-            </label>
+            </div>
 
-            <label className="trip-form__label">
-              Target Area
-              <select
-                className="trip-form__input"
-                value={targetArea}
-                onChange={e => setTargetArea(e.target.value)}
-                disabled={!municipality}
-              >
+            <div className="f-field">
+              <label className="f-label">Target Area</label>
+              <select className="f-input" value={targetArea} onChange={e => setTargetArea(e.target.value)} disabled={!municipality}>
                 <option value="">{municipality ? 'Select target area… (optional)' : 'Select municipality first'}</option>
-                {targetOptions.map(ta => (
-                  <option key={ta} value={ta}>{ta}</option>
-                ))}
+                {targetOptions.map(ta => <option key={ta} value={ta}>{ta}</option>)}
               </select>
-            </label>
+            </div>
 
-            <label className="trip-form__label">
-              Vessel Name
-              <input
-                className="trip-form__input"
-                placeholder="e.g. M/B Ligaya"
-                value={vesselName}
-                onChange={e => setVesselName(e.target.value)}
-                maxLength={100}
-              />
-            </label>
+            <div className="f-field">
+              <label className="f-label">Vessel Name</label>
+              <input className="f-input" placeholder="e.g. M/B Ligaya" value={vesselName} onChange={e => setVesselName(e.target.value)} maxLength={100} />
+            </div>
 
-            <label className="trip-form__label">
-              Notes
-              <textarea
-                className="trip-form__textarea"
-                placeholder="Any notes for this trip…"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                maxLength={500}
-              />
-            </label>
+            <div className="f-field">
+              <label className="f-label">Notes</label>
+              <textarea className="f-input" style={{ resize: 'vertical', minHeight: 80 }} placeholder="Any notes for this trip…" value={notes} onChange={e => setNotes(e.target.value)} maxLength={500} />
+            </div>
 
-            <div className="trip-form__actions">
-              <button type="button" className="trip-btn trip-btn--ghost" onClick={onClose}>
-                Cancel
-              </button>
-              <button type="submit" className="trip-btn trip-btn--primary" disabled={submitting}>
-                {isPlanned
-                  ? (submitting ? 'Scheduling…' : 'Schedule Trip')
-                  : 'Next: Safety Check →'}
+            <div style={{ display: 'flex', gap: 10, marginTop: 24, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn--lime" disabled={submitting}>
+                {isPlanned ? (submitting ? 'Scheduling…' : 'Schedule Trip') : 'Next: Safety Check →'}
               </button>
             </div>
           </form>
@@ -312,86 +226,49 @@ export default function StartTripModal({ token, initialDate, initialStatus = 'AC
 
         {/* ── Step 2: Safety Checklist ── */}
         {step === 2 && (
-          <form className="trip-form" onSubmit={submit}>
-            {error && <p style={{ color: '#FCA5A5', fontSize: '13px', margin: 0 }}>{error}</p>}
+          <form onSubmit={submit}>
+            {error && <p style={{ color: 'var(--unsafe)', fontSize: '13px', margin: '0 0 12px' }}>{error}</p>}
 
-            <p style={{ fontSize: '13px', color: 'var(--text-2)', margin: '0 0 4px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '13px', color: 'var(--ink-3)', margin: '0 0 16px' }}>
               Confirm all safety items are in order before departing. All items must be checked.
             </p>
 
             {/* Progress bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'var(--border-2)', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%',
-                  width: `${(checkedCount / CHECKLIST_FIELDS.length) * 100}%`,
-                  background: allChecked ? 'var(--safe)' : 'var(--accent)',
-                  borderRadius: 99,
-                  transition: 'width 0.3s ease, background 0.3s ease',
-                }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'var(--hairline-2)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${(checkedCount / CHECKLIST_FIELDS.length) * 100}%`, background: allChecked ? 'var(--safe)' : 'var(--accent-lime)', borderRadius: 99, transition: 'width 0.3s ease, background 0.3s ease' }} />
               </div>
-              <span style={{
-                fontSize: '12px', fontWeight: 700, flexShrink: 0,
-                color: allChecked ? 'var(--safe)' : 'var(--text-3)',
-              }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: allChecked ? 'var(--safe)' : 'var(--ink-3)' }}>
                 {checkedCount}/{CHECKLIST_FIELDS.length}
               </span>
             </div>
 
-            <div className="checklist-grid" style={{ marginTop: 8 }}>
-              {CHECKLIST_FIELDS.map(({ key, label, desc }) => (
-                <label
-                  key={key}
-                  className={`checklist-item${checklist[key] ? ' checklist-item--checked' : ''}`}
-                  style={{ cursor: 'pointer', userSelect: 'none' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checklist[key]}
-                    onChange={() => toggleCheck(key)}
-                    style={{ display: 'none' }}
-                  />
-                  <span style={{
-                    width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-                    border: `2px solid ${checklist[key] ? 'var(--safe)' : 'var(--border-2)'}`,
-                    background: checklist[key] ? 'var(--safe)' : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#061220', fontSize: '11px', fontWeight: 900,
-                    transition: 'all 0.15s ease',
-                  }}>
-                    {checklist[key] && '✓'}
-                  </span>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: checklist[key] ? 'var(--text-1)' : 'var(--text-2)' }}>
-                      {label}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 20 }}>
+              {CHECKLIST_FIELDS.map(({ key, label, desc }) => {
+                const on = checklist[key]
+                return (
+                  <div key={key} className={`f-checklist-item${on ? ' f-checklist-item--on' : ''}`} onClick={() => toggleCheck(key)} style={{ cursor: 'pointer' }}>
+                    <div className="f-checklist-item__box">{on && <I.Check size={10} />}</div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: on ? 'var(--ink-1)' : 'var(--ink-2)' }}>{label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>{desc}</div>
                     </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: 1 }}>{desc}</div>
                   </div>
-                </label>
-              ))}
+                )
+              })}
             </div>
 
             {!allChecked && (
-              <p style={{ fontSize: '12px', color: 'rgba(255,183,39,0.85)', background: 'rgba(255,183,39,0.08)', border: '1px solid rgba(255,183,39,0.2)', borderRadius: 8, padding: '8px 12px', margin: 0 }}>
+              <p style={{ fontSize: '12px', color: 'var(--unsafe)', background: 'var(--unsafe-soft)', padding: '8px 12px', borderRadius: 6, margin: '0 0 20px' }}>
                 ⚠ Complete all {CHECKLIST_FIELDS.length} safety checks to enable departure.
               </p>
             )}
 
-            <div className="trip-form__actions">
-              <button
-                type="button"
-                className="trip-btn trip-btn--ghost"
-                onClick={() => { setStep(1); setError(null) }}
-                disabled={submitting}
-              >
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn--ghost" onClick={() => { setStep(1); setError(null) }} disabled={submitting}>
                 ← Back
               </button>
-              <button
-                type="submit"
-                className="trip-btn trip-btn--primary"
-                disabled={submitting || !allChecked}
-                style={{ opacity: allChecked ? 1 : 0.45 }}
-              >
+              <button type="submit" className="btn btn--lime" disabled={submitting || !allChecked} style={{ opacity: allChecked ? 1 : 0.45 }}>
                 {submitting ? 'Starting…' : 'Start Trip'}
               </button>
             </div>

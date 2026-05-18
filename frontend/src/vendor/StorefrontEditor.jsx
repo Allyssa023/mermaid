@@ -14,30 +14,80 @@ const SLOT_FORM_KEYS = {
   flesh:  'photoFlesh',
 }
 
+function PageHead({ eyebrow, title, em, sub, actions }) {
+  return (
+    <div className="section-head">
+      <div>
+        <div className="section-eyebrow">{eyebrow}</div>
+        <h1 className="section-title">{title} {em && <em>{em}</em>}</h1>
+        {sub && <p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: 13, maxWidth: 560 }}>{sub}</p>}
+      </div>
+      <div className="page__actions">{actions}</div>
+    </div>
+  )
+}
+
+// Map API status to display class
+const statusClass = (status) => {
+  if (status === 'PUBLISHED')   return 'active'
+  if (status === 'DRAFT')       return 'draft'
+  if (status === 'UNPUBLISHED') return 'paused'
+  if (status === 'SOLD_OUT')    return 'active'
+  return 'draft'
+}
+
+const statusLabel = (status) => {
+  if (status === 'PUBLISHED')   return 'Active'
+  if (status === 'DRAFT')       return 'Draft'
+  if (status === 'UNPUBLISHED') return 'Paused'
+  if (status === 'SOLD_OUT')    return 'Sold out'
+  return status
+}
+
 export default function StorefrontEditor() {
-  const [modal, setModal] = useState(null)
-  const [form, setForm] = useState({})
+  const [modal, setModal]               = useState(null)
+  const [form, setForm]                 = useState({})
   const [deleteConfirmId, setDeleteConfirmId] = useState(null)
-  const [saveError, setSaveError] = useState('')
+  const [saveError, setSaveError]       = useState('')
   const [photoUploading, setPhotoUploading] = useState(false)
-  const [photoError, setPhotoError] = useState('')
-  const fileRef = useRef(null)
-  const [currentSlot, setCurrentSlot] = useState(null)
-  const [tab, setTab] = useState('all')
+  const [photoError, setPhotoError]     = useState('')
+  const fileRef                         = useRef(null)
+  const [currentSlot, setCurrentSlot]   = useState(null)
+  const [tab, setTab]                   = useState('all')
 
-  const qc = useQueryClient()
-  const listingsQ = useQuery({ queryKey: ['vendor', 'storefront'], queryFn: listListings })
-  const statsQ = useQuery({ queryKey: ['storefront-stats'], queryFn: getStorefrontStats })
-  const invalidate = () => qc.invalidateQueries({ queryKey: ['vendor', 'storefront'] })
-  const updateMut = useMutation({ mutationFn: ({ id, ...body }) => updateListing(id, body), onSuccess: () => { invalidate(); setModal(null) }, onError: (err) => setSaveError(err.message || 'Save failed') })
-  const deleteMut = useMutation({ mutationFn: deleteListing, onSuccess: () => { invalidate(); setDeleteConfirmId(null) } })
-  const republishMut = useMutation({ mutationFn: publishListing, onSuccess: invalidate })
-  const unpubMut = useMutation({ mutationFn: unpublishListing, onSuccess: invalidate })
+  const qc          = useQueryClient()
+  const listingsQ   = useQuery({ queryKey: ['vendor', 'storefront'], queryFn: listListings })
+  const statsQ      = useQuery({ queryKey: ['storefront-stats'], queryFn: getStorefrontStats })
+  const invalidate  = () => qc.invalidateQueries({ queryKey: ['vendor', 'storefront'] })
 
-  if (listingsQ.isLoading) return <div className="page"><TableRowSkeleton rows={5} /></div>
-  if (listingsQ.error) return <div className="page"><ApiError error={listingsQ.error} onRetry={listingsQ.refetch} /></div>
+  const updateMut   = useMutation({
+    mutationFn: ({ id, ...body }) => updateListing(id, body),
+    onSuccess:  () => { invalidate(); setModal(null) },
+    onError:    (err) => setSaveError(err.message || 'Save failed'),
+  })
+  const deleteMut   = useMutation({ mutationFn: deleteListing,   onSuccess: () => { invalidate(); setDeleteConfirmId(null) } })
+  const republishMut = useMutation({ mutationFn: publishListing,  onSuccess: invalidate })
+  const unpubMut    = useMutation({ mutationFn: unpublishListing, onSuccess: invalidate })
+
+  if (listingsQ.isLoading) return <div className="content"><TableRowSkeleton rows={5} /></div>
+  if (listingsQ.error)     return <div className="content"><ApiError error={listingsQ.error} onRetry={listingsQ.refetch} /></div>
+
   const listings = listingsQ.data ?? []
-  const stats = statsQ.data
+  const stats    = statsQ.data
+
+  const activeCount = listings.filter(l => l.status === 'PUBLISHED' || l.status === 'SOLD_OUT').length
+  const draftCount  = listings.filter(l => l.status === 'DRAFT').length
+  const pausedCount = listings.filter(l => l.status === 'UNPUBLISHED').length
+
+  const views30d = stats?.totalViews ?? listings.reduce((a, l) => a + (l.viewCount ?? 0), 0)
+  const sold30d  = listings.reduce((a, l) => a + (l.soldKg ?? l.sold30d ?? 0), 0)
+
+  const filteredListings = listings.filter(l => {
+    if (tab === 'active')  return l.status === 'PUBLISHED' || l.status === 'SOLD_OUT'
+    if (tab === 'drafts')  return l.status === 'DRAFT'
+    if (tab === 'paused')  return l.status === 'UNPUBLISHED'
+    return true
+  })
 
   const openModal = (l) => {
     setForm({ ...l })
@@ -56,12 +106,12 @@ export default function StorefrontEditor() {
     if (m !== undefined && (isNaN(m) || m < 0.1)) { setSaveError('Minimum order qty must be at least 0.1 kg'); return }
     setSaveError('')
     updateMut.mutate({
-      id: form.id,
-      title: form.title.trim(),
-      pricePerKg: Number(form.pricePerKg),
-      minQtyKg: m,
+      id:          form.id,
+      title:       form.title.trim(),
+      pricePerKg:  Number(form.pricePerKg),
+      minQtyKg:    m,
       description: form.description ?? null,
-      photoUrl: form.photoUrl ?? null,
+      photoUrl:    form.photoUrl    ?? null,
       photoEyes:   form.photoEyes   ?? null,
       photoGills:  form.photoGills  ?? null,
       photoScales: form.photoScales ?? null,
@@ -80,128 +130,147 @@ export default function StorefrontEditor() {
     setPhotoUploading(true)
     try {
       const data = await uploadListingPhoto(file)
-      const key = SLOT_FORM_KEYS[currentSlot] ?? 'photoUrl'
+      const key  = SLOT_FORM_KEYS[currentSlot] ?? 'photoUrl'
       setForm(f => ({ ...f, [key]: data.url }))
     } catch {
       setPhotoError('Upload failed — try again')
     } finally {
       setPhotoUploading(false)
-      // reset input so same file can be re-selected after error
       if (fileRef.current) fileRef.current.value = ''
     }
   }
 
-  const filteredListings = listings.filter(l => {
-    if (tab === 'active')  return l.status === 'PUBLISHED' || l.status === 'SOLD_OUT'
-    if (tab === 'drafts')  return l.status === 'DRAFT'
-    if (tab === 'paused')  return l.status === 'UNPUBLISHED'
-    return true
-  })
-
-  const statusColor = { PUBLISHED: 'kelp', DRAFT: 'muted', UNPUBLISHED: 'coral', SOLD_OUT: 'caution' }
-
   return (
-    <div>
-      {/* Page header */}
-      <div className="v-page-header">
-        <div>
-          <h1 className="v-page-header__title">Your public <em>listings</em></h1>
-        </div>
-        <div className="v-page-header__actions">
-          <button
-            className="v-btn v-btn--ghost v-btn--sm"
-            onClick={() => window.open(`/shop/`, '_blank')}
-          >
-            Preview shop
+    <div className="content">
+      <PageHead
+        eyebrow={<>Storefront <span className="pill">{activeCount} active</span></>}
+        title="Your public"
+        em="listings"
+        sub="The shopfront buyers see — pricing, freshness photos, and pickup windows."
+        actions={<>
+          <button className="btn" onClick={() => window.open('/shop/', '_blank')}>
+            <I.Eye size={13} /> Preview shop
           </button>
+          <button className="btn btn--primary" onClick={() => {}}>
+            <I.Plus size={13} /> New listing
+          </button>
+        </>}
+      />
+
+      <div className="kpi-strip">
+        <div className="cell">
+          <div className="l">Listings</div>
+          <div className="v">{listings.length}</div>
+          <div className="s">{activeCount} active · {draftCount} draft</div>
+        </div>
+        <div className="cell">
+          <div className="l">Views · 30d</div>
+          <div className="v">{Number(views30d).toLocaleString()}</div>
+          <div className="s">cumulative</div>
+        </div>
+        <div className="cell">
+          <div className="l">Sold · 30d</div>
+          <div className="v">{Number(sold30d).toFixed(0)}<small>kg</small></div>
+          <div className="s">across {activeCount} SKUs</div>
+        </div>
+        <div className="cell">
+          <div className="l">Conversion</div>
+          <div className="v">—<small>%</small></div>
+          <div className="s">view → order</div>
+        </div>
+        <div className="cell">
+          <div className="l">Avg rating</div>
+          <div className="v">—<small>★</small></div>
+          <div className="s">reviews · 30d</div>
         </div>
       </div>
 
-      {/* KPI strip */}
-      <div className="v-kpi-strip" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 20 }}>
-        {[
-          { label: 'Total listings', value: listings.length },
-          { label: 'Views (cumulative)', value: stats?.totalViews ?? '—' },
-          { label: 'Active', value: listings.filter(l => l.status === 'PUBLISHED' || l.status === 'SOLD_OUT').length },
-          { label: 'Drafts', value: listings.filter(l => l.status === 'DRAFT').length },
-          { label: 'Paused', value: listings.filter(l => l.status === 'UNPUBLISHED').length },
-        ].map(({ label, value }) => (
-          <div key={label} className="v-kpi-cell">
-            <div className="v-kpi-cell__label">{label}</div>
-            <div className="v-kpi-cell__value v-mono">{value}</div>
-          </div>
-        ))}
+      <div className="seg-tabs" style={{ alignSelf: 'flex-start' }}>
+        <button className={tab === 'all'    ? 'on' : ''} onClick={() => setTab('all')}>
+          All <span className="badge">{listings.length}</span>
+        </button>
+        <button className={tab === 'active' ? 'on' : ''} onClick={() => setTab('active')}>
+          Active <span className="badge">{activeCount}</span>
+        </button>
+        <button className={tab === 'drafts' ? 'on' : ''} onClick={() => setTab('drafts')}>
+          Drafts
+        </button>
+        <button className={tab === 'paused' ? 'on' : ''} onClick={() => setTab('paused')}>
+          Paused
+        </button>
       </div>
 
-      {/* Tab strip */}
-      <div className="v-tabs">
-        {['all', 'active', 'drafts', 'paused'].map(t => (
-          <button key={t} className={`v-tab${tab === t ? ' v-tab--on' : ''}`} onClick={() => setTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Listing grid */}
       {filteredListings.length === 0 ? (
-        <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-3)', fontSize: 14 }}>
+        <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
           No listings here. Head to your Inventory tab to list a lot for sale.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
+        <div className="listing-grid">
           {filteredListings.map(listing => {
-            const viewCount = stats?.byListing?.find(b => b.listingId === listing.id)?.views ?? 0
+            const viewCount  = stats?.byListing?.find(b => b.listingId === listing.id)?.views ?? listing.viewCount ?? 0
+            const soldKg     = listing.soldKg ?? listing.sold30d ?? 0
+            const speciesName = listing.speciesName ?? listing.speciesLocalName ?? ''
+            const cls        = statusClass(listing.status)
             return (
-              <div key={listing.id} className="v-panel" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ height: 120, background: 'var(--bg-card-3)', position: 'relative', overflow: 'hidden' }}>
+              <div key={listing.id} className="listing-card">
+                <div className="listing-card__photo">
+                  <span className={`listing-card__status ${cls}`}>{statusLabel(listing.status)}</span>
+                  <div className="listing-card__menu">⋮</div>
                   {listing.photoUrl
-                    ? <img src={listing.photoUrl} alt={listing.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>🐟</div>}
-                  <span
-                    className={`v-chip v-chip--${statusColor[listing.status] || 'muted'}`}
-                    style={{ position: 'absolute', top: 8, left: 8 }}
-                  >
-                    {listing.status}
-                  </span>
+                    ? <img src={listing.photoUrl} alt={listing.title} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
+                    : <div className="listing-card__fish">🐟</div>
+                  }
+                  <div className="listing-card__price">₱{listing.pricePerKg}/kg</div>
                 </div>
-                <div style={{ padding: 12 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{listing.title}</div>
-                  <div className="v-mono" style={{ fontSize: 13, color: 'var(--accent-lime)' }}>
-                    ₱{listing.pricePerKg}/kg
+                <div className="listing-card__body">
+                  <span className="listing-card__code">#{listing.id}{speciesName ? ` · ${speciesName}` : ''}</span>
+                  <div className="listing-card__title">{listing.title}</div>
+                  <div className="listing-card__stats">
+                    <div className="listing-card__stat">
+                      <span className="l">Stock</span>
+                      <span className="v">{listing.availableKg ?? '—'}<span style={{ color: 'var(--muted-2)' }}>kg</span></span>
+                    </div>
+                    <div className="listing-card__stat">
+                      <span className="l">Sold 30d</span>
+                      <span className="v">{soldKg}<span style={{ color: 'var(--muted-2)' }}>kg</span></span>
+                    </div>
+                    <div className="listing-card__stat">
+                      <span className="l">Views</span>
+                      <span className="v">{viewCount}</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 12, fontSize: 11, color: 'var(--ink-4)', margin: '6px 0 10px' }}>
-                    <span>{listing.availableKg ?? '—'}kg stock</span>
-                    <span>{viewCount} views</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {deleteConfirmId === listing.id ? (
-                      <>
-                        <span style={{ fontSize: 11, color: 'var(--ink-3)', alignSelf: 'center' }}>Delete?</span>
-                        <button
-                          className="v-btn v-btn--sm"
-                          style={{ background: 'var(--coral-soft)', color: 'var(--coral)' }}
-                          onClick={() => { deleteMut.mutate(listing.id); setDeleteConfirmId(null) }}
-                        >Confirm</button>
-                        <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => setDeleteConfirmId(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => openModal(listing)}>
-                          <I.Edit size={11} /> Edit
-                        </button>
-                        {listing.status === 'PUBLISHED' || listing.status === 'SOLD_OUT'
-                          ? <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => unpubMut.mutate(listing.id)}>Unpublish</button>
-                          : listing.status === 'UNPUBLISHED'
-                            ? <button className="v-btn v-btn--primary v-btn--sm" onClick={() => republishMut.mutate(listing.id)}>Re-publish</button>
-                            : null}
-                        <button
-                          className="v-btn v-btn--ghost v-btn--sm"
-                          style={{ color: 'var(--coral)', marginLeft: 'auto' }}
-                          onClick={() => setDeleteConfirmId(listing.id)}
-                        >Delete</button>
-                      </>
-                    )}
-                  </div>
+                </div>
+                <div className="listing-card__actions">
+                  {deleteConfirmId === listing.id ? (
+                    <>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', alignSelf: 'center', flex: 1 }}>Delete?</span>
+                      <button
+                        className="btn btn--sm"
+                        style={{ background: 'rgba(255,138,107,0.18)', color: 'var(--coral)', borderColor: 'rgba(255,138,107,0.4)' }}
+                        onClick={() => { deleteMut.mutate(listing.id); setDeleteConfirmId(null) }}
+                      >Confirm</button>
+                      <button className="btn btn--sm btn--ghost" onClick={() => setDeleteConfirmId(null)}>Cancel</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn btn--sm btn--ghost" onClick={() => openModal(listing)}>
+                        <I.Edit size={11} /> Edit
+                      </button>
+                      {(listing.status === 'PUBLISHED' || listing.status === 'SOLD_OUT')
+                        ? <button className="btn btn--sm" onClick={() => unpubMut.mutate(listing.id)}>Unpublish</button>
+                        : listing.status === 'UNPUBLISHED'
+                          ? <button className="btn btn--sm btn--primary" onClick={() => republishMut.mutate(listing.id)}>Re-publish</button>
+                          : null
+                      }
+                      <button
+                        className="btn btn--sm btn--ghost"
+                        style={{ color: 'var(--coral)', marginLeft: 'auto' }}
+                        onClick={() => setDeleteConfirmId(listing.id)}
+                      >
+                        <I.Trash size={11} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )
@@ -240,7 +309,7 @@ export default function StorefrontEditor() {
               <div className="form-row" style={{ gridColumn: '1 / -1' }}>
                 <label>Photo</label>
                 {photoUploading ? (
-                  <span className="muted-data" style={{ fontSize: 13 }}>Uploading…</span>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>Uploading…</span>
                 ) : form.photoUrl ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <img src={form.photoUrl} alt="listing" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6 }} />
@@ -250,7 +319,7 @@ export default function StorefrontEditor() {
                   <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setCurrentSlot('cover'); fileRef.current?.click() }}>Select photo</button>
                 )}
                 {photoError && (
-                  <span style={{ fontSize: 12, color: 'var(--unsafe)', marginTop: 4, display: 'block' }}>
+                  <span style={{ fontSize: 12, color: 'var(--coral)', marginTop: 4, display: 'block' }}>
                     {photoError}{' '}
                     <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setPhotoError(''); setCurrentSlot('cover'); fileRef.current?.click() }}>Retry</button>
                   </span>
@@ -260,29 +329,28 @@ export default function StorefrontEditor() {
                 <label style={{ fontWeight: 600 }}>Freshness photos</label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
                   {[
-                    { slot: 'eyes',   label: 'Eyes',   hint: 'Clear, bright pupils',          formKey: 'photoEyes'   },
-                    { slot: 'gills',  label: 'Gills',  hint: 'Bright red, not brown',         formKey: 'photoGills'  },
-                    { slot: 'scales', label: 'Scales', hint: 'Shiny, tight to skin',          formKey: 'photoScales' },
-                    { slot: 'belly',  label: 'Belly',  hint: 'Firm, not swollen',             formKey: 'photoBelly'  },
-                    { slot: 'flesh',  label: 'Flesh',  hint: 'Pink/white, no discoloration',  formKey: 'photoFlesh'  },
+                    { slot: 'eyes',   label: 'Eyes',   hint: 'Clear, bright pupils',         formKey: 'photoEyes'   },
+                    { slot: 'gills',  label: 'Gills',  hint: 'Bright red, not brown',        formKey: 'photoGills'  },
+                    { slot: 'scales', label: 'Scales', hint: 'Shiny, tight to skin',         formKey: 'photoScales' },
+                    { slot: 'belly',  label: 'Belly',  hint: 'Firm, not swollen',            formKey: 'photoBelly'  },
+                    { slot: 'flesh',  label: 'Flesh',  hint: 'Pink/white, no discoloration', formKey: 'photoFlesh'  },
                   ].map(({ slot, label, hint, formKey }, i) => {
-                    const url = form[formKey]
+                    const url    = form[formKey]
                     const isLast = i === 4
                     return (
                       <div key={slot} style={{ gridColumn: isLast ? '1 / -1' : undefined, maxWidth: isLast ? '50%' : undefined }}>
                         <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
-                        <div className="muted-data" style={{ fontSize: 10, marginBottom: 6 }}>{hint}</div>
+                        <div style={{ fontSize: 10, color: 'var(--muted)', marginBottom: 6 }}>{hint}</div>
                         {url ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <img src={url} alt={label} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }} />
-                            <button className="btn btn--ghost btn--sm" type="button"
-                              onClick={() => { setCurrentSlot(slot); fileRef.current?.click() }}>Change</button>
+                            <button className="btn btn--ghost btn--sm" type="button" onClick={() => { setCurrentSlot(slot); fileRef.current?.click() }}>Change</button>
                           </div>
                         ) : (
                           <button
                             className="btn btn--ghost btn--sm"
                             type="button"
-                            style={{ border: '1.5px dashed var(--line)', width: '100%', padding: '12px 0' }}
+                            style={{ border: '1.5px dashed var(--hairline)', width: '100%', padding: '12px 0' }}
                             onClick={() => { setCurrentSlot(slot); fileRef.current?.click() }}
                           >
                             Upload
@@ -294,7 +362,6 @@ export default function StorefrontEditor() {
                 </div>
               </div>
             </div>
-            {/* always rendered so ref is always valid */}
             <input
               type="file"
               ref={fileRef}
@@ -303,7 +370,7 @@ export default function StorefrontEditor() {
               onChange={handlePhotoChange}
             />
             <div className="modal__foot">
-              {saveError && <span style={{ fontSize: 12, color: 'var(--unsafe)', marginRight: 'auto' }}>{saveError}</span>}
+              {saveError && <span style={{ fontSize: 12, color: 'var(--coral)', marginRight: 'auto' }}>{saveError}</span>}
               <button className="btn" onClick={() => setModal(null)}>Cancel</button>
               <button className="btn btn--primary" onClick={handleSave} disabled={photoUploading}>Save listing</button>
             </div>

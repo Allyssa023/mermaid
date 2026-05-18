@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../context/AuthContext'
 import {
   getFeed, getCart, addToCart, removeCartItem, startDealFromCartItem,
   listMySupplierOrders,
@@ -22,10 +23,14 @@ export const matchPct = (alert, watchlistSpeciesIds = []) =>
   watchlistSpeciesIds.includes(alert.speciesId) ? 100 : 60;
 
 export default function ProcurementFeed({ pageState }) {
+  const { user } = useAuth()
+  const myId = user?.id
   const [tab, setTab] = useState('feed')
   const [statusFilter, setStatusFilter] = useState(null)
   const [settleModal, setSettleModal] = useState(null)
   const [settleLoading, setSettleLoading] = useState(false)
+  const [dealsPage, setDealsPage] = useState(0)
+  const DEALS_PAGE_SIZE = 8
   const watchlistFilter = pageState?.watchlistFilter ?? null
 
   const qc = useQueryClient()
@@ -97,6 +102,7 @@ export default function ProcurementFeed({ pageState }) {
   const displayOrders = statusFilter
     ? allOrders.filter(o => o.status === statusFilter)
     : allOrders
+  const myDeals = displayOrders.filter(o => o.buyer?.id === myId || o.buyerId === myId)
   const creditOrders = allOrders.filter(o =>
     o.status === 'COMPLETED' && o.payment?.method === 'CREDIT' && o.payment?.status !== 'SETTLED'
   )
@@ -304,7 +310,7 @@ export default function ProcurementFeed({ pageState }) {
                   key={s}
                   className={`v-chip v-chip--${active ? 'lime' : 'muted'}`}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => setStatusFilter(s === 'all' ? null : s)}
+                  onClick={() => { setStatusFilter(s === 'all' ? null : s); setDealsPage(0) }}
                 >
                   {s === 'all' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
                   <span style={{ marginLeft: 6, opacity: 0.7, fontFamily: 'var(--font-mono)', fontSize: 10 }}>{count}</span>
@@ -320,9 +326,18 @@ export default function ProcurementFeed({ pageState }) {
               <p style={{ fontSize: 13 }}>Orders you place from the live feed will appear here.</p>
             </div>
           )}
-          {displayOrders.map(order => (
+          {myDeals.slice(dealsPage * DEALS_PAGE_SIZE, (dealsPage + 1) * DEALS_PAGE_SIZE).map(order => (
             <OrderCard key={order.id} order={order} viewerRole="BUYER" mutations={orderMutations} />
           ))}
+          {myDeals.length > DEALS_PAGE_SIZE && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 4px', borderTop: '1px solid var(--hairline-rgba)' }}>
+              <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => setDealsPage(p => p - 1)} disabled={dealsPage === 0}>← Prev</button>
+              <span style={{ fontSize: 12, color: 'var(--ink-3)', fontFamily: 'var(--font-mono)' }}>
+                {dealsPage * DEALS_PAGE_SIZE + 1}–{Math.min((dealsPage + 1) * DEALS_PAGE_SIZE, myDeals.length)} of {myDeals.length}
+              </span>
+              <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => setDealsPage(p => p + 1)} disabled={(dealsPage + 1) * DEALS_PAGE_SIZE >= myDeals.length}>Next →</button>
+            </div>
+          )}
         </div>
       )}
 

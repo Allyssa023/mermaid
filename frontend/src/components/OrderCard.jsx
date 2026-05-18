@@ -5,8 +5,6 @@ import InitiateHandoffModal from './modals/InitiateHandoffModal'
 import ConfirmHandoffModal  from './modals/ConfirmHandoffModal'
 import RecordPaymentModal   from './modals/RecordPaymentModal'
 import ConfirmPaymentModal  from './modals/ConfirmPaymentModal'
-import CancelOrderModal     from './modals/CancelOrderModal'
-import DisputeModal         from './modals/DisputeModal'
 import InitiatePayoutModal  from './modals/InitiatePayoutModal'
 import PayHandoffModal      from './modals/PayHandoffModal'
 import MarkPickedUpModal   from './modals/MarkPickedUpModal'
@@ -129,9 +127,6 @@ export default function OrderCard({ order, currentRole, viewerRole: viewerRolePr
     </span>
   )
 
-  const canCancel  = ['PENDING', 'CONFIRMED'].includes(order.status)
-  const canDispute = order.status === 'CONFIRMED' && (!!order.handoff || !!order.payment)
-
   return (
     <div className="card order-card">
       <div className="order-card__head" onClick={() => setExpanded(v => !v)}>
@@ -170,26 +165,18 @@ export default function OrderCard({ order, currentRole, viewerRole: viewerRolePr
         {action === 'COMPLETE_PICKUP'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('COMPLETE_PICKUP')}>Mark Picked Up</button>}
         {action === 'MARK_DELIVERED'   && <button className="btn btn--primary btn--sm" onClick={() => setModal('MARK_DELIVERED')}>Mark Delivered</button>}
         {action === 'CONFIRM_RECEIPT'  && <button className="btn btn--primary btn--sm" onClick={() => setModal('CONFIRM_RECEIPT')}>I Received My Order</button>}
-        {canDispute && (
-          <button className="btn btn--ghost btn--sm" onClick={() => setModal('DISPUTE')}>Raise Dispute</button>
-        )}
-        {canCancel && (
-          <button className="btn btn--ghost btn--sm btn--danger" onClick={() => setModal('CANCEL')}>Cancel</button>
-        )}
       </div>
 
       {modal === 'CONFIRM_ORDER'    && <ConfirmOrderModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmOrder?.(order.id))} onDecline={() => runMutation(() => mutations.cancelOrder?.(order.id, 'Declined by seller'))} />}
       {modal === 'INITIATE_HANDOFF' && <InitiateHandoffModal order={order} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.initiateHandoff?.(order.id, body))} />}
-      {modal === 'CONFIRM_HANDOFF'  && <ConfirmHandoffModal order={order} handoff={order.handoff} viewerRole={viewerRole} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmHandoff?.(order.id))} onDispute={() => setModal('DISPUTE')} />}
+      {modal === 'CONFIRM_HANDOFF'  && <ConfirmHandoffModal order={order} handoff={order.handoff} viewerRole={viewerRole} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmHandoff?.(order.id))} />}
       {modal === 'RECORD_PAYMENT'   && <RecordPaymentModal order={order} handoff={order.handoff} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.recordPayment?.(order.id, body))} />}
       {modal === 'CONFIRM_PAYMENT'  && <ConfirmPaymentModal order={order} payment={order.payment} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmPayment?.(order.id))} />}
-      {modal === 'CANCEL'           && <CancelOrderModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={(reason) => runMutation(() => mutations.cancelOrder?.(order.id, reason))} />}
-      {modal === 'DISPUTE'          && <DisputeModal order={order} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.raiseDispute?.(order.id, body))} />}
       {modal === 'PAYOUT'           && <InitiatePayoutModal order={order} loading={submitting} onClose={() => setModal(null)} onSubmit={(body) => runMutation(() => mutations.initiatePayout?.(order.id, body))} />}
       {modal === 'MARK_PREPARING'   && <MarkPickedUpModal order={order} mode="PREPARING" loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.markPreparing?.(order.id))} />}
       {modal === 'COMPLETE_PICKUP'  && <MarkPickedUpModal order={order} mode="PICKUP" loading={submitting} onClose={() => setModal(null)} onConfirm={(body) => runMutation(() => mutations.completePickup?.(order.id, body))} />}
       {modal === 'MARK_DELIVERED'   && <MarkDeliveredModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={(body) => runMutation(() => mutations.markDelivered?.(order.id, body))} />}
-      {modal === 'CONFIRM_RECEIPT'  && <ConfirmReceiptModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmReceipt?.(order.id))} onDispute={(body) => runMutation(() => mutations.disputeOrder?.(order.id, body))} />}
+      {modal === 'CONFIRM_RECEIPT'  && <ConfirmReceiptModal order={order} loading={submitting} onClose={() => setModal(null)} onConfirm={() => runMutation(() => mutations.confirmReceipt?.(order.id))} />}
       {modal === 'PAY_HANDOFF'      && <PayHandoffModal order={order} handoff={order.handoff} loading={submitting} onClose={() => setModal(null)} onSubmit={(method, isXendit) => runMutation(async () => {
         if (isXendit) {
           const result = await mutations.createPaymentIntent?.(order.id, method)

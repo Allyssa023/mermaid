@@ -34,7 +34,12 @@ export default function AddToCartModal({ listing, onClose }) {
     setSubmitting(true)
     setErr('')
     try {
-      await addItem({ listingId: listing.id, quantityKg: n, notes: notes || null })
+      const result = await addItem({ listingId: listing.id, quantityKg: n, notes: notes || null })
+      if (result?.warning) {
+        setErr(result.warning)
+        setSubmitting(false)
+        return
+      }
       onClose()
     } catch (e) {
       setErr(e?.message ?? 'Could not add to cart')

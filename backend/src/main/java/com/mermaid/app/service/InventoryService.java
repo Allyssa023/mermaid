@@ -147,6 +147,8 @@ public class InventoryService {
 
     @Transactional
     public void deductForOrder(Long orderId) {
+        if (moveRepo.existsByRefOrderId(orderId)) return; // already deducted
+
         Order order = orderRepo.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
 

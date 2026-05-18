@@ -1,0 +1,160 @@
+/* =============================================================
+   Sentri Design System — Foundation tokens
+   Colors · Typography · Spacing · Radius · Elevation
+   ============================================================= */
+
+/* ---- Fonts ----------------------------------------------------
+   Display (proprietary, chunky near-condensed sans) is substituted
+   with Space Grotesk @ 700 — flagged in README.md.
+   UI is Rubik. Code is Monaco / Menlo / Ubuntu Mono fallback.
+*/
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+:root {
+  /* ---- Brand & Accent --------------------------------------- */
+  --primary:                #150f23;  /* Midnight Violet, deepest tone, primary CTA fill on light */
+  --ink-deep:               #1f1633;  /* Ink Violet, hero canvas + default body ink on light */
+  --accent-lime:            #c2ef4e;  /* Signature highlight — keyword chips only */
+  --accent-pink:            #fa7faa;  /* Secondary punctuation — sticker outlines, charts */
+  --accent-violet:          #6a5fc1;  /* Inline link emphasis */
+  --accent-violet-deep:     #422082;  /* Select dropdowns, spotlight cards */
+  --accent-violet-mid:      #79628c;  /* Tag-chip fill, hairline accents on dark */
+
+  /* ---- Surface ---------------------------------------------- */
+  --surface-canvas-dark:    #1f1633;  /* Hero / product page bg */
+  --surface-night:          #150f23;  /* Cards on dark, code blocks, featured pricing */
+  --surface-canvas-light:   #ffffff;  /* Pricing / contact / dense ref */
+  --surface-press-light:    #f0f0f0;  /* Pressed inverted button on dark */
+  --surface-press-stronger: #efefef;  /* Pressed primary button fill */
+  --hairline-violet:        #362d59;  /* 1px borders on dark cards */
+  --hairline-cool:          #cfcfdb;  /* 1px borders on text inputs */
+  --hairline-cloud:         #e5e7eb;  /* Pricing table dividers / light card borders */
+
+  /* ---- Text ------------------------------------------------- */
+  --on-primary:             #ffffff;  /* Text on dark + filled-dark CTA labels */
+  --ink:                    #1f1633;  /* Body on light (same hex as ink-deep, type role) */
+  --ink-press:              #1a1a1a;  /* Pressed inverted button text */
+  --on-dark-muted:          rgba(255,255,255,0.72);
+  --on-dark-faint:          rgba(255,255,255,0.18);
+
+  /* ---- Semantic --------------------------------------------- */
+  --ring-focus:             rgba(59,130,246,0.5);  /* Only blue in the system */
+
+  /* ---- Font families ---------------------------------------- */
+  --font-display: 'Space Grotesk', 'Rubik', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-ui:      'Rubik', -apple-system, system-ui, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-code:    'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+
+  /* ---- Spacing (8px base, plus 2/4/12 satellites) ----------- */
+  --space-xxs:  2px;
+  --space-xs:   4px;
+  --space-sm:   8px;
+  --space-md:   12px;
+  --space-lg:   16px;
+  --space-xl:   24px;
+  --space-xxl:  32px;
+  --space-section: 96px;
+
+  /* ---- Radius ----------------------------------------------- */
+  --radius-xs:   4px;   /* Badges, lime chips */
+  --radius-sm:   6px;   /* Text inputs, search */
+  --radius-md:   8px;   /* Buttons, code blocks, select */
+  --radius-lg:   10px;  /* Generic divs, containers */
+  --radius-xl:   12px;  /* Pricing cards, nav pill chrome */
+  --radius-xxl:  18px;  /* Image containers, hero illustrations */
+  --radius-full: 9999px;
+
+  /* ---- Elevation -------------------------------------------- */
+  --shadow-1: 0 2px 8px 0 rgba(0,0,0,0.08);                                                  /* Inverted button lift */
+  --shadow-2: 0 10px 15px -3px rgba(0,0,0,0.10), 0 4px 6px -4px rgba(0,0,0,0.10);            /* Floating cards on light */
+  --shadow-3: 0 0 8px 6px rgb(21,15,35);                                                     /* Primary CTA glow halo on dark hero */
+  --shadow-4: 0 0.5rem 1.5rem rgba(0,0,0,0.18);                                              /* Pressed inverted */
+  --shadow-input-focus: inset 0 2px 10px rgba(0,0,0,0.15);
+}
+
+/* =============================================================
+   Typography scale — direct utility classes
+   ============================================================= */
+
+.t-display-hero {
+  font-family: var(--font-display);
+  font-size: 88px; font-weight: 700; line-height: 1.2; letter-spacing: 0;
+}
+.t-display-large {
+  font-family: var(--font-display);
+  font-size: 60px; font-weight: 500; line-height: 1.1; letter-spacing: 0;
+}
+.t-heading-xl {
+  font-family: var(--font-ui);
+  font-size: 30px; font-weight: 500; line-height: 1.2;
+}
+.t-heading-lg {
+  font-family: var(--font-ui);
+  font-size: 27px; font-weight: 500; line-height: 1.25;
+}
+.t-heading-md {
+  font-family: var(--font-ui);
+  font-size: 24px; font-weight: 500; line-height: 1.25;
+}
+.t-heading-sm {
+  font-family: var(--font-ui);
+  font-size: 20px; font-weight: 600; line-height: 1.25;
+}
+.t-body-lg {
+  font-family: var(--font-ui);
+  font-size: 16px; font-weight: 400; line-height: 2.0;  /* Marketing leading */
+}
+.t-body-strong {
+  font-family: var(--font-ui);
+  font-size: 16px; font-weight: 600; line-height: 1.5;
+}
+.t-body-md {
+  font-family: var(--font-ui);
+  font-size: 16px; font-weight: 500; line-height: 1.5;  /* UI leading */
+}
+.t-eyebrow {
+  font-family: var(--font-ui);
+  font-size: 15px; font-weight: 500; line-height: 1.4;
+  text-transform: uppercase; letter-spacing: 0.2px;
+}
+.t-button-cap {
+  font-family: var(--font-ui);
+  font-size: 14px; font-weight: 700; line-height: 1.14;
+  text-transform: uppercase; letter-spacing: 0.2px;
+}
+.t-button-cap-light {
+  font-family: var(--font-ui);
+  font-size: 14px; font-weight: 500; line-height: 1.29;
+  text-transform: uppercase; letter-spacing: 0.2px;
+}
+.t-caption {
+  font-family: var(--font-ui);
+  font-size: 14px; font-weight: 400; line-height: 1.43;
+}
+.t-micro-cap {
+  font-family: var(--font-ui);
+  font-size: 10px; font-weight: 600; line-height: 1.8;
+  text-transform: uppercase; letter-spacing: 0.25px;
+}
+.t-code {
+  font-family: var(--font-code);
+  font-size: 16px; font-weight: 400; line-height: 1.5;
+}
+.t-code-strong {
+  font-family: var(--font-code);
+  font-size: 16px; font-weight: 700; line-height: 1.5;
+}
+
+/* =============================================================
+   Signature element — lime keyword chip inside display headlines
+   ============================================================= */
+.chip-lime {
+  background: var(--accent-lime);
+  color: var(--ink-deep);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-md);
+  display: inline-block;
+  /* keeps chip hugging the cap-height */
+  line-height: 1.0;
+  padding-block: 0.05em;
+}

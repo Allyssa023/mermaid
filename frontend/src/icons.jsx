@@ -64,6 +64,23 @@ export const I = {
   Cloud:     (p) => <SVG {...p}><path d="M17.5 19a4.5 4.5 0 1 0-1.5-8.75A6 6 0 1 0 6.5 17h11z"/></SVG>,
   Globe:     (p) => <SVG {...p}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></SVG>,
   Note:      (p) => <SVG {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></SVG>,
+  Inbox:     (p) => <SVG {...p}><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></SVG>,
+  PieChart:  (p) => <SVG {...p}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></SVG>,
+  Bolt:      (p) => <SVG {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></SVG>,
+  External:  (p) => <SVG {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></SVG>,
+  Layers:    (p) => <SVG {...p}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></SVG>,
+  ArrowRight:(p) => <SVG {...p}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></SVG>,
+  Share:     (p) => <SVG {...p}><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></SVG>,
+  Award:     (p) => <SVG {...p}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></SVG>,
+  Activity:  (p) => <SVG {...p}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></SVG>,
+  Waves:     null,
+  Droplet:   null,
+  Thermometer: null,
 };
+
+// Aliases
+I.Waves = I.Wave;
+I.Droplet = I.Drop;
+I.Thermometer = I.Thermo;
 
 export default I;

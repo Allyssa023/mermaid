@@ -1,9 +1,12 @@
 package com.mermaid.app.mapper;
 
+import com.mermaid.app.domain.InventoryLot;
 import com.mermaid.app.domain.StorefrontListing;
+import com.mermaid.app.domain.StorefrontListingLot;
 import com.mermaid.app.model.StorefrontListingResponse;
 import com.mermaid.app.model.StorefrontListingSummary;
 import com.mermaid.app.repository.FishSpeciesRepository;
+import com.mermaid.app.repository.InventoryLotRepository;
 import com.mermaid.app.repository.StorefrontListingLotRepository;
 import com.mermaid.app.repository.UserRepository;
 import org.openapitools.jackson.nullable.JsonNullable;
@@ -19,18 +22,27 @@ public class StorefrontListingMapper {
     private final FishSpeciesRepository speciesRepo;
     private final UserRepository userRepo;
     private final StorefrontListingLotRepository listingLotRepo;
+    private final InventoryLotRepository lotRepo;
 
     public StorefrontListingMapper(FishSpeciesRepository speciesRepo,
                                    UserRepository userRepo,
-                                   StorefrontListingLotRepository listingLotRepo) {
+                                   StorefrontListingLotRepository listingLotRepo,
+                                   InventoryLotRepository lotRepo) {
         this.speciesRepo = speciesRepo;
         this.userRepo = userRepo;
         this.listingLotRepo = listingLotRepo;
+        this.lotRepo = lotRepo;
     }
 
     public StorefrontListingResponse toDto(StorefrontListing entity, BigDecimal availableKg) {
         List<Long> lotIds = listingLotRepo.findByIdListingId(entity.getId())
-                .stream().map(ll -> ll.getLotId()).collect(Collectors.toList());
+                .stream().map(StorefrontListingLot::getLotId).collect(Collectors.toList());
+
+        BigDecimal initialKg = lotIds.isEmpty() ? BigDecimal.ZERO
+                : lotRepo.findAllById(lotIds).stream()
+                        .map(InventoryLot::getInitialKg)
+                        .filter(k -> k != null)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         StorefrontListingResponse dto = new StorefrontListingResponse(
                 entity.getId(),
@@ -55,6 +67,7 @@ public class StorefrontListingMapper {
         dto.setPhotoBelly(JsonNullable.of(entity.getPhotoBelly()));
         dto.setPhotoFlesh(JsonNullable.of(entity.getPhotoFlesh()));
         dto.setAvailableKg(availableKg != null ? availableKg.doubleValue() : 0.0);
+        dto.setInitialKg(JsonNullable.of(initialKg.doubleValue()));
         dto.setDeliveryFee(toDouble(entity.getDeliveryFee()));
         dto.setViewCount(entity.getViewCount());
         return dto;

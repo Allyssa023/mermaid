@@ -18,7 +18,7 @@ export default function InitiatePayoutModal({ order, onClose, onSubmit, loading 
       confirmLabel="Send to my e-wallet"
       loading={loading}
     >
-      <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         Choose where the buyer's payment should land. Make sure your e-wallet
         details are saved in your profile.
       </p>

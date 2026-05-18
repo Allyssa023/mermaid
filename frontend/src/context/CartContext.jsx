@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { apiGet, apiPost, apiPatch, apiDelete } from '../api';
+import { apiGet, apiPatch, apiDelete } from '../api';
+import { addItem as apiAddItem } from '../buyer/api/cart';
 import { useAuth } from './AuthContext';
 
 const CartContext = createContext(null);
@@ -38,12 +39,12 @@ export function CartProvider({ children }) {
   // Mutations throw on failure — callers own their error display.
   // Only refresh() writes to context.error (warranting a full-page block).
 
+  // Returns { cart, warning } — warning is a string when qty was capped to stock limit.
   const addItem = useCallback(async ({ listingId, quantityKg, notes }) => {
-    const data = await apiPost('/buyer/cart/items', null, { listingId, quantityKg, notes });
-    setCart(data || EMPTY);
-    refresh();
-    return data;
-  }, [refresh]);
+    const result = await apiAddItem({ listingId, quantityKg, notes });
+    setCart(result.cart || EMPTY);
+    return result; // { cart, warning }
+  }, []);
 
   const updateItem = useCallback(async (itemId, { quantityKg, notes }) => {
     const data = await apiPatch(`/buyer/cart/items/${itemId}`, null, { quantityKg, notes });

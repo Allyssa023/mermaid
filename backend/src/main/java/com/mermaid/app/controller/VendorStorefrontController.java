@@ -41,7 +41,7 @@ public class VendorStorefrontController implements VendorStorefrontApi {
         Long vendorId = SecurityUtils.currentUserId();
         return ResponseEntity.ok(
                 service.listForVendor(vendorId).stream()
-                        .map(l -> mapper.toDto(l, inventoryService.availableKg(vendorId, l.getSpeciesId())))
+                        .map(l -> mapper.toDto(l, inventoryService.effectiveAvailableKg(l)))
                         .collect(Collectors.toList())
         );
     }
@@ -53,7 +53,7 @@ public class VendorStorefrontController implements VendorStorefrontApi {
         StorefrontListing draft = fromRequest(request);
         StorefrontListing saved = service.create(vendorId, draft, request.getLotIds());
         return ResponseEntity.status(201).body(
-                mapper.toDto(saved, inventoryService.availableKg(vendorId, saved.getSpeciesId())));
+                mapper.toDto(saved, inventoryService.effectiveAvailableKg(saved)));
     }
 
     @Override
@@ -66,7 +66,7 @@ public class VendorStorefrontController implements VendorStorefrontApi {
                 .orElseThrow(() -> new com.mermaid.app.exception.ResourceNotFoundException(
                         "Listing not found: " + listingId));
         return ResponseEntity.ok(
-                mapper.toDto(listing, inventoryService.availableKg(vendorId, listing.getSpeciesId())));
+                mapper.toDto(listing, inventoryService.effectiveAvailableKg(listing)));
     }
 
     @Override
@@ -76,7 +76,7 @@ public class VendorStorefrontController implements VendorStorefrontApi {
         StorefrontListing patch = fromUpdateRequest(request);
         StorefrontListing saved = service.update(vendorId, listingId, patch, null);
         return ResponseEntity.ok(
-                mapper.toDto(saved, inventoryService.availableKg(vendorId, saved.getSpeciesId())));
+                mapper.toDto(saved, inventoryService.effectiveAvailableKg(saved)));
     }
 
     @Override
@@ -90,7 +90,7 @@ public class VendorStorefrontController implements VendorStorefrontApi {
         Long vendorId = SecurityUtils.currentUserId();
         StorefrontListing listing = service.publish(vendorId, listingId);
         return ResponseEntity.ok(
-                mapper.toDto(listing, inventoryService.availableKg(vendorId, listing.getSpeciesId())));
+                mapper.toDto(listing, inventoryService.effectiveAvailableKg(listing)));
     }
 
     @Override
@@ -113,7 +113,7 @@ public class VendorStorefrontController implements VendorStorefrontApi {
         Long vendorId = SecurityUtils.currentUserId();
         StorefrontListing listing = service.unpublish(vendorId, listingId);
         return ResponseEntity.ok(
-                mapper.toDto(listing, inventoryService.availableKg(vendorId, listing.getSpeciesId())));
+                mapper.toDto(listing, inventoryService.effectiveAvailableKg(listing)));
     }
 
     private StorefrontListing fromRequest(StorefrontListingRequest req) {

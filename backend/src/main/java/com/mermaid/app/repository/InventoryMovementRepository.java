@@ -8,4 +8,6 @@ import java.util.List;
 public interface InventoryMovementRepository extends JpaRepository<InventoryMovement, Long> {
 
     List<InventoryMovement> findByLotIdOrderByCreatedAtAsc(Long lotId);
+
+    boolean existsByRefOrderId(Long refOrderId);
 }

@@ -5,7 +5,7 @@ CREATE TABLE login_events (
   user_id      BIGINT NOT NULL REFERENCES users(id),
   logged_in_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_login_events_date ON login_events (DATE(logged_in_at));
+CREATE INDEX idx_login_events_date ON login_events (logged_in_at);
 
 CREATE TABLE audit_log (
   id         BIGSERIAL PRIMARY KEY,

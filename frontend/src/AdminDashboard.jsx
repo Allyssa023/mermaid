@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import gsap from 'gsap'
 import { I } from './icons'
 import {
   fetchAdminUsers, updateAdminUser, createAdminUser,
@@ -8,6 +9,7 @@ import {
   fetchAdminLocations, createLocation, updateLocation, deleteLocation, reactivateLocation,
   fetchAdminMetrics, fetchAdminDau, fetchAdminHealth, fetchAdminAuditLog,
 } from './api/admin.js'
+import './admin.css'
 
 function relativeTime(iso) {
   if (!iso) return 'Never'
@@ -57,12 +59,21 @@ const ROLE_NAV = {
   },
 }
 
-function Rail({ role, page, setPage, onTweaks, onSwitchRole, user, advisoryBadge }) {
+function Rail({ role, page, setPage, onLogout, user, advisoryBadge }) {
   const cfg = ROLE_NAV[role]
   const initials = user
     ? user.fullName.split(' ').map(s => s[0]).join('').slice(0, 2).toUpperCase()
     : '?'
   const firstName = user?.fullName?.split(' ')[0] || 'Admin'
+  const prevPageRef = useRef(page)
+
+  useEffect(() => {
+    if (prevPageRef.current === page) return
+    prevPageRef.current = page
+    const activeEl = document.querySelector('.admin-shell .rail-item--on')
+    if (!activeEl) return
+    gsap.fromTo(activeEl, { x: -4 }, { x: 0, duration: 0.18, ease: 'power2.out', clearProps: 'transform' })
+  }, [page])
 
   return (
     <aside className="rail">
@@ -88,18 +99,16 @@ function Rail({ role, page, setPage, onTweaks, onSwitchRole, user, advisoryBadge
         })}
 
         <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
-        <div className="rail-item" onClick={onSwitchRole} data-tip="Switch role (demo)">
+        <button
+          type="button"
+          className="rail-item"
+          onClick={onLogout}
+          data-tip="Sign out"
+          style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', color: 'inherit' }}
+        >
           <div className="rail-item__icon"><I.Logout size={18} /></div>
-          <div className="rail-item__text">Switch role</div>
-        </div>
-        <div className="rail-item" onClick={onTweaks} data-tip="Tweak appearance">
-          <div className="rail-item__icon"><I.Settings size={18} /></div>
-          <div className="rail-item__text">Settings</div>
-        </div>
-        <div className="rail-item" data-tip="Help & docs">
-          <div className="rail-item__icon"><I.Help size={18} /></div>
-          <div className="rail-item__text">Help</div>
-        </div>
+          <div className="rail-item__text">Sign Out</div>
+        </button>
       </div>
 
       <div className="rail__bottom">
@@ -167,6 +176,67 @@ function AdminOverviewPage({ setPage, user, metrics: metricsProp }) {
   const firstName = user?.fullName?.split(' ')[0] || 'Admin'
   const STATUS_CLASS = { OK: 'safe', WARN: 'warn', DOWN: 'unsafe', N_A: 'inactive' }
 
+  const metricCardsRef = useRef([])
+  const metricsRef = useRef([])
+  const dauBarsRef = useRef([])
+  const roleBarFillsRef = useRef([])
+
+  const pct = M.totalUsers ? Math.round((M.activeNow ?? 0) / M.totalUsers * 100) : 0
+
+  const METRIC_VALUES = [
+    M.totalUsers ?? 0,
+    M.activeNow ?? 0,
+    M.tripsToday ?? 0,
+    M.ordersToday ?? 0,
+    M.disputedOrders ?? 0,
+    M.activeAdvisories ?? 0,
+  ]
+
+  useEffect(() => {
+    const cards = metricCardsRef.current.filter(Boolean)
+    if (!cards.length) return
+    gsap.killTweensOf(cards)
+    gsap.from(cards, {
+      y: 20, opacity: 0, duration: 0.35, stagger: 0.06,
+      ease: 'power2.out', clearProps: 'opacity,transform',
+    })
+    metricsRef.current.forEach((el, i) => {
+      if (!el) return
+      const obj = { v: 0 }
+      gsap.killTweensOf(obj)
+      gsap.to(obj, {
+        v: METRIC_VALUES[i], duration: 0.9, delay: i * 0.06 + 0.15, ease: 'power2.out',
+        onUpdate: () => { if (el) el.textContent = Math.round(obj.v).toLocaleString() },
+      })
+    })
+    return () => {
+      gsap.killTweensOf(cards)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [M.totalUsers, M.activeNow, M.tripsToday, M.ordersToday, M.disputedOrders, M.activeAdvisories])
+
+  useEffect(() => {
+    const bars = dauBarsRef.current.filter(Boolean)
+    if (!bars.length) return
+    gsap.killTweensOf(bars)
+    gsap.from(bars, {
+      scaleY: 0, transformOrigin: 'bottom center',
+      duration: 0.45, stagger: 0.015, ease: 'power2.out', clearProps: 'transform',
+    })
+    return () => gsap.killTweensOf(bars)
+  }, [dau.length])
+
+  useEffect(() => {
+    const fills = roleBarFillsRef.current.filter(Boolean)
+    if (!fills.length) return
+    gsap.killTweensOf(fills)
+    gsap.from(fills, {
+      scaleX: 0, transformOrigin: 'left center',
+      duration: 0.5, stagger: 0.08, ease: 'power2.out', clearProps: 'transform',
+    })
+    return () => gsap.killTweensOf(fills)
+  }, [M.totalUsers])
+
   return (
     <div className="page">
       <div className="page__head">
@@ -183,14 +253,25 @@ function AdminOverviewPage({ setPage, user, metrics: metricsProp }) {
         </div>
       </div>
 
-      {/* Metric strip */}
-      <div className="orders-strip">
-        <div className="stat"><div className="l">Total users</div><div className="v">{(M.totalUsers ?? 0).toLocaleString()}</div><div className="s">+{M.newThisWeek ?? 0} this week</div></div>
-        <div className="stat"><div className="l">Active now</div><div className="v">{M.activeNow ?? 0}</div><div className="s">{M.totalUsers ? Math.round((M.activeNow ?? 0)/(M.totalUsers)*100) : 0}% of base</div></div>
-        <div className="stat"><div className="l">Trips today</div><div className="v">{M.tripsToday ?? 0}</div><div className="s">{M.activeTrips ?? 0} live now</div></div>
-        <div className="stat"><div className="l">Orders today</div><div className="v">{M.ordersToday ?? 0}</div><div className="s">—</div></div>
-        <div className="stat"><div className="l">Disputes</div><div className="v" style={{color: (M.disputedOrders ?? 0) > 5 ? 'var(--unsafe)' : 'var(--ink)'}}>{M.disputedOrders ?? 0}</div><div className="s">Need review</div></div>
-        <div className="stat"><div className="l">Uptime</div><div className="v">—</div><div className="s">Last 30 days</div></div>
+      {/* Metric card grid */}
+      <div className="admin-metric-grid">
+        {[
+          { label: 'Total Users',   value: 0, sub: `+${M.newThisWeek ?? 0} this week`,    mod: '' },
+          { label: 'Active Now',    value: 1, sub: `${pct}% of base`,                      mod: 'metric-card--spotlight' },
+          { label: 'Trips Today',   value: 2, sub: `${M.activeTrips ?? 0} live now`,       mod: '' },
+          { label: 'Orders Today',  value: 3, sub: `${M.totalOrders ?? 0} total`,          mod: '' },
+          { label: 'Disputes',      value: 4, sub: 'Need review',                          mod: (M.disputedOrders ?? 0) > 0 ? 'metric-card--danger' : '' },
+          { label: 'Advisories',    value: 5, sub: 'Active now',                           mod: '' },
+        ].map((mc, i) => (
+          <div key={mc.label}
+            className={`metric-card anim-card${mc.mod ? ' ' + mc.mod : ''}`}
+            ref={el => { metricCardsRef.current[i] = el }}
+          >
+            <div className="metric-card__label">{mc.label}</div>
+            <div className="metric-card__value anim-metric" ref={el => { metricsRef.current[i] = el }}>0</div>
+            <div className="metric-card__sub">{mc.sub}</div>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid--2-1" style={{marginTop: 18}}>
@@ -198,7 +279,7 @@ function AdminOverviewPage({ setPage, user, metrics: metricsProp }) {
         <div className="card">
           <div className="card__head">
             <div>
-              <div className="card__title">Daily active users · 30 days</div>
+              <div className="card__title">Daily active <span className="lime-chip">users</span> · 30 days</div>
               <div className="card__sub">Average {Math.round(dau.reduce((a,d)=>a+d.count,0)/Math.max(dau.length,1))} DAU</div>
             </div>
             <div className="seg seg--sm">
@@ -207,21 +288,20 @@ function AdminOverviewPage({ setPage, user, metrics: metricsProp }) {
               <button>Orders</button>
             </div>
           </div>
-          <div style={{display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, padding: '0 4px'}}>
+          <div className="adm-dau-chart">
             {dau.map((d, i) => {
               const h = (d.count / max) * 100
               return (
-                <div key={i} style={{flex: 1, display:'flex', flexDirection:'column', alignItems:'center', gap: 4}}>
-                  <div style={{
-                    width: '100%', height: `${h}%`,
-                    background: i === dau.length - 1 ? 'var(--accent)' : 'var(--ink-soft)',
-                    borderRadius: '3px 3px 0 0', minHeight: 4,
-                  }} />
-                </div>
+                <div
+                  key={i}
+                  className={`adm-bar${i === dau.length - 1 ? ' adm-bar--latest' : ''}`}
+                  style={{ height: `${h}%` }}
+                  ref={el => { dauBarsRef.current[i] = el }}
+                />
               )
             })}
           </div>
-          <div className="row" style={{justifyContent:'space-between', marginTop: 8, fontSize: 10, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)'}}>
+          <div className="dau-axis">
             <span>30 days ago</span>
             <span>Today</span>
           </div>
@@ -241,7 +321,7 @@ function AdminOverviewPage({ setPage, user, metrics: metricsProp }) {
               { name: 'Vendors',   count: M.vendors ?? 0,   color: 'oklch(0.55 0.09 55)' },
               { name: 'Buyers',    count: M.buyers ?? 0, color: 'oklch(0.55 0.07 150)' },
               { name: 'Admins',    count: M.admins ?? 0,    color: 'oklch(0.50 0.10 330)' },
-            ].map(r => {
+            ].map((r, ri) => {
               const pct = M.totalUsers ? (r.count / M.totalUsers) * 100 : 0
               return (
                 <div key={r.name} className="role-bar">
@@ -250,7 +330,8 @@ function AdminOverviewPage({ setPage, user, metrics: metricsProp }) {
                     <strong>{r.count.toLocaleString()}</strong>
                   </div>
                   <div className="role-bar__track">
-                    <div className="role-bar__fill" style={{width: `${pct}%`, background: r.color}} />
+                    <div className="role-bar__fill" style={{width: `${pct}%`, background: r.color}}
+                      ref={el => { roleBarFillsRef.current[ri] = el }} />
                   </div>
                   <div className="role-bar__pct">{pct.toFixed(1)}%</div>
                 </div>
@@ -394,7 +475,7 @@ function AdminUsersPage() {
       <div className="page__head">
         <div>
           <div className="eyebrow">Users</div>
-          <h1 className="page__title" style={{marginTop: 4}}>User <em>Management</em></h1>
+          <h1 className="page__title" style={{marginTop: 4}}>User <span className="lime-chip">Management</span></h1>
           <p className="page__sub">{users.length} accounts · {users.filter(u=>u.active).length} active.</p>
         </div>
         <div className="page__actions">
@@ -582,7 +663,7 @@ function AdminAdvisoriesPage() {
       <div className="page__head">
         <div>
           <div className="eyebrow">Safety</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Marine <em>Advisories</em></h1>
+          <h1 className="page__title" style={{marginTop: 4}}>Marine <span className="lime-chip">Advisories</span></h1>
           <p className="page__sub">{advisories.filter(a=>a.isActive).length} active advisories broadcasting to fishermen and vendors.</p>
         </div>
         <div className="page__actions">
@@ -702,7 +783,7 @@ function AdminSpeciesPage() {
       <div className="page__head">
         <div>
           <div className="eyebrow">Lookups</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Fish <em>Species</em></h1>
+          <h1 className="page__title" style={{marginTop: 4}}>Fish <span className="lime-chip">Species</span></h1>
           <p className="page__sub">{species.filter(s=>s.active).length} active species in the catalog.</p>
         </div>
         <div className="page__actions">
@@ -824,7 +905,7 @@ function AdminLocationsPage() {
       <div className="page__head">
         <div>
           <div className="eyebrow">Lookups</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Market <em>Locations</em></h1>
+          <h1 className="page__title" style={{marginTop: 4}}>Market <span className="lime-chip">Locations</span></h1>
           <p className="page__sub">{locations.filter(l=>l.active).length} active locations across {provinces.size} provinces.</p>
         </div>
         <div className="page__actions">
@@ -895,7 +976,7 @@ function AdminAuditPage() {
       <div className="page__head">
         <div>
           <div className="eyebrow">Compliance</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Audit <em>Log</em></h1>
+          <h1 className="page__title" style={{marginTop: 4}}>Audit <span className="lime-chip">Log</span></h1>
           <p className="page__sub">All admin and system actions, ordered by recency.</p>
         </div>
         <div className="page__actions">
@@ -1018,7 +1099,7 @@ function AdminBfarPage() {
       <div className="page__head">
         <div>
           <div className="eyebrow">Reference Data</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}>BFAR <em>Reference Prices</em></h1>
+          <h1 className="page__title" style={{ marginTop: 4 }}>BFAR <span className="lime-chip">Prices</span></h1>
           <p className="page__sub">Weekly benchmark prices per species. Displayed to fishermen when settling catches.</p>
         </div>
         <div className="page__actions">
@@ -1061,6 +1142,7 @@ function AdminBfarPage() {
 export default function AdminDashboard({ user, onLogout }) {
   const [page, setPage] = useState('aoverview')
   const { data: metrics } = useQuery({ queryKey: ['admin-metrics'], queryFn: fetchAdminMetrics })
+  const pageContentRef = useRef(null)
 
   const PAGES = {
     aoverview:   AdminOverviewPage,
@@ -1073,16 +1155,35 @@ export default function AdminDashboard({ user, onLogout }) {
   }
   const PageCmp = PAGES[page] || AdminOverviewPage
 
+  function navigateTo(newPage) {
+    if (newPage === page) return
+    const el = pageContentRef.current
+    if (!el) { setPage(newPage); return }
+    gsap.killTweensOf(el)
+    gsap.to(el, {
+      opacity: 0, y: -8, duration: 0.12, ease: 'power2.in',
+      onComplete: () => {
+        setPage(newPage)
+        gsap.fromTo(el,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.22, ease: 'power2.out', clearProps: 'opacity,transform' }
+        )
+      },
+    })
+  }
+
   return (
-    <div className="app" data-accent="plum" data-density="balanced">
+    <div className="app admin-shell" data-accent="plum" data-density="balanced">
       <Rail
-        role="ADMIN" page={page} setPage={setPage}
-        onTweaks={() => {}} onSwitchRole={onLogout || (() => {})}
+        role="ADMIN" page={page} setPage={navigateTo}
+        onLogout={onLogout}
         user={user} advisoryBadge={metrics?.activeAdvisories ?? 0}
       />
       <main className="main">
         <Topbar role="ADMIN" page={page} />
-        <PageCmp setPage={setPage} user={user} metrics={metrics} />
+        <div ref={pageContentRef} className="page-anim-wrapper">
+          <PageCmp setPage={navigateTo} user={user} metrics={metrics} />
+        </div>
       </main>
     </div>
   )

@@ -1,0 +1,1093 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+
+/* ─── Admin Sentri Token Variables ────────────────────────────────────────── */
+.admin-shell {
+  --adm-canvas:         #150F23;
+  --adm-canvas-2:       #1F1633;
+  --adm-card:           #150F23;
+  --adm-card-hover:     #1F1633;
+  --adm-spotlight:      #422082;
+
+  --adm-lime:           #C2EF4E;
+  --adm-pink:           #FA7FAA;
+  --adm-violet:         #6A5FC1;
+  --adm-violet-deep:    #422082;
+  --adm-violet-mid:     #79628C;
+
+  --adm-ink:            #FFFFFF;
+  --adm-ink-muted:      rgba(255,255,255,0.72);
+  --adm-ink-faint:      rgba(255,255,255,0.18);
+
+  --adm-hairline:       #362D59;
+  --adm-hairline-soft:  rgba(255,255,255,0.06);
+
+  --adm-safe:           #6EE7B7;
+  --adm-safe-soft:      rgba(110,231,183,0.12);
+  --adm-warn:           #FCD34D;
+  --adm-warn-soft:      rgba(252,211,77,0.12);
+  --adm-danger:         #FB7185;
+  --adm-danger-soft:    rgba(251,113,133,0.14);
+
+  --adm-r-chip:         4px;
+  --adm-r-input:        6px;
+  --adm-r-btn:          8px;
+  --adm-r-container:    10px;
+  --adm-r-card:         12px;
+  --adm-r-hero:         18px;
+
+  --adm-shadow-lift:    0 2px 8px rgba(0,0,0,0.24);
+  --adm-shadow-float:   0 10px 36px -8px rgba(0,0,0,0.38);
+  --adm-shadow-glow:    0 0 8px 6px rgb(21,15,35);
+
+  --adm-font-ui:        'Rubik', system-ui, sans-serif;
+  --adm-font-mono:      'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ─── Shell Layout ────────────────────────────────────────────────────────── */
+.admin-shell.app {
+  background: var(--adm-canvas);
+  color: var(--adm-ink);
+  font-family: var(--adm-font-ui);
+}
+
+.admin-shell .main {
+  background:
+    radial-gradient(900px 600px at 88% -10%, rgba(106,95,193,0.14), transparent 60%),
+    radial-gradient(700px 500px at -5% 90%, rgba(66,32,130,0.10), transparent 65%),
+    var(--adm-canvas);
+  color: var(--adm-ink);
+  font-family: var(--adm-font-ui);
+}
+
+/* ─── Rail ────────────────────────────────────────────────────────────────── */
+.admin-shell .rail {
+  background: linear-gradient(180deg, #1A1035 0%, #0F0820 100%);
+  border-right: 1px solid var(--adm-hairline);
+}
+
+.admin-shell .rail__logo-mark {
+  background: radial-gradient(120% 120% at 30% 20%, #6A5FC1 0%, #2B1466 60%, #0C0820 100%);
+  color: var(--adm-lime);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14), 0 8px 22px -10px rgba(106,95,193,0.7);
+  font-family: var(--adm-font-ui);
+  font-weight: 700;
+}
+
+.admin-shell .rail__label {
+  color: var(--adm-ink-faint);
+  font-family: var(--adm-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.admin-shell .rail-item {
+  color: var(--adm-ink-muted);
+  font-family: var(--adm-font-ui);
+  font-weight: 400;
+  border-radius: 8px;
+}
+
+.admin-shell .rail-item:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--adm-ink);
+}
+
+.admin-shell .rail-item--on {
+  background: linear-gradient(90deg, rgba(106,95,193,0.22), rgba(106,95,193,0.06));
+  color: var(--adm-ink);
+  box-shadow: inset 0 0 0 1px rgba(122,90,255,0.32);
+}
+
+.admin-shell .rail-item--on::before {
+  background: var(--adm-lime) !important;
+  box-shadow: 0 0 8px var(--adm-lime) !important;
+}
+
+.admin-shell .rail-item__badge {
+  background: var(--adm-lime);
+  color: #1F1633;
+  font-family: var(--adm-font-mono);
+  font-weight: 700;
+}
+
+.admin-shell .rail__avatar {
+  background: linear-gradient(135deg, #6A5FC1, #FA7FAA);
+  border-radius: 8px;
+  font-family: var(--adm-font-ui);
+  font-weight: 600;
+}
+
+.admin-shell .rail__user-name {
+  color: var(--adm-ink);
+  font-family: var(--adm-font-ui);
+  font-weight: 500;
+}
+
+.admin-shell .rail__user-role {
+  color: var(--adm-ink-faint);
+  font-family: var(--adm-font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-shell .rail__bottom {
+  border-top: 1px solid var(--adm-hairline);
+}
+
+/* ─── Topbar ──────────────────────────────────────────────────────────────── */
+.admin-shell .topbar {
+  background: rgba(21,15,35,0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--adm-hairline-soft);
+  font-family: var(--adm-font-ui);
+}
+
+.admin-shell .crumbs {
+  color: var(--adm-ink-faint);
+  font-family: var(--adm-font-mono);
+  font-size: 12px;
+}
+
+.admin-shell .crumbs strong {
+  color: var(--adm-ink);
+  font-weight: 600;
+}
+
+.admin-shell .topbar__search {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--adm-hairline);
+  color: var(--adm-ink-muted);
+  border-radius: var(--adm-r-input);
+}
+
+.admin-shell .topbar__search input {
+  color: var(--adm-ink);
+  background: transparent;
+}
+
+.admin-shell .topbar__search input::placeholder {
+  color: var(--adm-ink-faint);
+}
+
+.admin-shell .topbar__search:focus-within {
+  border-color: var(--adm-violet);
+  background: rgba(255,255,255,0.06);
+}
+
+.admin-shell .topbar__search kbd {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--adm-hairline);
+  color: var(--adm-ink-faint);
+  font-family: var(--adm-font-mono);
+}
+
+.admin-shell .topbar__icon-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--adm-hairline);
+  color: var(--adm-ink-muted);
+  border-radius: 10px;
+}
+
+.admin-shell .topbar__icon-btn:hover {
+  color: var(--adm-ink);
+  border-color: var(--adm-violet);
+  background: rgba(255,255,255,0.08);
+}
+
+.admin-shell .topbar__icon-btn .dot {
+  background: var(--adm-lime);
+  box-shadow: 0 0 6px var(--adm-lime);
+}
+
+/* ─── Page Chrome ─────────────────────────────────────────────────────────── */
+.admin-shell .page {
+  background: transparent;
+}
+
+.admin-shell .eyebrow {
+  color: var(--adm-lime);
+  font-family: var(--adm-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.admin-shell .page__title {
+  font-family: var(--adm-font-ui);
+  font-weight: 600;
+  font-size: 34px;
+  color: var(--adm-ink);
+  letter-spacing: -0.02em;
+}
+
+.admin-shell .page__title em {
+  color: var(--adm-lime);
+  font-style: normal;
+}
+
+.admin-shell .page__sub {
+  color: var(--adm-ink-muted);
+  font-family: var(--adm-font-ui);
+  font-size: 13.5px;
+}
+
+/* ─── Lime Chip ───────────────────────────────────────────────────────────── */
+.admin-shell .lime-chip {
+  color: var(--adm-lime);
+  font-style: normal;
+}
+
+/* ─── Card ────────────────────────────────────────────────────────────────── */
+.admin-shell .card {
+  background: var(--adm-card);
+  border: 1px solid var(--adm-hairline);
+  border-radius: var(--adm-r-card);
+  box-shadow: var(--adm-shadow-lift);
+  color: var(--adm-ink);
+}
+
+.admin-shell .card__title {
+  color: var(--adm-ink);
+  font-family: var(--adm-font-ui);
+  font-weight: 600;
+}
+
+.admin-shell .card__sub {
+  color: var(--adm-ink-muted);
+  font-family: var(--adm-font-mono);
+  font-size: 11px;
+}
+
+.admin-shell .card__head {
+  border-bottom: 1px solid var(--adm-hairline);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+/* ─── Metric Card Grid ────────────────────────────────────────────────────── */
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 1400px) {
+  .admin-metric-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 900px) {
+  .admin-metric-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.admin-shell .metric-card {
+  background: var(--adm-card);
+  border: 1px solid var(--adm-hairline);
+  border-radius: var(--adm-r-card);
+  padding: 20px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  cursor: default;
+}
+
+.admin-shell .metric-card:hover {
+  border-color: var(--adm-violet);
+  transform: translateY(-2px);
+}
+
+.admin-shell .metric-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(80px 60px at 0% 0%, rgba(106,95,193,0.10), transparent 60%);
+}
+
+.admin-shell .metric-card--spotlight {
+  background: var(--adm-spotlight);
+  border-color: rgba(106,95,193,0.5);
+}
+
+.admin-shell .metric-card--spotlight::before {
+  background: radial-gradient(80px 60px at 0% 0%, rgba(255,255,255,0.08), transparent 60%);
+}
+
+.admin-shell .metric-card__label {
+  font-family: var(--adm-font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--adm-ink-faint);
+  margin-bottom: 4px;
+}
+
+.admin-shell .metric-card__value {
+  font-family: var(--adm-font-mono);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--adm-ink);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-shell .metric-card--spotlight .metric-card__value {
+  color: var(--adm-lime);
+}
+
+.admin-shell .metric-card--danger .metric-card__value {
+  color: var(--adm-danger);
+}
+
+.admin-shell .metric-card__sub {
+  font-family: var(--adm-font-mono);
+  font-size: 10.5px;
+  color: var(--adm-ink-muted);
+  margin-top: 6px;
+}
+
+/* ─── DAU Chart ───────────────────────────────────────────────────────────── */
+.admin-shell .adm-dau-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 160px;
+  padding: 0 4px;
+}
+
+.admin-shell .adm-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+  background: var(--adm-hairline);
+  transition: background 0.15s;
+  transform-origin: bottom center;
+}
+
+.admin-shell .adm-bar:hover {
+  background: rgba(194,239,78,0.45);
+}
+
+.admin-shell .adm-bar--latest {
+  background: var(--adm-lime) !important;
+  box-shadow: 0 -4px 14px rgba(194,239,78,0.4);
+}
+
+.admin-shell .dau-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--adm-ink-faint);
+  font-family: var(--adm-font-mono);
+}
+
+/* ─── System Health — Terminal Style ─────────────────────────────────────── */
+.admin-shell .health-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.admin-shell .health-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--adm-hairline-soft);
+  font-family: var(--adm-font-mono);
+  font-size: 12px;
+  position: relative;
+}
+
+.admin-shell .health-item:last-child {
+  border-bottom: none;
+}
+
+.admin-shell .health-item::before {
+  content: '>';
+  color: var(--adm-lime);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.admin-shell .health-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-shell .health-item__name {
+  color: var(--adm-ink);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.admin-shell .health-item__detail {
+  color: var(--adm-ink-faint);
+  font-size: 10.5px;
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell .health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.admin-shell .health-dot--ok {
+  background: var(--adm-safe);
+  box-shadow: 0 0 6px rgba(110,231,183,0.6);
+}
+
+.admin-shell .health-dot--warn {
+  background: var(--adm-warn);
+  box-shadow: 0 0 6px rgba(252,211,77,0.6);
+}
+
+.admin-shell .health-dot--down {
+  background: var(--adm-danger);
+  box-shadow: 0 0 6px rgba(251,113,133,0.6);
+}
+
+.admin-shell .health-dot--n_a {
+  background: var(--adm-ink-faint);
+}
+
+.admin-shell .health-item .chip--safe {
+  background: var(--adm-safe-soft);
+  color: var(--adm-safe);
+  border: 1px solid rgba(110,231,183,0.25);
+  font-family: var(--adm-font-mono);
+}
+
+.admin-shell .health-item .chip--warn {
+  background: var(--adm-warn-soft);
+  color: var(--adm-warn);
+  border: 1px solid rgba(252,211,77,0.25);
+  font-family: var(--adm-font-mono);
+}
+
+.admin-shell .health-item .chip--unsafe {
+  background: var(--adm-danger-soft);
+  color: var(--adm-danger);
+  border: 1px solid rgba(251,113,133,0.25);
+  font-family: var(--adm-font-mono);
+}
+
+.admin-shell .health-item .chip--inactive {
+  background: rgba(255,255,255,0.04);
+  color: var(--adm-ink-faint);
+  border: 1px solid var(--adm-hairline);
+  font-family: var(--adm-font-mono);
+}
+
+/* ─── Role Mix Bars ───────────────────────────────────────────────────────── */
+.admin-shell .role-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-shell .role-bar__head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--adm-ink-muted);
+  margin-bottom: 6px;
+  font-family: var(--adm-font-ui);
+}
+
+.admin-shell .role-bar__head strong {
+  color: var(--adm-ink);
+  font-family: var(--adm-font-mono);
+  font-weight: 600;
+}
+
+.admin-shell .role-bar__track {
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.admin-shell .role-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+}
+
+.admin-shell .role-bar__pct {
+  font-family: var(--adm-font-mono);
+  font-size: 10px;
+  color: var(--adm-ink-faint);
+  margin-top: 4px;
+}
+
+/* ─── Advisories ──────────────────────────────────────────────────────────── */
+.admin-shell .advisory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+}
+
+.admin-shell .advisory-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--adm-hairline);
+  border-radius: var(--adm-r-container);
+  transition: border-color 0.15s ease;
+}
+
+.admin-shell .advisory-item:hover {
+  border-color: var(--adm-violet);
+}
+
+.admin-shell .advisory-item__sev {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  border-radius: var(--adm-r-container);
+  min-width: 58px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.admin-shell .advisory-item__sev span {
+  font-family: var(--adm-font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.admin-shell .advisory-item--low .advisory-item__sev {
+  background: var(--adm-safe-soft);
+  color: var(--adm-safe);
+}
+
+.admin-shell .advisory-item--medium .advisory-item__sev {
+  background: var(--adm-warn-soft);
+  color: var(--adm-warn);
+}
+
+.admin-shell .advisory-item--high .advisory-item__sev {
+  background: var(--adm-danger-soft);
+  color: var(--adm-danger);
+}
+
+.admin-shell .advisory-item--critical .advisory-item__sev {
+  background: var(--adm-danger-soft);
+  color: var(--adm-danger);
+}
+
+@keyframes adm-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(251,113,133,0); }
+  50%       { box-shadow: 0 0 18px 6px rgba(251,113,133,0.28); }
+}
+
+.admin-shell .advisory-item--critical {
+  border-color: rgba(251,113,133,0.35);
+  animation: adm-glow-pulse 2.2s ease-in-out infinite;
+}
+
+.admin-shell .advisory-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-shell .advisory-item__body h3 {
+  color: var(--adm-ink);
+  font-family: var(--adm-font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.admin-shell .advisory-item__body p {
+  color: var(--adm-ink-muted);
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 4px;
+}
+
+.admin-shell .advisory-item__body .chip {
+  background: rgba(255,255,255,0.06);
+  color: var(--adm-ink-muted);
+  border: 1px solid var(--adm-hairline);
+  font-family: var(--adm-font-mono);
+  font-size: 10px;
+}
+
+.admin-shell .advisory-item__meta {
+  color: var(--adm-ink-faint);
+  font-family: var(--adm-font-mono);
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.admin-shell .advisory-item__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ─── Location Cards ──────────────────────────────────────────────────────── */
+.admin-shell .locations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.admin-shell .location-card {
+  background: var(--adm-card);
+  border: 1px solid var(--adm-hairline);
+  border-radius: var(--adm-r-card);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.admin-shell .location-card:hover {
+  border-color: var(--adm-violet);
+  transform: translateY(-2px);
+}
+
+.admin-shell .location-card--inactive {
+  opacity: 0.45;
+}
+
+.admin-shell .location-card__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--adm-font-mono);
+  font-size: 10.5px;
+  color: var(--adm-ink-faint);
+  border-bottom: 1px solid var(--adm-hairline);
+  padding-bottom: 10px;
+}
+
+.admin-shell .location-card__name {
+  font-family: var(--adm-font-ui);
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--adm-ink);
+  margin: 0;
+}
+
+.admin-shell .location-card__stats .l {
+  font-family: var(--adm-font-mono);
+  font-size: 9.5px;
+  color: var(--adm-ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-shell .location-card__stats .v {
+  font-family: var(--adm-font-mono);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+/* ─── Role Pills ──────────────────────────────────────────────────────────── */
+.admin-shell .role-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--adm-r-chip);
+  font-family: var(--adm-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-shell .role-pill--fisherman {
+  background: rgba(106,95,193,0.16);
+  color: #A89EF5;
+  border: 1px solid rgba(106,95,193,0.3);
+}
+
+.admin-shell .role-pill--vendor {
+  background: rgba(94,200,230,0.12);
+  color: #7DD7EF;
+  border: 1px solid rgba(94,200,230,0.25);
+}
+
+.admin-shell .role-pill--buyer {
+  background: rgba(194,239,78,0.12);
+  color: var(--adm-lime);
+  border: 1px solid rgba(194,239,78,0.25);
+}
+
+.admin-shell .role-pill--admin {
+  background: rgba(250,127,170,0.14);
+  color: var(--adm-pink);
+  border: 1px solid rgba(250,127,170,0.3);
+}
+
+/* ─── Users Table ─────────────────────────────────────────────────────────── */
+.admin-shell .tbl {
+  color: var(--adm-ink-muted);
+}
+
+.admin-shell .tbl th {
+  background: rgba(255,255,255,0.02);
+  color: var(--adm-ink-faint);
+  border-bottom: 1px solid var(--adm-hairline);
+  font-family: var(--adm-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-shell .tbl td {
+  color: var(--adm-ink-muted);
+  border-bottom: 1px solid var(--adm-hairline-soft);
+  font-family: var(--adm-font-ui);
+}
+
+.admin-shell .tbl tr.row--link:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.admin-shell .user-avatar {
+  background: linear-gradient(135deg, #6A5FC1, #FA7FAA);
+  color: white;
+  border-radius: 8px;
+  font-family: var(--adm-font-ui);
+  font-weight: 600;
+}
+
+.admin-shell .status--active {
+  color: var(--adm-safe);
+  font-family: var(--adm-font-ui);
+  font-size: 12.5px;
+}
+
+.admin-shell .status--inactive {
+  color: var(--adm-ink-faint);
+  font-family: var(--adm-font-ui);
+  font-size: 12.5px;
+}
+
+.admin-shell .status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  margin-right: 5px;
+}
+
+/* ─── Audit Log ───────────────────────────────────────────────────────────── */
+.admin-shell .tbl--audit td {
+  font-family: var(--adm-font-mono);
+  font-size: 12px;
+}
+
+.admin-shell .tbl--audit tr:hover td {
+  background: rgba(255,255,255,0.015);
+}
+
+.admin-shell .audit-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: var(--adm-r-chip);
+  font-family: var(--adm-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-shell .audit-tag--user {
+  background: rgba(106,95,193,0.16);
+  color: #A89EF5;
+}
+
+.admin-shell .audit-tag--advisory {
+  background: rgba(251,113,133,0.14);
+  color: var(--adm-danger);
+}
+
+.admin-shell .audit-tag--lookup {
+  background: rgba(194,239,78,0.12);
+  color: var(--adm-lime);
+}
+
+.admin-shell .audit-tag--flag {
+  background: rgba(252,211,77,0.12);
+  color: var(--adm-warn);
+}
+
+.admin-shell .audit-tag--system {
+  background: rgba(255,255,255,0.06);
+  color: var(--adm-ink-faint);
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+.admin-shell .btn {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--adm-hairline);
+  color: var(--adm-ink-muted);
+  border-radius: var(--adm-r-btn);
+  font-family: var(--adm-font-ui);
+  letter-spacing: 0.02em;
+  transition: all 0.12s ease;
+}
+
+.admin-shell .btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--adm-ink);
+  border-color: var(--adm-violet);
+}
+
+.admin-shell .btn--primary {
+  background: var(--adm-lime);
+  color: #1F1633;
+  border-color: transparent;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: 0 8px 24px -8px rgba(194,239,78,0.5);
+}
+
+.admin-shell .btn--primary:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px -8px rgba(194,239,78,0.55);
+}
+
+.admin-shell .btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--adm-ink-muted);
+}
+
+.admin-shell .btn--ghost:hover {
+  background: rgba(255,255,255,0.04);
+  color: var(--adm-ink);
+}
+
+/* ─── Segmented Controls ──────────────────────────────────────────────────── */
+.admin-shell .seg {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--adm-hairline);
+  border-radius: var(--adm-r-container);
+  padding: 3px;
+  display: flex;
+  gap: 2px;
+}
+
+.admin-shell .seg button {
+  color: var(--adm-ink-faint);
+  border-radius: 7px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-family: var(--adm-font-ui);
+  font-weight: 500;
+  transition: all 0.12s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.admin-shell .seg button.on {
+  background: rgba(106,95,193,0.22);
+  color: var(--adm-ink);
+  box-shadow: inset 0 0 0 1px rgba(106,95,193,0.35);
+}
+
+.admin-shell .seg button:hover:not(.on) {
+  color: var(--adm-ink-muted);
+  background: rgba(255,255,255,0.03);
+}
+
+/* ─── Modals ──────────────────────────────────────────────────────────────── */
+.admin-shell .trip-modal-overlay {
+  background: rgba(10,6,22,0.78) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.admin-shell .trip-modal {
+  background: #1F1633 !important;
+  border: 1px solid var(--adm-hairline) !important;
+  border-radius: var(--adm-r-hero) !important;
+  box-shadow: 0 24px 64px -16px rgba(0,0,0,0.7) !important;
+}
+
+.admin-shell .trip-modal__header {
+  border-bottom: 1px solid var(--adm-hairline);
+}
+
+.admin-shell .trip-modal__title {
+  color: var(--adm-ink) !important;
+  font-family: var(--adm-font-ui) !important;
+  font-weight: 600;
+}
+
+.admin-shell .trip-modal__close {
+  color: var(--adm-ink-muted) !important;
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid var(--adm-hairline) !important;
+  border-radius: 8px;
+  transition: all 0.12s;
+}
+
+.admin-shell .trip-modal__close:hover {
+  color: var(--adm-ink) !important;
+  border-color: var(--adm-violet) !important;
+}
+
+.admin-shell .trip-form__label {
+  color: var(--adm-ink-muted) !important;
+  font-size: 12px !important;
+  font-family: var(--adm-font-ui) !important;
+  font-weight: 500;
+}
+
+.admin-shell .trip-form__input {
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid var(--adm-hairline) !important;
+  border-radius: var(--adm-r-input) !important;
+  color: var(--adm-ink) !important;
+  font-family: var(--adm-font-ui) !important;
+  transition: border-color 0.12s ease;
+}
+
+.admin-shell .trip-form__input:focus {
+  border-color: var(--adm-violet) !important;
+  outline: none;
+  background: rgba(255,255,255,0.06) !important;
+}
+
+.admin-shell .trip-form__input option {
+  background: #1F1633;
+  color: var(--adm-ink);
+}
+
+.admin-shell .trip-btn--primary {
+  background: var(--adm-lime) !important;
+  color: #1F1633 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  border-radius: var(--adm-r-btn) !important;
+}
+
+.admin-shell .trip-btn--ghost {
+  background: transparent !important;
+  border: 1px solid var(--adm-hairline) !important;
+  color: var(--adm-ink-muted) !important;
+  border-radius: var(--adm-r-btn) !important;
+}
+
+.admin-shell .trip-btn--ghost:hover {
+  color: var(--adm-ink) !important;
+  border-color: var(--adm-violet) !important;
+}
+
+/* ─── Popovers ────────────────────────────────────────────────────────────── */
+.admin-shell .popover {
+  background: #1F1633 !important;
+  border: 1px solid var(--adm-hairline) !important;
+  border-radius: var(--adm-r-container) !important;
+  box-shadow: var(--adm-shadow-float) !important;
+}
+
+.admin-shell .popover-item {
+  color: var(--adm-ink-muted) !important;
+  font-family: var(--adm-font-ui) !important;
+  font-size: 13px;
+  transition: all 0.1s ease;
+}
+
+.admin-shell .popover-item:hover {
+  background: rgba(255,255,255,0.04) !important;
+  color: var(--adm-ink) !important;
+}
+
+/* ─── Search Input in Cards ───────────────────────────────────────────────── */
+.admin-shell .search-input {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--adm-hairline);
+  color: var(--adm-ink-muted);
+  border-radius: var(--adm-r-input);
+  transition: border-color 0.12s ease;
+}
+
+.admin-shell .search-input:focus-within {
+  border-color: var(--adm-violet);
+  background: rgba(255,255,255,0.06);
+}
+
+.admin-shell .search-input input {
+  color: var(--adm-ink);
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-family: var(--adm-font-ui);
+}
+
+.admin-shell .search-input input::placeholder {
+  color: var(--adm-ink-faint);
+}
+
+/* ─── GSAP Animation Targets ──────────────────────────────────────────────── */
+.admin-shell .anim-card {
+  opacity: 0;
+}
+
+.admin-shell .anim-metric {
+  opacity: 0;
+}
+
+.admin-shell .page-anim-wrapper {
+  will-change: transform, opacity;
+}
+
+/* ─── Misc ────────────────────────────────────────────────────────────────── */
+.admin-shell .grid--2-1 > .card:first-child,
+.admin-shell .grid--1-2 > .card:last-child {
+  border-color: var(--adm-hairline);
+}
+
+/* Inline error text */
+.admin-shell p[style*="var(--unsafe)"] {
+  color: var(--adm-danger) !important;
+  font-family: var(--adm-font-mono);
+  font-size: 12px !important;
+}
+
+/* Empty state text */
+.admin-shell [style*="var(--ink-3)"] {
+  color: var(--adm-ink-faint) !important;
+}

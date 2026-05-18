@@ -62,22 +62,23 @@ public class CartService {
         return mapper.toView(existing.get(), batchVendors(existing.get()));
     }
 
+    public record AddItemResult(BuyerCartView cart, String warning) {}
+
     @Transactional
-    public BuyerCartView addItem(Long buyerId, AddCartItemRequest req) {
+    public AddItemResult addItem(Long buyerId, AddCartItemRequest req) {
         if (req.getListingId() == null) throw new IllegalArgumentException("listingId is required");
-        BigDecimal qty = BigDecimal.valueOf(req.getQuantityKg());
-        if (qty.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("quantityKg must be > 0");
+        BigDecimal requested = BigDecimal.valueOf(req.getQuantityKg());
+        if (requested.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("quantityKg must be > 0");
 
         StorefrontListing listing = listingRepo.findByIdAndIsDeletedFalse(req.getListingId())
                 .orElseThrow(() -> new ResourceNotFoundException("Listing not found: " + req.getListingId()));
         if (listing.getStatus() != StorefrontListingStatus.PUBLISHED) {
             throw new ListingClosedException("This listing is no longer accepting orders.");
         }
-        if (listing.getMinQtyKg() != null && qty.compareTo(listing.getMinQtyKg()) < 0)
+        if (listing.getMinQtyKg() != null && requested.compareTo(listing.getMinQtyKg()) < 0)
             throw new IllegalArgumentException("Minimum order is " + listing.getMinQtyKg() + " kg");
+
         BigDecimal effective = inventoryService.effectiveAvailableKg(listing);
-        if (qty.compareTo(effective) > 0)
-            throw new InsufficientStockException("Only " + effective + " kg available");
 
         Cart cart = cartRepo.findByBuyerId(buyerId).orElseGet(() -> {
             Cart c = new Cart();
@@ -87,14 +88,31 @@ public class CartService {
 
         Optional<CartItem> existing = itemRepo.findByCart_IdAndListing_Id(cart.getId(), listing.getId());
         String notes = nullableNotes(req.getNotes());
+        String warning = null;
 
         if (existing.isPresent()) {
             CartItem ci = existing.get();
-            BigDecimal merged = ci.getQuantityKg().add(qty);
+            BigDecimal merged = ci.getQuantityKg().add(requested);
+            if (merged.compareTo(effective) > 0) {
+                // Cap to effective available; only increase if below cap
+                if (ci.getQuantityKg().compareTo(effective) < 0) {
+                    merged = effective;
+                    warning = "Quantity adjusted to maximum available: " + effective.stripTrailingZeros().toPlainString() + " kg";
+                } else {
+                    // Already at or above cap — no change
+                    merged = ci.getQuantityKg();
+                    warning = "Already at maximum available quantity: " + effective.stripTrailingZeros().toPlainString() + " kg";
+                }
+            }
             ci.setQuantityKg(merged);
             if (notes != null) ci.setNotes(notes);
             itemRepo.save(ci);
         } else {
+            BigDecimal qty = requested;
+            if (qty.compareTo(effective) > 0) {
+                qty = effective;
+                warning = "Quantity adjusted to maximum available: " + effective.stripTrailingZeros().toPlainString() + " kg";
+            }
             CartItem ci = new CartItem();
             ci.setCart(cart);
             ci.setListing(listing);
@@ -104,7 +122,7 @@ public class CartService {
             itemRepo.save(ci);
         }
 
-        return getCart(buyerId);
+        return new AddItemResult(getCart(buyerId), warning);
     }
 
     @Transactional

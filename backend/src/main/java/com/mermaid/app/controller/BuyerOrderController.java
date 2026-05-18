@@ -95,25 +95,28 @@ public class BuyerOrderController implements BuyerOrdersApi {
             throw new ResourceNotFoundException("Order not found: " + orderId);
         }
 
-        // Check for existing payment — allow re-payment for CREDIT (settlement)
+        // Check for existing payment — allow re-payment for CREDIT (settlement) or PENDING (buyer retry)
         Payment existingPayment = paymentRepo.findByOrderId(orderId).orElse(null);
         boolean isCreditSettlement = existingPayment != null && "CREDIT".equals(existingPayment.getMethod());
-        if (existingPayment != null && !isCreditSettlement) {
+        boolean isPendingRetry = existingPayment != null && "PENDING".equals(existingPayment.getStatus());
+        if (existingPayment != null && !isCreditSettlement && !isPendingRetry) {
             return ResponseEntity.status(409).build();
         }
 
-        // Prefer the confirmed-handoff total (locks the price both parties agreed to at pickup).
-        // For RETAIL (deal-created) orders, require the handoff to be confirmed before payment.
         HandoffConfirmation handoff = handoffRepo.findByOrderId(orderId).orElse(null);
         BigDecimal amount;
         if (handoff != null && "CONFIRMED".equals(handoff.getStatus()) && handoff.getTotalAmount() != null) {
+            // Handoff-confirmed deal order — use the locked amount
             amount = handoff.getTotalAmount();
-        } else if (order.getKind() == OrderKind.RETAIL) {
+        } else if (order.getKind() == OrderKind.RETAIL && handoff != null && !"CONFIRMED".equals(handoff.getStatus())) {
+            // Deal order with an unconfirmed handoff — block until both parties confirm
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Cannot pay before handoff is confirmed");
         } else {
+            // Marketplace buyer order (no handoff) — calculate from order snapshot
             BigDecimal qty = order.getOrderedQtyKg() != null ? order.getOrderedQtyKg() : BigDecimal.ONE;
-            amount = order.getAgreedPricePerKg().multiply(qty);
+            BigDecimal delivery = order.getDeliveryFee() != null ? order.getDeliveryFee() : BigDecimal.ZERO;
+            amount = order.getAgreedPricePerKg().multiply(qty).add(delivery);
         }
         long amountCentavos = amount.multiply(BigDecimal.valueOf(100)).longValue();
 
@@ -131,6 +134,16 @@ public class BuyerOrderController implements BuyerOrdersApi {
             existingPayment.setGateway(gatewayService.getGatewayName());
             existingPayment.setSettledMethod(paymentMethod);
             paymentRepo.save(existingPayment);
+        } else if (isPendingRetry) {
+            // Buyer retrying a previously uncompleted payment — refresh the intent
+            existingPayment.setMethod(paymentMethod);
+            existingPayment.setPaymentIntentId(result.paymentRequestId());
+            existingPayment.setIdempotencyKey(idempotencyKey);
+            existingPayment.setGateway(gatewayService.getGatewayName());
+            existingPayment.setAmount(amount);
+            paymentRepo.save(existingPayment);
+            order.setPaymentMethod(paymentMethod);
+            orderRepo.save(order);
         } else {
             // Persist payment method on the order
             order.setPaymentMethod(paymentMethod);

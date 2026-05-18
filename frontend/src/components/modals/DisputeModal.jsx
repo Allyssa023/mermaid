@@ -14,10 +14,10 @@ export default function DisputeModal({ order, onClose, onSubmit, loading }) {
       loading={loading}
       disabled={!reason.trim()}
     >
-      <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         Describe the discrepancy — weight, quality, or price disagreement. This will be visible to the other party.
       </p>
-      <label className="field-label" htmlFor="dispute-reason">Dispute Reason <span style={{color:'var(--danger)'}}>*</span></label>
+      <label className="field-label" htmlFor="dispute-reason">Dispute Reason <span style={{color:'var(--unsafe, #fb7185)'}}>*</span></label>
       <textarea id="dispute-reason" aria-label="reason" className="input" rows={4}
         value={reason} onChange={e => setReason(e.target.value)}
         placeholder="e.g. Received 38kg but invoice says 42kg…" />

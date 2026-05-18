@@ -1,0 +1,100 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .card { padding: 24px; background: #fafafa; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .tier {
+    padding: 24px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tier--light {
+    background: #fff;
+    color: var(--ink-deep);
+    border: 1px solid var(--hairline-cloud);
+  }
+  .tier--featured {
+    background: var(--surface-night);
+    color: #fff;
+  }
+  .tier__name {
+    font-family: var(--font-ui);
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .tier__price {
+    font-family: var(--font-display);
+    font-size: 44px;
+    font-weight: 500;
+    line-height: 1;
+  }
+  .tier__price small {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--accent-violet-mid);
+  }
+  .tier--featured .tier__price small { color: var(--on-dark-muted); }
+  .tier__list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .tier__list li::before {
+    content: "→  ";
+    color: var(--accent-lime);
+    font-weight: 700;
+  }
+  .btn {
+    margin-top: auto;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: none;
+    text-align: center;
+  }
+  .btn--primary { background: var(--primary); color: #fff; }
+  .btn--inverted { background: #fff; color: var(--ink-deep); }
+  .label {
+    font-family: var(--font-code);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--accent-violet-mid);
+    margin-top: 4px;
+  }
+</style></head>
+<body>
+<div class="card">
+  <div class="grid">
+    <div>
+      <div class="tier tier--light">
+        <div class="tier__name">Team</div>
+        <div class="tier__price">$26<small> / mo</small></div>
+        <ul class="tier__list"><li>50k errors / month</li><li>Performance monitoring</li><li>Email + Slack alerts</li></ul>
+        <button class="btn btn--primary">Start free</button>
+      </div>
+      <div class="label">card-pricing</div>
+    </div>
+    <div>
+      <div class="tier tier--featured">
+        <div class="tier__name">Business</div>
+        <div class="tier__price">$80<small> / mo</small></div>
+        <ul class="tier__list"><li>250k errors / month</li><li>Cross-project insights</li><li>SAML + audit log</li></ul>
+        <button class="btn btn--inverted">Start free</button>
+      </div>
+      <div class="label">card-pricing-featured</div>
+    </div>
+  </div>
+</div>
+</body></html>

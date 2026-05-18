@@ -17,7 +17,7 @@ export default function InitiateHandoffModal({ order, onClose, onSubmit, loading
       loading={loading}
       disabled={!valid}
     >
-      <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         Record what was actually handed over at the dock. Both parties will need to confirm.
       </p>
       <label className="field-label" htmlFor="actualKg">Actual Weight (kg)</label>

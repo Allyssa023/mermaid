@@ -33,7 +33,7 @@ export default function PayHandoffModal({ order, handoff, onClose, onSubmit, loa
       confirmLabel={confirmLabel}
       loading={loading}
     >
-      <p style={{ fontSize: 13, color: 'var(--text-2)' }}>
+      <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         Both parties have confirmed handoff. The final amount is locked at the
         weight and price agreed at pickup.
         {isXendit
@@ -51,7 +51,7 @@ export default function PayHandoffModal({ order, handoff, onClose, onSubmit, loa
       )}
 
       {/* Online methods */}
-      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 14, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+      <div style={{ fontSize: 11, color: 'var(--muted-2)', marginTop: 14, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
         Online payment
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -74,7 +74,7 @@ export default function PayHandoffModal({ order, handoff, onClose, onSubmit, loa
       </div>
 
       {/* Manual methods */}
-      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+      <div style={{ fontSize: 11, color: 'var(--muted-2)', marginTop: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
         Manual / Offline
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
