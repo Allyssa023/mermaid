@@ -102,7 +102,7 @@ Typography: Space Grotesk (display headings) / Rubik (UI labels, body).
 ### Zone Carousel
 - Data: same `fetchAllConditions()` query result (already cached). Iterate `response.zones` — each item is a `MarineConditionsResponse` with fields: `zoneId`, `zoneName`, `risk.level` (for the badge), `marine.waveHeightM`, `weather.windSpeedKmh`.
 - Auto-cycle every `4000ms` with `useRef` interval.
-- GSAP crossfade between zones: outgoing `gsap.to(cardRef.current, { opacity: 0, duration: 0.3 })`, then update zone state and `gsap.fromTo(cardRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3 })`.
+- GSAP crossfade between zones: `gsap.to(cardRef.current, { opacity: 0, duration: 0.3, onComplete: () => { setActiveZoneIndex(next); gsap.fromTo(cardRef.current, { opacity: 0 }, { opacity: 1, duration: 0.3 }) } })`. The state update and fade-in **must** be inside `onComplete` to avoid a flash from simultaneous execution.
 - Manual click on a dot indicator stops the interval timer and sets the active zone.
 - Dot indicators below for current zone position.
 
@@ -186,21 +186,24 @@ Typography: Space Grotesk (display headings) / Rubik (UI labels, body).
 - No chart — keep it simple.
 
 ### Messages
-- **Full redesign** using design system.
-- Data: `listMyDeals()` for deal list; `listDealMessages(dealId)` for chat history. Real-time via STOMP queue `/user/queue/messages` (subscribed via `StompContext`) — each message payload has `{ dealId, senderId, content, sentAt }`. When a message arrives, append the bubble if `message.dealId === activeDealId`.
+- **Full rewrite of `Messages.jsx`** using the new design system. The existing DM mode (DM tab, `getChatUsers`/`getConversation` imports, `mode` state, contact list) is **removed entirely** — fisherman communication is deals-only.
+
+**Bubble styling:** `DealChatPane.jsx` is **not structurally modified**. It uses `--accent-soft` (fisherman/mine bubbles) and `--paper-2` (other-party bubbles). Override these CSS variables in the fisherman shell scope (set them on the root `[data-fisherman-shell]` wrapper or in `FishermanDashboard.jsx`):
+```css
+--accent-soft: rgba(163, 230, 53, 0.12);
+--paper-2:     rgba(139, 92, 246, 0.15);
+```
+This achieves lime/violet bubbles without touching `DealChatPane.jsx` internals.
+
+**Unread tracking:** Use the existing `readLastViewed` / `writeLastViewed` utilities from `src/utils/dealsLocalStorage.js` — do **not** introduce a new `Set`. When a deal is selected call `writeLastViewed(dealId, lastMessageId)`. Unread dot renders when `deal.lastMessageAt` is newer than what was last viewed per that deal. The STOMP subscription is already wired in existing `Messages.jsx` — keep it.
 
 **Layout:**
-- Left sidebar (`280px` fixed, `--bg-card` background): scrollable deal list.
-  - Each row: vendor name, species, last message preview (truncated 40 chars), unread dot (lime), relative timestamp.
-  - **Unread tracking:** maintain a `Set<dealId>` in `useState` called `unreadDeals`. When a STOMP message arrives on `/user/queue/messages` and `message.dealId !== activeDealId`, add `message.dealId` to the set. When the user selects a deal, remove its id from the set. Unread dot renders when `unreadDeals.has(deal.id)`.
+- Left sidebar (`280px` fixed, `--bg-card` background): scrollable deal list from `listMyDeals()`.
+  - Each row: vendor name, species, unread dot (lime), relative timestamp.
   - Active deal row: lime `3px` left-border (`box-shadow: inset 3px 0 0 var(--accent-lime)`).
-- Right pane (flex-1, `--bg-canvas` background): chat history + input bar.
-  - Fisherman bubbles (right-aligned): `background: rgba(163,230,53,0.12)`, `border: 1px solid rgba(163,230,53,0.2)`, lime text.
-  - Vendor bubbles (left-aligned): `background: rgba(139,92,246,0.15)`, `border: 1px solid rgba(139,92,246,0.2)`, violet text.
-  - Timestamps: muted, `0.75rem`, below each bubble.
-  - Input bar: `--bg-card-2` background, `border-top: 1px solid var(--hairline)`, `<textarea>` that sends on Enter (Shift+Enter for newline), lime send button.
+- Right pane (flex-1, `--bg-canvas` background): render `<DealChatPane>` using the existing `fishermanDealsApi` prop pattern — no changes to DealChatPane's props or internal data flow.
 
-**GSAP:** New message bubble — `gsap.fromTo(bubbleEl, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' })`.
+**GSAP:** New message bubble — `gsap.fromTo(bubbleEl, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' })`. Trigger via `MutationObserver` on the thread container or a `useEffect` watching message list length.
 
 ### Profile
 - API: `getProfile()` from `profile.js` → `GET /fisherman/profile`. Returns `FishermanProfile`: `fullName`, `email`, `vesselName`, `landingSite`, `emergencyContactName`, `emergencyContactPhone`, `gcashNumber`, `mayaNumber`.
@@ -271,5 +274,6 @@ All modals/drawers follow a single pattern:
 - No backend changes whatsoever.
 - All API calls go through existing `fisherman/api/*.js` modules — no new axios calls inline.
 - `gsap` added as npm dependency (`npm install gsap`) if not already present.
-- `DealChatPane.jsx` and `StompContext.jsx` used without structural modification (only token styling applied).
+- `DealChatPane.jsx`: no structural changes. Bubble colors achieved by overriding `--accent-soft` and `--paper-2` in the fisherman shell scope.
+- `StompContext.jsx`: no changes.
 - Vitest + RTL tests updated alongside page rewrites (mock `useQuery` with `vi.mock`).
