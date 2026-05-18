@@ -1,83 +1,81 @@
-import { useState } from 'react'
+import { useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { I } from '../icons'
+import gsap from 'gsap'
 import { getEarningsSummary, getEarningsLedger } from './api/earnings'
-import { StatTileSkeleton, TableRowSkeleton } from '../components/Skeleton'
-import ApiError from '../components/ApiError'
+
+const STATS = [
+  { key: 'totalGross',        label: 'Total Gross',        prefix: '₱' },
+  { key: 'cashCollected',     label: 'Cash Collected',     prefix: '₱' },
+  { key: 'creditOutstanding', label: 'Credit Outstanding', prefix: '₱' },
+  { key: 'orderCount',        label: 'Orders',             prefix: ''  },
+]
 
 export default function EarningsPage() {
-  const [range, setRange] = useState('30')
-  const ranges = [{ id: '7', label: '7d' }, { id: '30', label: '30d' }, { id: '90', label: '90d' }, { id: '365', label: '1y' }]
+  const summaryQ = useQuery({ queryKey: ['fisherman', 'earnings', 'summary'], queryFn: getEarningsSummary })
+  const ledgerQ  = useQuery({ queryKey: ['fisherman', 'earnings', 'ledger'],  queryFn: getEarningsLedger })
 
-  const now  = new Date()
-  const to   = now.toISOString().split('T')[0]
-  const from = new Date(now - Number(range) * 86_400_000).toISOString().split('T')[0]
+  const statRefs = useRef([])
 
-  const summaryQ = useQuery({
-    queryKey: ['earnings', 'summary', range],
-    queryFn: () => getEarningsSummary(from, to),
-  })
-  const ledgerQ = useQuery({
-    queryKey: ['earnings', 'ledger', range],
-    queryFn: () => getEarningsLedger(from, to),
-  })
+  useEffect(() => {
+    if (!summaryQ.data) return
+    STATS.forEach(({ key, prefix }, i) => {
+      const el = statRefs.current[i]
+      if (!el) return
+      const target = summaryQ.data[key] ?? 0
+      const obj = { val: 0 }
+      gsap.to(obj, {
+        val: target, duration: 0.8, ease: 'power2.out',
+        onUpdate: () => {
+          if (!el) return
+          el.textContent = key === 'orderCount'
+            ? String(Math.round(obj.val))
+            : `${prefix}${obj.val.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        },
+      })
+    })
+  }, [summaryQ.data])
 
-  if (summaryQ.isLoading) return <div className="page"><StatTileSkeleton /><TableRowSkeleton /></div>
-  if (summaryQ.error) return <div className="page"><ApiError error={summaryQ.error} onRetry={summaryQ.refetch} /></div>
-  if (ledgerQ.error) return <div className="page"><ApiError error={ledgerQ.error} onRetry={ledgerQ.refetch} /></div>
-
-  const e        = summaryQ.data ?? {}
-  const ledger   = ledgerQ.data ?? []
-
-  const rangeLabel = range === '7' ? 'Last 7 days' : range === '30' ? 'Last 30 days' : range === '90' ? 'Last 90 days' : 'Last year'
+  const summary = summaryQ.data
+  const ledger  = ledgerQ.data ?? []
 
   return (
-    <div className="page">
-      <div className="page__head">
-        <div>
-          <div className="eyebrow">Money</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Your <em>earnings</em></h1>
-          <p className="page__sub">Track every kilo sold and what you've collected.</p>
-        </div>
-        <div className="seg" style={{alignSelf: 'flex-end'}}>
-          {ranges.map(r => (
-            <button key={r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>{r.label}</button>
-          ))}
-        </div>
-      </div>
+    <div style={{ padding: 24, height: '100%', overflowY: 'auto' }}>
+      <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 700, fontSize: '1.25rem', marginBottom: 20 }}>Earnings</div>
 
-      <div className="grid grid--kpi" style={{marginTop: 18}}>
-        <div className="kpi"><div className="kpi__label">Total gross</div><div className="kpi__value">₱{(e.totalGross ?? 0).toLocaleString()}</div><div className="kpi__foot">{rangeLabel}</div></div>
-        <div className="kpi"><div className="kpi__label">Cash collected</div><div className="kpi__value" style={{color: 'var(--safe)'}}>₱{(e.cashCollected ?? 0).toLocaleString()}</div><div className="kpi__foot">{e.totalGross ? Math.round(e.cashCollected / e.totalGross * 100) : 0}% of gross</div></div>
-        <div className="kpi"><div className="kpi__label">Outstanding</div><div className="kpi__value" style={{color: 'var(--caution)'}}>₱{(e.creditOutstanding ?? 0).toLocaleString()}</div><div className="kpi__foot">unpaid</div></div>
-        <div className="kpi"><div className="kpi__label">Orders</div><div className="kpi__value">{e.orderCount ?? 0}</div><div className="kpi__foot">{e.orderCount ? `₱${Math.round(e.totalGross / e.orderCount).toLocaleString()} avg` : '—'}</div></div>
-      </div>
-
-      <div className="card" style={{marginTop: 18}}>
-        <div className="card__head">
-          <div className="card__title">Order ledger</div>
-        </div>
-        {ledger.length === 0 ? (
-          <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}>
-            No completed orders in this period. Complete an order to see your earnings here.
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
+        {STATS.map(({ key, label, prefix }, i) => (
+          <div key={key} className="f-card" style={{ padding: 20 }}>
+            <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>{label}</div>
+            <div
+              style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent-lime)' }}
+              ref={el => { statRefs.current[i] = el }}
+            >
+              {summary ? (key === 'orderCount' ? String(summary[key] ?? 0) : `${prefix}${(summary[key] ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`) : '—'}
+            </div>
           </div>
-        ) : (
-          <table className="tbl">
-            <thead><tr><th>Date</th><th>Vendor</th><th>Species</th><th>Qty</th><th>Gross</th><th>Payment</th></tr></thead>
-            <tbody>
-              {ledger.map(r => (
-                <tr key={r.orderId}>
-                  <td className="muted-data">{r.date ? String(r.date).split('T')[0] : '—'}</td>
-                  <td>{r.vendorName ?? '—'}</td>
-                  <td>{r.speciesName ?? '—'}</td>
-                  <td>{r.qtyKg != null ? `${r.qtyKg} kg` : '—'}</td>
-                  <td><span className="data" style={{fontFamily: 'var(--font-mono)'}}>₱{(r.gross ?? 0).toLocaleString()}</span></td>
-                  <td><span className={`chip ${r.paymentMethod === 'CREDIT' ? 'chip--caution' : 'chip--safe'}`}>{r.paymentMethod === 'CREDIT' ? 'Credit' : r.paymentMethod ?? '—'}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        ))}
+      </div>
+
+      <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, marginBottom: 12 }}>Transactions</div>
+      {ledgerQ.isError && <div className="f-error">Failed to load ledger<span className="f-error__retry" onClick={ledgerQ.refetch}>Retry</span></div>}
+      <div className="f-card">
+        {ledger.length === 0
+          ? <div style={{ padding: 20, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>No transactions yet</div>
+          : ledger.map(row => (
+              <div key={row.orderId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '12px 20px', borderBottom: '1px solid var(--hairline)', fontSize: '0.875rem' }}>
+                <div>
+                  <div>{row.speciesName}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{row.vendorName} · {row.qtyKg} kg</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: 'var(--accent-lime)', fontWeight: 600 }}>
+                    ₱{(row.gross ?? 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{row.paymentMethod}</div>
+                </div>
+              </div>
+            ))}
       </div>
     </div>
   )

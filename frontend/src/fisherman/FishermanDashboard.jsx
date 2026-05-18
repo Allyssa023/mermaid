@@ -1,7 +1,11 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import gsap from 'gsap'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
 import '../design-system.css'
+import './fisherman-shell.css'
 import { StompProvider } from '../context/StompContext'
+import { listTrips } from './api/trips'
 
 import FishermanHomePage    from './Home'
 import TripsPage            from './Trips'
@@ -13,148 +17,188 @@ import MessagesPage         from './Messages'
 import FishermanProfilePage from './Profile'
 import FishermanNotificationsBell from './components/NotificationsBell'
 
-// ── Nav config ───────────────────────────────────────────────────────────────
-
 const NAV_ITEMS = [
-  { id: 'dashboard', icon: 'Dashboard', label: 'Dashboard' },
-  { id: 'trips',     icon: 'Anchor',    label: 'My Trips' },
-  { id: 'alerts',    icon: 'Bell',      label: 'Catch Alerts' },
-  { id: 'deals',     icon: 'Users',     label: 'Deals' },
-  { id: 'orders',    icon: 'Clipboard', label: 'Orders' },
-  { id: 'earnings',  icon: 'Wallet',    label: 'Earnings' },
-  { id: 'messages',  icon: 'Message',   label: 'Messages' },
-  { id: 'profile',   icon: 'User',      label: 'Profile' },
+  { id: 'dashboard', icon: 'Dashboard', label: 'Dashboard',    testId: 'nav-dashboard' },
+  { id: 'trips',     icon: 'Anchor',    label: 'My Trips',     testId: 'nav-trips' },
+  { id: 'alerts',    icon: 'Bell',      label: 'Catch Alerts', testId: 'nav-alerts' },
+  { id: 'deals',     icon: 'Users',     label: 'Deals',        testId: 'nav-deals' },
+  { id: 'orders',    icon: 'Clipboard', label: 'Orders',       testId: 'nav-orders' },
+  { id: 'earnings',  icon: 'Wallet',    label: 'Earnings',     testId: 'nav-earnings' },
+  { id: 'messages',  icon: 'Message',   label: 'Messages',     testId: 'nav-messages' },
+  { id: 'profile',   icon: 'User',      label: 'Profile',      testId: 'nav-profile' },
 ]
 
 const PAGE_LABELS = {
-  dashboard: 'Dashboard',
-  trips:     'My Trips',
-  alerts:    'Catch Alerts',
-  deals:     'Active Deals',
-  orders:    'Orders',
-  earnings:  'Earnings',
-  messages:  'Messages',
-  profile:   'Profile',
+  dashboard: 'Dashboard', trips: 'My Trips', alerts: 'Catch Alerts',
+  deals: 'Deals', orders: 'Orders', earnings: 'Earnings',
+  messages: 'Messages', profile: 'Profile',
 }
 
-// ── Rail ─────────────────────────────────────────────────────────────────────
-
-function Rail({ page, setPage, user, onLogout }) {
-  const initials = user?.fullName
-    ? user.fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'FI'
-  const firstName = user?.fullName?.split(' ')[0] || 'Fisherman'
-
-  return (
-    <aside className="rail">
-      <div className="rail__logo">
-        <div className="rail__logo-mark">M</div>
-      </div>
-      <div className="rail__items">
-        <div className="rail__label">Workspace</div>
-        {NAV_ITEMS.map(it => {
-          const Icon = I[it.icon] || I.Dashboard
-          return (
-            <div
-              key={it.id}
-              className={`rail-item${page === it.id ? ' rail-item--on' : ''}`}
-              onClick={() => setPage(it.id)}
-              data-tip={it.label}
-            >
-              <div className="rail-item__icon"><Icon size={18} /></div>
-              <div className="rail-item__text">{it.label}</div>
-            </div>
-          )
-        })}
-        <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
-        <div className="rail-item" onClick={onLogout} data-tip="Sign out">
-          <div className="rail-item__icon"><I.Logout size={18} /></div>
-          <div className="rail-item__text">Sign Out</div>
-        </div>
-      </div>
-      <div className="rail__bottom">
-        <div className="rail__user">
-          <div className="rail__avatar">{initials}</div>
-          <div className="rail__user-info">
-            <span className="rail__user-name">{firstName}</span>
-            <span className="rail__user-role">FISHERMAN</span>
-          </div>
-        </div>
-      </div>
-    </aside>
-  )
+const PAGE_MAP = {
+  dashboard: FishermanHomePage,
+  trips:     TripsPage,
+  alerts:    AlertsPage,
+  deals:     ActiveDeals,
+  orders:    OrdersPage,
+  earnings:  EarningsPage,
+  messages:  MessagesPage,
+  profile:   FishermanProfilePage,
 }
-
-// ── Topbar ────────────────────────────────────────────────────────────────────
-
-function Topbar({ page }) {
-  const label = PAGE_LABELS[page] || page
-  return (
-    <div className="topbar">
-      <div className="crumbs">
-        <span>Mermaid</span>
-        <span>/</span>
-        <span style={{color: 'var(--ink-3)'}}>Fisherman</span>
-        <span>/</span>
-        <strong>{label}</strong>
-      </div>
-      <div className="topbar__spacer" />
-      <div className="topbar__search">
-        <I.Search size={14} />
-        <input placeholder="Search trips, catches…" />
-        <kbd>⌘K</kbd>
-      </div>
-      <FishermanNotificationsBell />
-      <button className="topbar__icon-btn" title="Help"><I.Help size={16} /></button>
-    </div>
-  )
-}
-
-// ── Dashboard shell ───────────────────────────────────────────────────────────
 
 export default function FishermanDashboard({ user, onLogout }) {
-  const [page, setPage] = useState('dashboard')
-  const [tripModalTrigger, setTripModalTrigger] = useState(0)
+  const [page, setPageState] = useState('dashboard')
+  const [railOpen, setRailOpen] = useState(false)
+  const [profileDirty, setProfileDirty] = useState(false)
+  const [leaveConfirm, setLeaveConfirm] = useState(null)
+  const pageRef = useRef(null)
+  const labelRefs = useRef([])
 
-  const handleStartTrip = useCallback(() => {
-    setPage('trips')
-    setTripModalTrigger(v => v + 1)
-  }, [])
+  const activeTripsQ = useQuery({
+    queryKey: ['trips', 'ACTIVE'],
+    queryFn: () => listTrips('ACTIVE'),
+    select: (data) => (Array.isArray(data) ? data[0] : null),
+    staleTime: 30_000,
+  })
+  const activeTrip = activeTripsQ.data ?? null
+
+  const navigateTo = useCallback((to) => {
+    if (to === page) return
+    if (profileDirty && page === 'profile') {
+      setLeaveConfirm({ to })
+      return
+    }
+    if (!pageRef.current) { setPageState(to); return }
+    gsap.killTweensOf(pageRef.current)
+    gsap.to(pageRef.current, {
+      opacity: 0, duration: 0.12,
+      onComplete: () => {
+        setPageState(to)
+        gsap.fromTo(pageRef.current,
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }
+        )
+      },
+    })
+  }, [page, profileDirty])
 
   useEffect(() => {
-    const handleNavigate = (e) => {
-      const detail = e.detail || {}
-      if (!detail.page) return
-      if (detail.dealId !== undefined && detail.dealId !== null) {
-        sessionStorage.setItem('mermaid:openDeal', String(detail.dealId))
-      }
-      setPage(detail.page)
+    const labels = labelRefs.current.filter(Boolean)
+    if (!labels.length) return
+    if (railOpen) {
+      gsap.from(labels, { opacity: 0, x: -8, stagger: 0.04, duration: 0.2 })
     }
-    window.addEventListener('mermaid:navigate', handleNavigate)
-    return () => window.removeEventListener('mermaid:navigate', handleNavigate)
-  }, [])
+  }, [railOpen])
 
-  const PageComponent = {
-    dashboard: FishermanHomePage,
-    trips:     TripsPage,
-    alerts:    AlertsPage,
-    deals:     ActiveDeals,
-    orders:    OrdersPage,
-    earnings:  EarningsPage,
-    messages:  MessagesPage,
-    profile:   FishermanProfilePage,
-  }[page] || FishermanHomePage
+  const [elapsed, setElapsed] = useState('')
+  useEffect(() => {
+    if (!activeTrip?.startedAt) { setElapsed(''); return }
+    const tick = () => {
+      const diff = Math.floor((Date.now() - new Date(activeTrip.startedAt)) / 1000)
+      const h = Math.floor(diff / 3600)
+      const m = Math.floor((diff % 3600) / 60)
+      const s = diff % 60
+      setElapsed(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [activeTrip])
+
+  const PageComponent = PAGE_MAP[page]
 
   return (
     <StompProvider>
-      <div className="app" data-accent="ocean" data-density="balanced">
-        <Rail page={page} setPage={setPage} user={user} onLogout={onLogout} />
-        <main className="main">
-          <Topbar page={page} />
-          <div className="content" style={{ flex: 1, overflowY: 'auto' }}>
-            <PageComponent setPage={setPage} user={user} onStartTrip={handleStartTrip} openModalTrigger={page === 'trips' ? tripModalTrigger : 0} />
+      <div
+        data-fisherman-shell
+        data-rail-open={String(railOpen)}
+        style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: 'var(--bg-app)' }}
+      >
+        <nav
+          className="f-rail"
+          onMouseEnter={() => setRailOpen(true)}
+          onMouseLeave={() => setRailOpen(false)}
+        >
+          <div className="f-rail__logo">M</div>
+          <div className="f-rail__nav">
+            {NAV_ITEMS.map((item, i) => {
+              const NavIcon = I[item.icon] || I.Dashboard
+              return (
+                <button
+                  key={item.id}
+                  data-testid={item.testId}
+                  className={`f-rail__item${page === item.id ? ' active' : ''}`}
+                  onClick={() => navigateTo(item.id)}
+                  style={{ background: 'none' }}
+                >
+                  <span className="f-rail__item__icon"><NavIcon size={18} /></span>
+                  <span
+                    className="f-rail__item__label"
+                    ref={el => { labelRefs.current[i] = el }}
+                  >
+                    {item.label}
+                  </span>
+                </button>
+              )
+            })}
+            <button
+              className="f-rail__item"
+              onClick={onLogout}
+              style={{ background: 'none', marginTop: 'auto' }}
+              data-testid="nav-signout"
+            >
+              <span className="f-rail__item__icon"><I.Logout size={18} /></span>
+              <span className="f-rail__item__label">Sign Out</span>
+            </button>
           </div>
-        </main>
+
+          {activeTrip && (
+            <div className="f-rail__trip-card">
+              <div className="f-rail__trip-card__label">Active Trip</div>
+              <div className="f-rail__trip-card__value">{activeTrip.departurePoint ?? 'En route'}</div>
+              <div className="f-rail__trip-card__value" style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.72rem' }}>{elapsed}</div>
+            </div>
+          )}
+        </nav>
+
+        <div className="f-main">
+          <div className="f-topbar">
+            <span className="f-topbar__title">{PAGE_LABELS[page]}</span>
+            <FishermanNotificationsBell />
+          </div>
+          <div className="f-page-wrap" ref={pageRef}>
+            <PageComponent
+              setPage={navigateTo}
+              setProfileDirty={setProfileDirty}
+              activeTrip={activeTrip}
+            />
+          </div>
+        </div>
+
+        {leaveConfirm && (
+          <div className="f-modal-backdrop">
+            <div className="f-modal">
+              <div className="f-modal__title">Unsaved Changes</div>
+              <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 20, fontSize: '0.9rem' }}>
+                You have unsaved profile changes. Leave anyway?
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button className="f-btn f-btn--secondary" onClick={() => setLeaveConfirm(null)}>
+                  Stay on Profile
+                </button>
+                <button
+                  className="f-btn f-btn--danger"
+                  onClick={() => {
+                    setProfileDirty(false)
+                    setLeaveConfirm(null)
+                    navigateTo(leaveConfirm.to)
+                  }}
+                >
+                  Leave Anyway
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </StompProvider>
   )

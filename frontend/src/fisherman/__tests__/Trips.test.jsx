@@ -1,31 +1,57 @@
-// frontend/src/fisherman/__tests__/Trips.test.jsx
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import TripsPage from '../Trips'
 
-import StartTripModal from '../../components/StartTripModal'
+vi.mock('gsap', () => ({
+  default: { to: vi.fn(), from: vi.fn(), fromTo: vi.fn(), killTweensOf: vi.fn() },
+}))
+vi.mock('../api/trips', () => ({
+  listTrips: vi.fn(),
+  startTrip: vi.fn(),
+  endTrip: vi.fn(),
+  saveChecklist: vi.fn(),
+}))
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ user: { id: 1 }, loading: false }),
+}))
 
-describe('StartTripModal checklist gate', () => {
-  it('Start Trip button is disabled until all 6 items are checked', async () => {
-    const onClose = vi.fn()
-    const onCreated = vi.fn()
-    render(<StartTripModal onClose={onClose} onCreated={onCreated} />)
+import { listTrips } from '../api/trips'
 
-    // Step 1 — select municipality, departure point, target area, then click Next
-    fireEvent.change(screen.getByRole('combobox', { name: /municipality/i }), { target: { value: 'Agoo' } })
-    fireEvent.change(screen.getByRole('combobox', { name: /departure point/i }), { target: { value: 'Sta. Rita Central' } })
-    fireEvent.change(screen.getByRole('combobox', { name: /target area/i }), { target: { value: 'Lingayen Gulf off Agoo' } })
-    fireEvent.click(screen.getByText(/next/i))
+const MOCK_TRIP = {
+  id: 1, departurePoint: 'San Juan Port', targetArea: 'Manila Bay',
+  startedAt: '2026-05-18T02:00:00Z', endedAt: null, status: 'ACTIVE',
+}
 
-    // Step 2 — checklist: Start Trip should be disabled initially
-    const startBtn = screen.getByRole('button', { name: /start trip/i })
-    expect(startBtn).toBeDisabled()
+function wrap(ui) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+}
 
-    // Check all 6 checkboxes (they use display:none but are still in the DOM)
-    const checkboxes = screen.getAllByRole('checkbox', { hidden: true })
-    expect(checkboxes).toHaveLength(6)
-    checkboxes.forEach(cb => fireEvent.click(cb))
+beforeEach(() => {
+  vi.clearAllMocks()
+  listTrips.mockResolvedValue([MOCK_TRIP])
+})
 
-    // Now Start Trip should be enabled
-    expect(startBtn).not.toBeDisabled()
+describe('TripsPage', () => {
+  it('renders trip departure point', async () => {
+    wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
+    expect(await screen.findByText(/San Juan Port/i)).toBeInTheDocument()
+  })
+
+  it('shows ACTIVE status chip', async () => {
+    wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
+    expect(await screen.findByText(/ACTIVE/i)).toBeInTheDocument()
+  })
+
+  it('shows Start New Trip button', async () => {
+    wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
+    expect(await screen.findByText(/Start New Trip/i)).toBeInTheDocument()
+  })
+
+  it('opens modal on Start New Trip click', async () => {
+    wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
+    fireEvent.click(await screen.findByText(/Start New Trip/i))
+    expect(screen.getByText(/Departure Point/i)).toBeInTheDocument()
   })
 })

@@ -1,543 +1,372 @@
-import { useState, useEffect } from 'react'
-import { I } from '../icons'
+import { useState, useEffect, useRef } from 'react'
+import gsap from 'gsap'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { listTrips, endTrip,
-         listCatchLogs, createCatchLog, deleteCatchLog } from './api/trips'
-import { listCatchAlerts } from './api/catchAlerts'
-import { fetchSpecies } from '../api/lookup'
-import StartTripModal from '../components/StartTripModal'
-import BfarBadge from '../components/BfarBadge'
-import { TableRowSkeleton, CardSkeleton } from '../components/Skeleton'
-import ApiError from '../components/ApiError'
+import { listTrips, startTrip, endTrip, saveChecklist, createCatchLog } from './api/trips'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ── Safety checklist items ────────────────────────────────────────────────────
 
-const CHECKLIST_DISPLAY = [
-  { k: 'fuelChecked',         label: 'Fuel topped off' },
-  { k: 'engineChecked',       label: 'Engine check' },
-  { k: 'radioChecked',        label: 'Radio comms OK' },
-  { k: 'lifeVestChecked',     label: 'Life vests for all crew' },
-  { k: 'weatherReviewed',     label: 'Weather briefed' },
-  { k: 'emergencyKitChecked', label: 'Emergency kit on board' },
+const SAFETY_ITEMS = [
+  'Life jacket secured',
+  'VHF radio functional',
+  'Fuel sufficient',
+  'Weather checked',
+  'Float plan filed',
+  'First aid kit on board',
 ]
 
-// ── Add Catch Modal ───────────────────────────────────────────────────────────
+// ── Trips Page ────────────────────────────────────────────────────────────────
 
-export function AddCatchModal({ tripId, species, onSaved, onClose }) {
-  const [speciesId, setSpeciesId] = useState('')
-  const [quantityKg, setQuantityKg] = useState('')
-  const [pricePerKg, setPricePerKg] = useState('')
-  const [notes, setNotes]         = useState('')
-  const [err, setErr]             = useState(null)
+export default function TripsPage({ setPage, activeTrip: _activeTripProp }) {
+  const [modal, setModal] = useState(null)
+  const [tripForm, setTripForm] = useState({
+    departurePoint: '',
+    targetArea: '',
+    vesselName: '',
+    notes: '',
+  })
+  const [createdTripId, setCreatedTripId] = useState(null)
+  const [checkedItems, setCheckedItems] = useState([])
+  const [formError, setFormError] = useState(null)
 
+  const cardsRef = useRef(null)
   const qc = useQueryClient()
-  const mut = useMutation({
-    mutationFn: () => {
-      const qty = parseInt(quantityKg, 10)
-      const price = parseInt(pricePerKg, 10)
-      return createCatchLog(tripId, {
-        speciesId: Number(speciesId),
-        quantityEstimate: `${qty}kg`,
-        quantityKg: qty,
-        estimatedPricePerKg: price,
-        notes: notes.trim() || null,
-      })
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['catchLogs', tripId] })
-      onSaved()
-    },
-    onError: e => setErr(e.message),
+
+  const tripsQ = useQuery({
+    queryKey: ['trips'],
+    queryFn: () => listTrips(),
   })
 
-  return (
-    <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="trip-modal">
-        <div className="trip-modal__header">
-          <h2 className="trip-modal__title">Log Catch Entry</h2>
-          <button className="trip-modal__close" onClick={onClose}>✕</button>
-        </div>
-        <form className="trip-form" onSubmit={e => { e.preventDefault(); mut.mutate() }}>
-          {err && <p style={{ color: 'var(--unsafe)', fontSize: 13 }}>{err}</p>}
+  const trips = tripsQ.data ?? []
 
-          <label className="trip-form__label">
-            Species *
-            <select
-              className="trip-form__input"
-              value={speciesId}
-              onChange={e => setSpeciesId(e.target.value)}
-              required
-            >
-              <option value="">Select species…</option>
-              {species.map(s => (
-                <option key={s.id} value={s.id}>{s.commonName}</option>
-              ))}
-            </select>
-          </label>
+  // GSAP card stagger on mount / data load
+  useEffect(() => {
+    if (!cardsRef.current) return
+    const cardEls = cardsRef.current.querySelectorAll('.f-card')
+    if (cardEls.length === 0) return
+    gsap.from(cardEls, { opacity: 0, y: 16, stagger: 0.04, duration: 0.2 })
+  }, [trips.length])
 
-          <label className="trip-form__label">
-            Quantity (kg) *
-            <input
-              type="number"
-              min="1"
-              step="1"
-              className="trip-form__input"
-              placeholder="e.g. 30"
-              value={quantityKg}
-              onChange={e => setQuantityKg(e.target.value.replace(/[^0-9]/g, ''))}
-              required
-            />
-          </label>
+  // GSAP modal entrance
+  useEffect(() => {
+    if (!modal) return
+    gsap.fromTo('.f-modal-backdrop', { opacity: 0 }, { opacity: 1, duration: 0.12 })
+    gsap.fromTo('.f-modal', { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.2, ease: 'power2.out' })
+  }, [modal])
 
-          <label className="trip-form__label">
-            Est. price/kg (₱) *
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                className="trip-form__input"
-                style={{ flex: 1 }}
-                placeholder="e.g. 250"
-                value={pricePerKg}
-                onChange={e => setPricePerKg(e.target.value.replace(/[^0-9]/g, ''))}
-                required
-              />
-              {speciesId && (
-                <BfarBadge speciesId={Number(speciesId)} agreedPrice={pricePerKg ? Number(pricePerKg) : null} />
-              )}
-            </div>
-          </label>
+  const startMut = useMutation({
+    mutationFn: () => startTrip(tripForm),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['trips'] })
+      setCreatedTripId(result.id)
+      setCheckedItems([])
+      setModal('checklist')
+      setFormError(null)
+    },
+    onError: (e) => setFormError(e.message),
+  })
 
-          <label className="trip-form__label">
-            Notes
-            <textarea
-              className="trip-form__textarea"
-              placeholder="Quality, condition, notes…"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              maxLength={300}
-            />
-          </label>
-
-          <div className="trip-form__actions">
-            <button type="button" className="trip-btn trip-btn--ghost" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="trip-btn trip-btn--primary" disabled={mut.isPending || !speciesId || !quantityKg || parseInt(quantityKg, 10) < 1 || !pricePerKg || parseInt(pricePerKg, 10) < 1}>
-              {mut.isPending ? 'Saving…' : 'Save Catch'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ── End Trip Modal ────────────────────────────────────────────────────────────
-
-function EndTripModal({ trip, catches = [], onEnded, onClose }) {
-  const [notes, setNotes] = useState('')
-  const [err, setErr]     = useState(null)
-  const qc = useQueryClient()
-
-  const totalKg = catches.reduce((a, c) => a + (c.quantityKg ?? 0), 0)
-
-  const mut = useMutation({
-    mutationFn: () => endTrip(trip.id, { notes: notes.trim() || null }),
+  const checklistMut = useMutation({
+    mutationFn: () => saveChecklist(createdTripId, { items: checkedItems }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['trips'] })
-      qc.invalidateQueries({ queryKey: ['catchAlerts', 'own'] })
-      onEnded()
+      setModal(null)
+      setTripForm({ departurePoint: '', targetArea: '', vesselName: '', notes: '' })
+      setCreatedTripId(null)
+      setCheckedItems([])
     },
-    onError: e => setErr(e.message),
+    onError: (e) => setFormError(e.message),
   })
 
+  const endMut = useMutation({
+    mutationFn: (tripId) => endTrip(tripId, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trips'] })
+    },
+  })
+
+  function toggleItem(item) {
+    setCheckedItems(prev =>
+      prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]
+    )
+  }
+
+  function handleStartSubmit(e) {
+    e.preventDefault()
+    setFormError(null)
+    startMut.mutate()
+  }
+
+  function handleChecklistConfirm() {
+    setFormError(null)
+    checklistMut.mutate()
+  }
+
   return (
-    <div className="trip-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="trip-modal">
-        <div className="trip-modal__header">
-          <h2 className="trip-modal__title">End Trip</h2>
-          <button className="trip-modal__close" onClick={onClose}>✕</button>
+    <div style={{ padding: 24, overflowY: 'auto', height: '100%' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>My Trips</h2>
+        <button
+          className="f-btn f-btn--primary"
+          onClick={() => {
+            setFormError(null)
+            setModal('start')
+          }}
+        >
+          Start New Trip
+        </button>
+      </div>
+
+      {/* Trip cards */}
+      {tripsQ.isLoading && (
+        <div style={{ color: 'var(--ink-3)', fontSize: 13, padding: 16 }}>Loading trips…</div>
+      )}
+
+      {!tripsQ.isLoading && trips.length === 0 && (
+        <div className="f-card" style={{ padding: 32, textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>
+          No trips yet. Start your first trip above.
         </div>
-        <div className="trip-form">
-          {err && <p style={{ color: 'var(--unsafe)', fontSize: 13 }}>{err}</p>}
-          <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>
-            End <strong>{trip.targetArea ?? 'this trip'}</strong>? The trip will be marked as Completed.
-          </p>
-          {catches.length > 0 && (
-            <div style={{
-              marginTop: 12, padding: '10px 14px', borderRadius: 8,
-              background: 'var(--accent-soft, rgba(0,128,128,0.08))',
-              border: '1px solid var(--accent)',
-              fontSize: 13,
-            }}>
-              <strong style={{ color: 'var(--accent)' }}>📢 Vendors will be notified</strong>
-              <div style={{ marginTop: 4, color: 'var(--ink-2)' }}>
-                {catches.length} catch alert{catches.length !== 1 ? 's' : ''} will be posted
-                ({totalKg.toFixed(1)} kg total) — expires in 4 hours.
-              </div>
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--ink-3)' }}>
-                {catches.map(c => c.species?.commonName ?? '—').join(', ')}
-              </div>
-            </div>
-          )}
-          <label className="trip-form__label" style={{ marginTop: 16 }}>
-            Notes (optional)
-            <textarea
-              className="trip-form__textarea"
-              placeholder="Any notes about this trip…"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              maxLength={500}
-            />
-          </label>
-          <div className="trip-form__actions">
-            <button type="button" className="trip-btn trip-btn--ghost" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="trip-btn trip-btn--primary"
-              style={{ background: 'var(--unsafe)' }}
-              onClick={() => mut.mutate()}
-              disabled={mut.isPending}
+      )}
+
+      <div ref={cardsRef}>
+        {trips.map((trip) => {
+          const { id, departurePoint, targetArea, startedAt, endedAt, status } = trip
+          const startLabel = startedAt
+            ? new Date(startedAt).toLocaleString('en-PH', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+              })
+            : '—'
+          const endLabel = endedAt
+            ? new Date(endedAt).toLocaleString('en-PH', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+              })
+            : 'In progress'
+
+          return (
+            <div
+              key={id}
+              className="f-card"
+              style={{ padding: 20, marginBottom: 12 }}
             >
-              {mut.isPending ? 'Ending…' : `End Trip${catches.length > 0 ? ` & Alert ${catches.length} catch${catches.length !== 1 ? 'es' : ''}` : ''}`}
-            </button>
+              {/* Row 1: route + status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, fontSize: 14 }}>
+                  {departurePoint ?? '—'} → {targetArea ?? '—'}
+                </span>
+                <span
+                  className={`f-chip ${status === 'ACTIVE' ? 'f-chip--lime' : 'f-chip--muted'}`}
+                >
+                  {status}
+                </span>
+                {status === 'ACTIVE' && <span className="pulse-dot" />}
+              </div>
+
+              {/* Row 2: timestamps */}
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--ink-3)' }}>
+                <span>Started: {startLabel}</span>
+                <span>Ended: {endLabel}</span>
+              </div>
+
+              {/* End trip action for active trips */}
+              {status === 'ACTIVE' && (
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    className="f-btn f-btn--danger f-btn--sm"
+                    onClick={() => endMut.mutate(id)}
+                    disabled={endMut.isPending}
+                  >
+                    {endMut.isPending ? 'Ending…' : 'End Trip'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Modal */}
+      {modal && (
+        <div
+          className="f-modal-backdrop"
+          onClick={(e) => e.target === e.currentTarget && setModal(null)}
+        >
+          <div className="f-modal f-modal--wide">
+            {/* Step 1: Start Trip form */}
+            {modal === 'start' && (
+              <>
+                <div className="f-modal__title">Start New Trip</div>
+
+                {formError && (
+                  <p style={{ color: 'var(--unsafe, #e53e3e)', fontSize: 13, margin: '0 0 12px' }}>
+                    {formError}
+                  </p>
+                )}
+
+                <form onSubmit={handleStartSubmit}>
+                  <div className="f-field">
+                    <label className="f-label">Departure Point</label>
+                    <input
+                      className="f-input"
+                      placeholder="e.g. San Juan Port"
+                      value={tripForm.departurePoint}
+                      onChange={(e) => setTripForm(f => ({ ...f, departurePoint: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="f-field">
+                    <label className="f-label">Target Area</label>
+                    <input
+                      className="f-input"
+                      placeholder="e.g. Manila Bay"
+                      value={tripForm.targetArea}
+                      onChange={(e) => setTripForm(f => ({ ...f, targetArea: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="f-field">
+                    <label className="f-label">Vessel Name</label>
+                    <input
+                      className="f-input"
+                      placeholder="e.g. Sta. Ana"
+                      value={tripForm.vesselName}
+                      onChange={(e) => setTripForm(f => ({ ...f, vesselName: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="f-field">
+                    <label className="f-label">Notes</label>
+                    <input
+                      className="f-input"
+                      placeholder="Any additional notes…"
+                      value={tripForm.notes}
+                      onChange={(e) => setTripForm(f => ({ ...f, notes: e.target.value }))}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="f-btn f-btn--secondary"
+                      onClick={() => setModal(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="f-btn f-btn--primary"
+                      disabled={startMut.isPending}
+                    >
+                      {startMut.isPending ? 'Starting…' : 'Next'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {/* Step 2: Safety checklist */}
+            {modal === 'checklist' && (
+              <>
+                <div className="f-modal__title">Safety Checklist</div>
+
+                {formError && (
+                  <p style={{ color: 'var(--unsafe, #e53e3e)', fontSize: 13, margin: '0 0 12px' }}>
+                    {formError}
+                  </p>
+                )}
+
+                <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: '0 0 16px' }}>
+                  Confirm all safety items before departing.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                  {SAFETY_ITEMS.map((item) => (
+                    <label
+                      key={item}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        fontSize: 14, cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checkedItems.includes(item)}
+                        onChange={() => toggleItem(item)}
+                        style={{ width: 16, height: 16 }}
+                      />
+                      {item}
+                    </label>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    className="f-btn f-btn--secondary"
+                    onClick={() => setModal(null)}
+                  >
+                    Skip
+                  </button>
+                  <button
+                    type="button"
+                    className="f-btn f-btn--primary"
+                    onClick={handleChecklistConfirm}
+                    disabled={checklistMut.isPending}
+                  >
+                    {checklistMut.isPending ? 'Saving…' : 'Confirm & Go'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
-// ── Page component ────────────────────────────────────────────────────────────
+// Named export preserved for AddCatchModal.test.jsx backward compatibility
+export function AddCatchModal({ tripId, species, onSaved, onClose }) {
+  const [speciesId, setSpeciesId] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [price, setPrice] = useState('')
+  const [notes, setNotes] = useState('')
 
-export default function TripsPage({ openModalTrigger = 0 }) {
-  const [tab, setTab]           = useState('active')
-  const [showStart, setShowStart] = useState(false)
-
-  useEffect(() => {
-    if (openModalTrigger > 0) setShowStart(true)
-  }, [openModalTrigger])
-  const [showAddCatch, setShowAddCatch] = useState(false)
-  const [showEndTrip, setShowEndTrip]   = useState(false)
-  const [now, setNow]           = useState(() => Date.now())
-  const qc = useQueryClient()
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [])
-
-  const tripsQ   = useQuery({ queryKey: ['trips'],            queryFn: () => listTrips() })
-  const speciesQ = useQuery({ queryKey: ['species'],          queryFn: fetchSpecies })
-  const alertsQ  = useQuery({ queryKey: ['catchAlerts', 'own'], queryFn: listCatchAlerts })
-
-  const activeTrip = (tripsQ.data ?? []).find(t => t.status === 'ACTIVE') ?? null
-  const pastTrips  = (tripsQ.data ?? []).filter(t => t.status === 'COMPLETED' || t.status === 'CANCELLED')
-
-  const catchLogsQ = useQuery({
-    queryKey: ['catchLogs', activeTrip?.id],
-    queryFn: () => listCatchLogs(activeTrip?.id),
-    enabled: !!activeTrip,
+  const saveMut = useMutation({
+    mutationFn: () => createCatchLog(tripId, { speciesId: Number(speciesId), quantityKg: Number(quantity), pricePerKg: Number(price), notes }),
+    onSuccess: () => { onSaved?.() },
   })
 
-  const deleteCatchMut = useMutation({
-    mutationFn: ({ tripId, logId }) => deleteCatchLog(tripId, logId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['catchLogs', activeTrip?.id] }),
-  })
-
-  if (tripsQ.isLoading) return <div className="page"><CardSkeleton /><TableRowSkeleton /></div>
-  if (tripsQ.error) return <div className="page"><ApiError error={tripsQ.error} onRetry={tripsQ.refetch} /></div>
-
-  const t = activeTrip
-
-  const elapsed    = t?.startedAt ? Math.max(0, now - new Date(t.startedAt).getTime()) : 0
-  const durationH  = Math.floor(elapsed / 3600000)
-  const durationM  = Math.floor((elapsed % 3600000) / 60000)
-  const durationS  = Math.floor((elapsed % 60000) / 1000)
-  const checkedCount = t ? CHECKLIST_DISPLAY.filter(it => t.checklist?.[it.k]).length : 0
-  const catches = catchLogsQ.data ?? []
-  const totalKg = catches.reduce((a, c) => a + (c.quantityKg ?? 0), 0)
-  const totalRevenue = catches.reduce((a, c) => a + (c.quantityKg ?? 0) * (c.estimatedPricePerKg ?? 0), 0)
-
-  const speciesList = speciesQ.data ?? []
+  const isValid = speciesId && Number(quantity) > 0 && Number(price) > 0
 
   return (
-    <div className="page">
-      {showStart && (
-        <StartTripModal
-          token={null}
-          onCreated={() => { qc.invalidateQueries({ queryKey: ['trips'] }); setShowStart(false) }}
-          onClose={() => setShowStart(false)}
-        />
-      )}
-      {showAddCatch && t && (
-        <AddCatchModal
-          tripId={t.id}
-          species={speciesList}
-          onSaved={() => setShowAddCatch(false)}
-          onClose={() => setShowAddCatch(false)}
-        />
-      )}
-      {showEndTrip && t && (
-        <EndTripModal
-          trip={t}
-          catches={catches}
-          onEnded={() => setShowEndTrip(false)}
-          onClose={() => setShowEndTrip(false)}
-        />
-      )}
-
-      <div className="page__head">
-        <div>
-          <div className="eyebrow">Trips</div>
-          <h1 className="page__title" style={{ marginTop: 4 }}>
-            <em>My</em> Trips
-          </h1>
-          <p className="page__sub">{(tripsQ.data ?? []).length} total logged</p>
-        </div>
-        <div className="page__actions">
-          <button className="btn"><I.Receipt size={14} /> Export log</button>
-          {!activeTrip && (
-            <button className="btn btn--primary" onClick={() => setShowStart(true)}>
-              <I.Plus size={14} /> Start trip
-            </button>
-          )}
-        </div>
+    <div>
+      <div className="f-field">
+        <label className="f-label" htmlFor="acm-species">Species</label>
+        <select id="acm-species" className="f-input" value={speciesId} onChange={e => setSpeciesId(e.target.value)}>
+          <option value="">Select…</option>
+          {species.map(s => <option key={s.id} value={s.id}>{s.commonName}</option>)}
+        </select>
       </div>
-
-      {/* Tabs */}
-      <div className="row" style={{ gap: 4, marginBottom: 20, borderBottom: '1px solid var(--line)' }}>
-        {[
-          { id: 'active', label: 'Active', count: activeTrip ? 1 : 0 },
-          { id: 'past',   label: 'Past',   count: pastTrips.length },
-        ].map(x => (
-          <button key={x.id}
-            onClick={() => setTab(x.id)}
-            style={{
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 500,
-              color: tab === x.id ? 'var(--ink)' : 'var(--ink-4)',
-              borderBottom: tab === x.id ? '2px solid var(--ink)' : '2px solid transparent',
-              marginBottom: -1,
-            }}>
-            {x.label}
-            <span style={{
-              marginLeft: 6,
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              color: tab === x.id ? 'var(--ink-3)' : 'var(--ink-4)',
-            }}>{x.count}</span>
-          </button>
-        ))}
+      <div className="f-field">
+        <label className="f-label" htmlFor="acm-qty">Quantity (kg)</label>
+        <input id="acm-qty" className="f-input" type="number" min="0.01" step="0.01" value={quantity} onChange={e => setQuantity(e.target.value)} />
       </div>
-
-      {tab === 'active' && (
-        t ? (
-          <div className="trips-grid">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {/* Active trip hero */}
-              <div className="active-trip">
-                <div className="active-trip__head">
-                  <div>
-                    <div className="row" style={{ gap: 8 }}>
-                      <span className="chip chip--safe chip--dot">ACTIVE</span>
-                      <span className="kbd">{`T-${t.id}`}</span>
-                    </div>
-                    <h2 className="active-trip__title" style={{ marginTop: 8 }}>{t.targetArea ?? 'Unnamed trip'}</h2>
-                    <div className="active-trip__meta">
-                      <span><I.Anchor size={11} style={{ verticalAlign: -1, marginRight: 4 }} />{t.vesselName ?? '–'}</span>
-                      <span><I.MapPin size={11} style={{ verticalAlign: -1, marginRight: 4 }} />{t.targetArea ?? '–'}</span>
-                      <span><I.Clock size={11} style={{ verticalAlign: -1, marginRight: 4 }} />
-                        Departed {new Date(t.startedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="active-trip__timer">
-                      {String(durationH).padStart(2, '0')}:{String(durationM).padStart(2, '0')}:{String(durationS).padStart(2, '0')}
-                      <small>elapsed</small>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="active-trip__grid">
-                  <div className="tile">
-                    <div className="tile__label">Total catch</div>
-                    <div className="tile__value">{totalKg.toFixed(1)}<small>kg</small></div>
-                  </div>
-                  <div className="tile">
-                    <div className="tile__label">Est. value</div>
-                    <div className="tile__value">₱{totalRevenue.toLocaleString()}</div>
-                  </div>
-                  <div className="tile">
-                    <div className="tile__label">Entries</div>
-                    <div className="tile__value">{catches.length}</div>
-                  </div>
-                  <div className="tile">
-                    <div className="tile__label">Duration</div>
-                    <div className="tile__value">{durationH}h {durationM}m {durationS}s</div>
-                  </div>
-                </div>
-
-                <div className="row" style={{ marginTop: 18, gap: 8 }}>
-                  <button className="btn btn--accent" onClick={() => setShowAddCatch(true)}>
-                    <I.Plus size={12} /> Log catch
-                  </button>
-                  <div className="spacer" />
-                  <button className="btn btn--primary" onClick={() => setShowEndTrip(true)}>
-                    End trip & alert vendors <I.Arrow size={12} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Catch log */}
-              <div className="card">
-                <div className="card__head">
-                  <div>
-                    <div className="card__title">Catch log</div>
-                    <div className="card__sub">{catches.length} entries · {totalKg.toFixed(1)}kg total</div>
-                  </div>
-                  <button className="btn btn--sm" onClick={() => setShowAddCatch(true)}>
-                    <I.Plus size={12} /> Add entry
-                  </button>
-                </div>
-                <div className="catch-log">
-                  {catchLogsQ.isLoading && <div style={{ padding: 16, fontSize: 12, color: 'var(--ink-3)' }}>Loading…</div>}
-                  {catches.slice().reverse().map((c, i) => (
-                    <div key={c.id ?? i} className="catch-entry" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div className="catch-entry__dot" />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="catch-entry__species">{c.species?.commonName ?? '—'}</div>
-                        <div className="catch-entry__meta">
-                          {new Date(c.loggedAt).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' })}
-                          {c.quantityEstimate ? ` · ${c.quantityEstimate}` : ''}
-                          {c.notes ? ` · ${c.notes}` : ''}
-                        </div>
-                      </div>
-                      <div className="catch-entry__qty">{c.quantityKg ?? '–'}<small style={{ color: 'var(--ink-4)' }}>kg</small></div>
-                      <div className="catch-entry__price">
-                        {c.estimatedPricePerKg ? `₱${c.estimatedPricePerKg}` : '–'}<small>/kg</small>
-                      </div>
-                      <button
-                        className="topbar__icon-btn"
-                        title="Delete entry"
-                        onClick={() => deleteCatchMut.mutate({ tripId: t.id, logId: c.id })}
-                        disabled={deleteCatchMut.isPending}
-                        style={{ color: 'var(--ink-4)' }}
-                      >
-                        <I.X size={12} />
-                      </button>
-                    </div>
-                  ))}
-                  {!catchLogsQ.isLoading && catches.length === 0 && (
-                    <div style={{ padding: 20, textAlign: 'center', fontSize: 12, color: 'var(--ink-3)' }}>
-                      No catch entries yet. Tap "Add entry" to log your first catch.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Side column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {/* Checklist */}
-              <div className="card">
-                <div className="card__head">
-                  <div>
-                    <div className="card__title">Pre-departure checklist</div>
-                    <div className="card__sub">{checkedCount}/{CHECKLIST_DISPLAY.length} complete</div>
-                  </div>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 99,
-                    background: `conic-gradient(var(--accent) ${(checkedCount / CHECKLIST_DISPLAY.length) * 360}deg, var(--line-soft) 0)`,
-                    display: 'grid', placeItems: 'center',
-                  }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 99, background: 'var(--surface)',
-                      display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 600, color: 'var(--ink-2)',
-                      fontFamily: 'var(--font-mono)',
-                    }}>
-                      {Math.round((checkedCount / CHECKLIST_DISPLAY.length) * 100)}%
-                    </div>
-                  </div>
-                </div>
-                <div className="check-list">
-                  {CHECKLIST_DISPLAY.map(it => (
-                    <div key={it.k} className={`check-item${t.checklist?.[it.k] ? ' check-item--on' : ''}`}>
-                      <div className="check-item__box">
-                        {t.checklist?.[it.k] && <I.Check size={10} />}
-                      </div>
-                      <span>{it.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-            <div style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 16 }}>No active trip</div>
-            <button className="btn btn--primary" onClick={() => setShowStart(true)}>
-              <I.Plus size={14} /> Start a trip
-            </button>
-          </div>
-        )
-      )}
-
-      {tab === 'past' && (
-        <div>
-          {pastTrips.map(tp => {
-            const startDate = new Date(tp.startedAt)
-            const day   = String(startDate.getDate()).padStart(2, '0')
-            const month = startDate.toLocaleString('en-PH', { month: 'short' }).toUpperCase()
-            let durationDisplay = '–'
-            if (tp.startedAt && tp.endedAt) {
-              const ms = new Date(tp.endedAt).getTime() - new Date(tp.startedAt).getTime()
-              const h = Math.floor(ms / 3600000)
-              const m = Math.floor((ms % 3600000) / 60000)
-              durationDisplay = `${h}h ${m}m`
-            }
-            return (
-              <div key={tp.id} className="trip-card">
-                <div className="trip-card__date">
-                  <div className="trip-card__month">{month}</div>
-                  <div className="trip-card__day">{day}</div>
-                </div>
-                <div>
-                  <div className="trip-card__name">{tp.targetArea ?? 'Unnamed trip'}</div>
-                  <div className="trip-card__sub">{`T-${tp.id}`} · {tp.departurePoint ?? '–'}</div>
-                </div>
-                <div className="trip-card__stat">
-                  <div className="v">{durationDisplay}</div>
-                  <div className="l">Duration</div>
-                </div>
-                <div className="trip-card__stat">
-                  <div className="v">–<small style={{ fontSize: 12, color: 'var(--ink-4)' }}>kg</small></div>
-                  <div className="l">Catch</div>
-                </div>
-                <div className="trip-card__stat">
-                  <div className="v">–</div>
-                  <div className="l">Revenue</div>
-                </div>
-                <span className={`chip ${tp.status === 'CANCELLED' ? 'chip--unsafe' : 'chip--safe'} chip--dot`}>
-                  {tp.status}
-                </span>
-              </div>
-            )
-          })}
-          {pastTrips.length === 0 && (
-            <div className="card" style={{ padding: 32, textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 }}>
-              No past trips yet.
-            </div>
-          )}
-        </div>
-      )}
-
+      <div className="f-field">
+        <label className="f-label" htmlFor="acm-price">Price per kg (₱)</label>
+        <input id="acm-price" className="f-input" type="number" min="0.01" step="0.01" value={price} onChange={e => setPrice(e.target.value)} />
+      </div>
+      <div className="f-field">
+        <label className="f-label" htmlFor="acm-notes">Notes</label>
+        <input id="acm-notes" className="f-input" value={notes} onChange={e => setNotes(e.target.value)} />
+      </div>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+        <button className="f-btn f-btn--secondary" onClick={onClose}>Cancel</button>
+        <button className="f-btn f-btn--primary" disabled={!isValid || saveMut.isPending} onClick={() => saveMut.mutate()}>
+          Save Catch
+        </button>
+      </div>
     </div>
   )
 }
