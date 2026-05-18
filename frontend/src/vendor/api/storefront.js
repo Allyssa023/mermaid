@@ -15,3 +15,5 @@ export const publishListing = (id) => apiPost(`/vendor/storefront/listings/${id}
 export const unpublishListing = (id) => apiPost(`/vendor/storefront/listings/${id}/unpublish`, null, {})
 
 export const uploadListingPhoto = (file) => apiUpload('/uploads?subDir=listings', file)
+
+export const getStorefrontStats = () => apiGet('/vendor/storefront/stats')

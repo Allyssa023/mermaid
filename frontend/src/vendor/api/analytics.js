@@ -18,3 +18,6 @@ export const getProcurementSpend = (from, to) =>
 
 export const getRepeatBuyers = (from, to, minOrders) =>
   apiGet(`/vendor/analytics/repeat-buyers${qs({ from, to, minOrders })}`)
+
+export const getSpeciesSeries = (days = 30) =>
+  apiGet(`/vendor/analytics/species-series?days=${days}`)
