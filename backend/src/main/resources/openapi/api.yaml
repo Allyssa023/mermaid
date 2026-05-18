@@ -1296,6 +1296,22 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /vendor/storefront/stats:
+    get:
+      tags: [Vendor Storefront]
+      operationId: vendorGetStorefrontStats
+      summary: Aggregate view-count stats for vendor's listings
+      security: [{bearerAuth: []}]
+      responses:
+        '200':
+          description: Storefront stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorefrontStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /vendor/orders:
     get:
       tags: [Vendor Orders]
@@ -2142,6 +2158,32 @@ paths:
                   $ref: '#/components/schemas/RepeatBuyer'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vendor/analytics/species-series:
+    get:
+      tags: [Vendor Analytics]
+      operationId: vendorSpeciesSeries
+      summary: Per-species daily revenue series (top 3 species)
+      security: [{bearerAuth: []}]
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+            minimum: 7
+            maximum: 365
+      responses:
+        '200':
+          description: Species series data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VendorSpeciesSeriesItem'
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -7017,6 +7059,10 @@ components:
         updatedAt:
           type: string
           format: date-time
+        viewCount:
+          type: integer
+          description: Cumulative public shop view count
+          default: 0
         lotIds:
           type: array
           items:
@@ -7693,6 +7739,72 @@ components:
           type: string
           format: date-time
           nullable: true
+        tier:
+          type: string
+          enum: [VIP, REGULAR, NEW]
+          nullable: true
+
+    VendorSpeciesSeriesItem:
+      type: object
+      required: [speciesId, commonName, localName, revenueShare, revenueDelta, lotsCount, pricePerKg, lastWindowRevenue, daily]
+      properties:
+        speciesId:
+          type: integer
+          format: int64
+        commonName:
+          type: string
+        localName:
+          type: string
+        revenueShare:
+          type: number
+          format: float
+          description: Revenue share 0..100 among vendor's top species
+        revenueDelta:
+          type: number
+          format: float
+          description: "% change vs prior window of equal length"
+        lotsCount:
+          type: integer
+        pricePerKg:
+          type: number
+          format: double
+        lastWindowRevenue:
+          type: number
+          format: double
+        daily:
+          type: array
+          items:
+            type: object
+            required: [date, revenue, qtyKg]
+            properties:
+              date:
+                type: string
+                format: date
+              revenue:
+                type: number
+                format: double
+              qtyKg:
+                type: number
+                format: double
+
+    StorefrontStats:
+      type: object
+      required: [totalViews, byListing]
+      properties:
+        totalViews:
+          type: integer
+          description: Cumulative total view count across all vendor listings
+        byListing:
+          type: array
+          items:
+            type: object
+            required: [listingId, views]
+            properties:
+              listingId:
+                type: integer
+                format: int64
+              views:
+                type: integer
 
     PayoutSummary:
       type: object
