@@ -10,7 +10,7 @@ export default function Reviews() {
   const [replyMap, setReplyMap] = useState({})
 
   const qc = useQueryClient()
-  const reviewsQ = useQuery({ queryKey: ['vendor', 'reviews'], queryFn: () => listVendorReviews() })
+  const reviewsQ = useQuery({ queryKey: ['vendor', 'reviews'], queryFn: () => listVendorReviews(0, 200) })
   const replyMut = useMutation({
     mutationFn: ({ id, text }) => replyToReview(id, text),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vendor', 'reviews'] }),
@@ -191,7 +191,7 @@ export default function Reviews() {
                           className="v-input"
                           rows={2}
                           placeholder="Edit your reply…"
-                          value={getReplyText(r.id) || r.vendorReply}
+                          value={replyMap[r.id] ?? r.vendorReply}
                           onChange={e => setReplyTextForId(r.id, e.target.value)}
                           style={{ resize: 'vertical', fontFamily: 'var(--font-ui)', fontSize: 13 }}
                         />
@@ -203,7 +203,8 @@ export default function Reviews() {
                             className="v-btn v-btn--primary v-btn--sm"
                             disabled={replyMut.isPending}
                             onClick={() => {
-                              replyMut.mutate({ id: r.id, text: getReplyText(r.id) || r.vendorReply })
+                              const text = replyMap[r.id] ?? r.vendorReply
+                              replyMut.mutate({ id: r.id, text })
                               setReplyOpen(null)
                             }}
                           >
