@@ -9,11 +9,14 @@ import ApiError from '../components/ApiError'
 
 const ADJUST_REASONS = ['DAMAGED', 'SPOILAGE', 'CORRECTION', 'OTHER']
 
+const freshnessPct = (ms) => Math.min(100, ((Date.now() - ms) / (6 * 86400 * 1000)) * 100)
+
 export default function Inventory() {
   const [thr, setThr]               = useState(10)
   const [speciesFilter, setSpecies] = useState('')
   const [adjustLot, setAdjustLot]   = useState(null)
   const [listLot, setListLot]       = useState(null)
+  const [filter, setFilter]         = useState('all')
 
   const qc = useQueryClient()
   const lotsQ    = useQuery({
@@ -28,77 +31,169 @@ export default function Inventory() {
 
   if (lotsQ.isLoading) return <div className="page"><TableRowSkeleton rows={6} /></div>
   if (lotsQ.error)     return <div className="page"><ApiError error={lotsQ.error} onRetry={lotsQ.refetch} /></div>
+
   const lots = lotsQ.data ?? []
+
+  const onHandKg      = lots.reduce((s, l) => s + (l.remainingKg ?? 0), 0)
+  const costValue     = lots.reduce((s, l) => s + ((l.remainingKg ?? 0) * (l.costPerKg ?? 0)), 0)
+  const initialTotal  = lots.reduce((s, l) => s + (l.initialKg ?? 0), 0)
+  const turnoverPct   = initialTotal > 0 ? ((initialTotal - onHandKg) / initialTotal * 100) : 0
+  const lowStockCount = lots.filter(l => (l.remainingKg ?? 0) <= thr && (l.remainingKg ?? 0) > 0).length
+  const avgAge = lots.length > 0
+    ? lots.reduce((s, l) => s + ((Date.now() - new Date(l.receivedAt || Date.now()).getTime()) / 86400000), 0) / lots.length
+    : 0
+
+  const filteredLots = lots.filter(l => {
+    if (filter === 'low')     return (l.remainingKg ?? 0) <= thr && (l.remainingKg ?? 0) > 0
+    if (filter === 'soldout') return (l.remainingKg ?? 0) === 0
+    if (filter === 'active')  return (l.remainingKg ?? 0) > 0
+    return true
+  })
 
   const listedLotIds = new Set(
     (listingsQ.data ?? []).flatMap(l => l.lotIds ?? [])
   )
 
   return (
-    <div className="page">
-      <div className="page__head">
+    <div>
+      <div className="v-page-header">
         <div>
-          <div className="eyebrow">Inventory</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Your <em>lots</em></h1>
-          <p className="page__sub">Every batch received from fishermen, with remaining weight and cost basis.</p>
+          <h1 className="v-page-header__title">Your <em>lots</em></h1>
         </div>
-      </div>
-      <div className="row" style={{gap: 12, marginTop: 14, alignItems: 'center'}}>
-        <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
-          <span className="muted-data" style={{fontSize: 12}}>Low-stock threshold</span>
-          <input className="input" style={{width: 80}} type="number" value={thr} onChange={e => setThr(+e.target.value)} />
-          <span className="muted-data" style={{fontSize: 12}}>kg</span>
-        </div>
-        <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
-          <span className="muted-data" style={{fontSize: 12}}><I.Filter size={12} /> Species</span>
-          <select className="input" style={{width: 180}} value={speciesFilter} onChange={(e) => setSpecies(e.target.value)}>
-            <option value="">All species</option>
-            {(speciesQ.data ?? []).map(s => (
-              <option key={s.id} value={s.id}>{s.commonName}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="card" style={{marginTop: 14}}>
-        {lots.length === 0 ? (
-          <div className="empty">
-            <div className="empty__title">No inventory yet</div>
-            <p>Inventory is added automatically when procurement orders are completed.</p>
+        <div className="v-page-header__actions">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: 'var(--ink-3)' }}><I.Filter size={12} /></span>
+            <select
+              style={{
+                background: 'var(--bg-input, rgba(255,255,255,0.04))',
+                border: '1px solid var(--hairline)',
+                borderRadius: 8,
+                padding: '5px 10px',
+                color: 'var(--ink-1)',
+                fontSize: 13,
+              }}
+              value={speciesFilter}
+              onChange={e => setSpecies(e.target.value)}
+            >
+              <option value="">All species</option>
+              {(speciesQ.data ?? []).map(s => (
+                <option key={s.id} value={s.id}>{s.commonName}</option>
+              ))}
+            </select>
           </div>
-        ) : (
-          <table className="tbl">
-            <thead><tr><th>Lot</th><th>Species</th><th>Received</th><th>Initial</th><th>Remaining</th><th>Cost/kg</th><th></th><th></th></tr></thead>
-            <tbody>
-              {lots.map(l => {
-                const low = l.remainingKg < thr
-                return (
-                  <tr key={l.id}>
-                    <td><span className="kbd">{l.id}</span></td>
-                    <td><strong>{l.speciesName}</strong></td>
-                    <td className="muted-data">{new Date(l.receivedAt).toLocaleString()}</td>
-                    <td>{l.initialKg} kg</td>
-                    <td>
-                      <span style={{fontFamily: 'var(--font-mono)'}}>{l.remainingKg} kg</span>
-                      {low && <span className="chip chip--caution" style={{marginLeft: 6, fontSize: 10}}>Low</span>}
-                    </td>
-                    <td style={{fontFamily: 'var(--font-mono)'}}>₱{l.costPerKg}</td>
-                    <td style={{textAlign: 'right'}}><button className="btn btn--ghost btn--sm" onClick={() => setAdjustLot(l)}>Adjust</button></td>
-                    <td style={{textAlign: 'right'}}>
-                      {l.remainingKg > 0 && (
-                        listedLotIds.has(l.id)
-                          ? <span className="chip chip--safe" style={{fontSize: 11}}>Listed</span>
-                          : (
-                            <button className="btn btn--primary btn--sm" onClick={() => setListLot(l)}>
-                              <I.Plus size={11} /> List for sale
-                            </button>
-                          )
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div className="v-kpi-strip" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 20 }}>
+        {[
+          { label: 'On-hand kg',  value: `${onHandKg.toFixed(1)}kg` },
+          { label: 'Cost value',  value: `₱${(costValue / 1000).toFixed(1)}k` },
+          { label: 'Turnover %',  value: `${turnoverPct.toFixed(0)}%` },
+          { label: 'Low stock',   value: lowStockCount },
+          { label: 'Avg age',     value: `${avgAge.toFixed(1)}d` },
+        ].map(({ label, value }) => (
+          <div key={label} className="v-kpi-cell">
+            <div className="v-kpi-cell__label">{label}</div>
+            <div className="v-kpi-cell__value v-mono">{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Controls row */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <label style={{ fontSize: 12, color: 'var(--ink-3)', display: 'flex', gap: 6, alignItems: 'center' }}>
+          Low threshold:
+          <input
+            type="number"
+            value={thr}
+            min={0}
+            onChange={e => setThr(Number(e.target.value))}
+            style={{
+              background: 'var(--bg-input, rgba(255,255,255,0.04))',
+              border: '1px solid var(--hairline)',
+              borderRadius: 8,
+              padding: '5px 10px',
+              color: 'var(--ink-1)',
+              width: 80,
+              fontSize: 13,
+            }}
+          />
+          kg
+        </label>
+        {[
+          { id: 'all',     label: 'All' },
+          { id: 'active',  label: 'Active' },
+          { id: 'low',     label: 'Low' },
+          { id: 'soldout', label: 'Sold out' },
+        ].map(f => (
+          <button
+            key={f.id}
+            className={`v-btn v-btn--ghost v-btn--sm${filter === f.id ? ' v-tab--on' : ''}`}
+            onClick={() => setFilter(f.id)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Lot rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filteredLots.map(lot => {
+          const receivedMs = lot.receivedAt ? new Date(lot.receivedAt).getTime() : Date.now()
+          const fPct = freshnessPct(receivedMs)
+          const barColor = fPct < 50 ? 'var(--kelp)' : fPct < 80 ? 'var(--caution)' : 'var(--coral)'
+          const isListed = listedLotIds.has(lot.id)
+          return (
+            <div key={lot.id} className="v-panel" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{
+                width: 40, height: 40, borderRadius: 8, background: 'var(--bg-card-3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
+              }}>
+                🐟
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>
+                  {lot.speciesName || lot.speciesCommonName || lot.speciesLocalName || `Lot #${lot.id}`}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>
+                  #{lot.id} · received {lot.receivedAt ? new Date(lot.receivedAt).toLocaleDateString() : '—'}
+                  {lot.costPerKg ? ` · ₱${lot.costPerKg}/kg` : ''}
+                </div>
+                <div style={{ marginTop: 6, height: 4, background: 'var(--hairline)', borderRadius: 2, width: 120 }}>
+                  <div style={{
+                    height: 4, borderRadius: 2, background: barColor,
+                    width: `${Math.max(4, 100 - fPct)}%`, transition: 'width 0.4s',
+                  }} />
+                </div>
+              </div>
+              <div className="v-mono" style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{(lot.remainingKg ?? 0).toFixed(1)}kg</div>
+                <div style={{ fontSize: 11, color: 'var(--ink-4)' }}>of {(lot.initialKg ?? 0).toFixed(1)}kg</div>
+                {(lot.remainingKg ?? 0) > 0 && (lot.remainingKg ?? 0) <= thr && (
+                  <span className="v-chip v-chip--coral" style={{ fontSize: 10, marginTop: 2, display: 'inline-block' }}>Low</span>
+                )}
+              </div>
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => setAdjustLot(lot)}>Adjust</button>
+                {(lot.remainingKg ?? 0) === 0
+                  ? <span className="v-chip v-chip--muted">Sold out</span>
+                  : isListed
+                    ? <span className="v-chip" style={{ fontSize: 11 }}>Listed</span>
+                    : (
+                      <button className="v-btn v-btn--sm" onClick={() => setListLot(lot)}>
+                        List for sale
+                      </button>
+                    )
+                }
+              </div>
+            </div>
+          )
+        })}
+        {filteredLots.length === 0 && (
+          <div style={{ textAlign: 'center', color: 'var(--ink-4)', padding: 32, fontSize: 14 }}>
+            {lots.length === 0 ? 'No inventory yet — lots appear when procurement orders complete.' : 'No lots match this filter'}
+          </div>
         )}
       </div>
 
@@ -126,7 +221,6 @@ export default function Inventory() {
           }}
         />
       )}
-
     </div>
   )
 }
