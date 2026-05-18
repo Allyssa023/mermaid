@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { I } from '../icons'
 import { useAuth } from '../context/AuthContext'
 import { getChatUsers, getConversation } from '../api/messages'
 import { useStompChat } from '../hooks/useStompChat'
@@ -13,17 +12,27 @@ import {
   acceptProposal,
   rejectProposal,
   listMyDeals,
+  competitorCount,
 } from './api/deals'
 import { readLastViewed, writeLastViewed } from '../utils/dealsLocalStorage'
 
-const COLORS = ['accent', 'warm', 'sage', 'plum']
-const colorOf = (id) => COLORS[Number(id) % COLORS.length]
-const initials = (name) => name?.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?'
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+const initials = (name) =>
+  (name ?? '?')
+    .split(' ')
+    .filter((x) => x.length > 0)
+    .map((x) => x[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase() || '?'
+
 const fmtTime = (iso) => {
   if (!iso) return ''
   const d = new Date(iso)
   return d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
+
 const fmtDate = (iso) => {
   if (!iso) return ''
   const d = new Date(iso)
@@ -41,30 +50,62 @@ const vendorDealsApi = {
   submitProposal,
   acceptProposal,
   rejectProposal,
+  competitorCount,
 }
+
+// ── PageHead ─────────────────────────────────────────────────────────────────
+
+function PageHead({ eyebrow, title, em, sub, actions }) {
+  return (
+    <div className="section-head">
+      <div>
+        <div className="section-eyebrow">{eyebrow}</div>
+        <h1 className="section-title">
+          {title} {em && <em>{em}</em>}
+        </h1>
+        {sub && (
+          <p style={{ margin: '8px 0 0', color: 'var(--muted)', fontSize: 13, maxWidth: 560 }}>
+            {sub}
+          </p>
+        )}
+      </div>
+      <div className="page__actions">{actions}</div>
+    </div>
+  )
+}
+
+// ── main component ────────────────────────────────────────────────────────────
 
 export default function VendorMessagesPage() {
   const { user } = useAuth()
   const myId = user?.id
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [mode, setMode] = useState('dm')
+  // 'deal' | 'dm'
+  const [mode, setMode] = useState('deal')
   const [activeUserId, setActiveUserId] = useState(null)
   const [activeDealId, setActiveDealId] = useState(null)
+
+  // deal-list filter: 'all' | 'unread' | 'negotiating' | 'agreed'
+  const [filter, setFilter] = useState('all')
+
   const [draft, setDraft] = useState('')
   const [localMsgs, setLocalMsgs] = useState([])
   const bodyRef = useRef(null)
+
+  // ── data fetching ─────────────────────────────────────────────────────────
 
   const contactsQ = useQuery({ queryKey: ['chatUsers'], queryFn: getChatUsers })
   const contacts = contactsQ.data || []
 
   const dealsQ = useQuery({
-    queryKey: ['deals', 'mine', 'NEGOTIATING'],
-    queryFn: () => listMyDeals('NEGOTIATING'),
+    queryKey: ['deals', 'mine'],
+    queryFn: () => listMyDeals(),
   })
-  const activeDeals = dealsQ.data || []
+  const allDeals = dealsQ.data || []
 
-  // Auto-select deal from ?deal=... on mount (and on changes).
+  // ── URL param: ?deal=... ──────────────────────────────────────────────────
+
   const dealParam = searchParams.get('deal')
   useEffect(() => {
     if (!dealParam) return
@@ -75,11 +116,23 @@ export default function VendorMessagesPage() {
     writeLastViewed(id)
   }, [dealParam])
 
+  // ── auto-select first deal on load ────────────────────────────────────────
+
+  useEffect(() => {
+    if (mode === 'deal' && activeDealId == null && allDeals.length > 0) {
+      setActiveDealId(allDeals[0].id)
+    }
+  }, [allDeals, activeDealId, mode])
+
+  // ── auto-select first contact when in dm mode ─────────────────────────────
+
   useEffect(() => {
     if (mode === 'dm' && !activeUserId && contacts.length > 0) {
       setActiveUserId(contacts[0].id)
     }
   }, [contacts, activeUserId, mode])
+
+  // ── DM conversation ───────────────────────────────────────────────────────
 
   const convQ = useQuery({
     queryKey: ['conversation', activeUserId],
@@ -96,12 +149,15 @@ export default function VendorMessagesPage() {
     if (activeUserId && mode === 'dm') convQ.refetch()
   }, [activeUserId, mode]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onMessage = useCallback((msg) => {
-    if (mode !== 'dm') return
-    if (msg.senderId === activeUserId || msg.recipientId === activeUserId) {
-      setLocalMsgs(prev => [...prev, msg])
-    }
-  }, [activeUserId, mode])
+  const onMessage = useCallback(
+    (msg) => {
+      if (mode !== 'dm') return
+      if (msg.senderId === activeUserId || msg.recipientId === activeUserId) {
+        setLocalMsgs((prev) => [...prev, msg])
+      }
+    },
+    [activeUserId, mode],
+  )
 
   const { send } = useStompChat({ onMessage, enabled: true })
 
@@ -125,11 +181,12 @@ export default function VendorMessagesPage() {
     }
   }
 
+  // ── selection handlers ────────────────────────────────────────────────────
+
   const handleSelectDeal = (deal) => {
     setMode('deal')
     setActiveDealId(deal.id)
     writeLastViewed(deal.id)
-    // Reflect selection in URL so refreshes hold.
     const next = new URLSearchParams(searchParams)
     next.set('deal', String(deal.id))
     setSearchParams(next, { replace: true })
@@ -145,245 +202,384 @@ export default function VendorMessagesPage() {
     }
   }
 
-  const active = contacts.find(c => c.id === activeUserId)
+  // ── unread computation ────────────────────────────────────────────────────
 
   const dealUnread = useMemo(() => {
     const map = {}
-    for (const d of activeDeals) {
+    for (const d of allDeals) {
       const stamp = d.latestProposal?.createdAt || d.updatedAt || d.createdAt
       const last = readLastViewed(d.id)
       const lastMs = last ? last.getTime() : 0
       map[d.id] = stamp ? new Date(stamp).getTime() > lastMs : false
     }
     return map
-  }, [activeDeals])
+  }, [allDeals])
 
-  const isThreadSelected = (mode === 'deal' && activeDealId != null) || (mode === 'dm' && !!active)
+  // ── filter deals ──────────────────────────────────────────────────────────
+
+  const filteredDeals = useMemo(() => {
+    return allDeals.filter((d) => {
+      if (filter === 'unread') return dealUnread[d.id]
+      if (filter === 'negotiating') return d.status === 'NEGOTIATING'
+      if (filter === 'agreed') return d.status === 'AGREED'
+      return true
+    })
+  }, [allDeals, filter, dealUnread])
+
+  const activeDeal = allDeals.find((d) => d.id === activeDealId)
+  const activeContact = contacts.find((c) => c.id === activeUserId)
+
+  // ── group deals by counterparty ───────────────────────────────────────────────
+  const [expandedGroups, setExpandedGroups] = useState(() => new Set())
+
+  const dealGroups = useMemo(() => {
+    const map = new Map()
+    for (const d of filteredDeals) {
+      const pid = d.counterpartyId ?? d.fishermanId
+      const name = d.counterpartyName || d.fishermanName || `User #${pid}`
+      if (!map.has(pid)) map.set(pid, { pid, name, deals: [] })
+      map.get(pid).deals.push(d)
+    }
+    return Array.from(map.values())
+  }, [filteredDeals])
+
+  useEffect(() => {
+    if (dealGroups.length === 0) return
+    if (activeDealId == null) {
+      setExpandedGroups((prev) => prev.size === 0 ? new Set([dealGroups[0].pid]) : prev)
+      return
+    }
+    for (const g of dealGroups) {
+      if (g.deals.some((d) => d.id === activeDealId)) {
+        setExpandedGroups((prev) => new Set([...prev, g.pid]))
+        break
+      }
+    }
+  }, [activeDealId, dealGroups])
+
+  const toggleGroup = (pid) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(pid)) next.delete(pid)
+      else next.add(pid)
+      return next
+    })
+  }
+
+  // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="v-page" style={{ paddingBottom: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      {/* Page header */}
-      <div className="v-page-header" style={{ flexShrink: 0 }}>
-        <div>
-          <h1 className="v-page-header__title">Messages</h1>
-          <p className="v-page-header__sub">Deal negotiations and chat</p>
-        </div>
-        <div className="v-page-header__actions">
-          <button className="v-btn v-btn--ghost v-btn--sm"><I.Filter size={12} /> Filter</button>
-        </div>
-      </div>
+    <div className="content">
+      <PageHead
+        eyebrow="Messages · Deals"
+        title="Negotiate"
+        em="in flight"
+        sub="Open conversations with fishermen. Counter-offers, agreements, and handoff scheduling all live here."
+        actions={
+          <button className="btn" onClick={() => setFilter('all')}>
+            + New deal
+          </button>
+        }
+      />
 
-      {/* Split layout */}
-      <div style={{ display: 'flex', flex: 1, gap: '1px', background: 'var(--hairline)', borderRadius: 'var(--radius-lg, 14px)', overflow: 'hidden', minHeight: 0 }}>
+      <div className="msg-shell">
+        {/* ── LEFT PANE ─────────────────────────────────────────────────── */}
+        <div className="msg-list">
+          <div className="msg-list__head">
+            <div className="msg-list__title">Conversations</div>
+            <div className="msg-list__filter">
+              <button
+                className={filter === 'all' ? 'on' : ''}
+                onClick={() => setFilter('all')}
+              >
+                All
+              </button>
+              <button
+                className={filter === 'unread' ? 'on' : ''}
+                onClick={() => setFilter('unread')}
+              >
+                Unread
+              </button>
+              <button
+                className={filter === 'negotiating' ? 'on' : ''}
+                onClick={() => setFilter('negotiating')}
+              >
+                Negotiating
+              </button>
+              <button
+                className={filter === 'agreed' ? 'on' : ''}
+                onClick={() => setFilter('agreed')}
+              >
+                Agreed
+              </button>
+            </div>
+          </div>
 
-        {/* Conversation list — 350px */}
-        <div style={{ width: 350, flexShrink: 0, background: 'var(--bg-card)', overflowY: 'auto', borderRadius: 'var(--radius-lg, 14px) 0 0 var(--radius-lg, 14px)' }}>
-
-          {/* Active deals section */}
-          {activeDeals.length > 0 && (
-            <>
-              <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Active Deals
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent-lime)', background: 'var(--accent-soft)', padding: '1px 7px', borderRadius: 999 }}>
-                  {activeDeals.length}
-                </span>
+          <div className="msg-list__body">
+            {dealsQ.isLoading && (
+              <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
+                Loading deals…
               </div>
-              {activeDeals.map(d => {
-                const prop = d.latestProposal
-                const on = mode === 'deal' && activeDealId === d.id
-                const unread = dealUnread[d.id]
-                return (
+            )}
+
+            {/* Grouped deal rows */}
+            {dealGroups.length === 0 && !dealsQ.isLoading && (
+              <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
+                No active deals yet.
+              </div>
+            )}
+
+            {dealGroups.map(({ pid, name, deals }) => {
+              const isOpen = expandedGroups.has(pid)
+              const groupUnread = deals.some((d) => dealUnread[d.id])
+              const latestAt = fmtDate(
+                deals.reduce((best, d) => {
+                  const t = d.latestProposal?.createdAt || d.updatedAt || d.createdAt
+                  return !best || (t && t > best) ? t : best
+                }, null)
+              )
+              const groupActive = mode === 'deal' && deals.some((d) => d.id === activeDealId)
+
+              return (
+                <div key={`group-${pid}`}>
+                  {/* Person row */}
                   <div
-                    key={`deal-${d.id}`}
-                    onClick={() => handleSelectDeal(d)}
-                    data-testid={`deal-row-${d.id}`}
-                    style={{
-                      padding: '12px 16px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid var(--hairline-2)',
-                      background: on ? 'var(--bg-card-2)' : 'transparent',
-                      transition: 'background 0.15s',
-                      boxShadow: on ? 'inset 2px 0 0 var(--accent-lime)' : 'none',
-                    }}
+                    className={`msg-item msg-item--group${groupActive ? ' on' : ''}`}
+                    onClick={() => toggleGroup(pid)}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                      <span style={{ fontFamily: 'var(--font-ui, Rubik)', fontWeight: 600, color: 'var(--ink-1)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                        {d.speciesName || `Deal #${d.id}`}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        {unread && (
-                          <span
-                            data-testid={`deal-unread-${d.id}`}
-                            style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-lime)', flexShrink: 0 }}
-                          />
-                        )}
-                        <span className={`v-chip v-chip--${
-                          d.status === 'AGREED' ? 'kelp' :
-                          d.status === 'EXPIRED' || d.status === 'CANCELLED' ? 'coral' :
-                          'tide'
-                        }`} style={{ fontSize: 10, padding: '2px 6px' }}>
-                          {d.status}
+                    <div className="msg-item__avatar">{initials(name)}</div>
+                    <div className="msg-item__body">
+                      <div className="msg-item__row">
+                        <span className="msg-item__name">{name}</span>
+                        <span className="msg-item__time">{latestAt}</span>
+                      </div>
+                      <div className="msg-item__last" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
+                          {deals.length} deal{deals.length !== 1 ? 's' : ''}
                         </span>
+                        {groupUnread && (
+                          <span className="msg-item__unread">NEW</span>
+                        )}
+                        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted)', transition: 'transform 0.15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 3, display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ink-4)', fontSize: 10 }}>{d.counterpartyName || `User #${d.counterpartyId}`}</span>
-                      {prop && (
-                        <span>{prop.qtyKg}kg @ ₱{prop.pricePerKg}</span>
-                      )}
-                    </div>
                   </div>
-                )
-              })}
-            </>
-          )}
 
-          {/* All conversations section */}
-          <div style={{ padding: '12px 16px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Conversations
-            </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-3)', background: 'var(--bg-elev)', padding: '1px 7px', borderRadius: 999 }}>
-              {contacts.length}
-            </span>
-          </div>
+                  {/* Deal sub-rows */}
+                  {isOpen && deals.map((d) => {
+                    const on = mode === 'deal' && activeDealId === d.id
+                    const unread = dealUnread[d.id]
+                    const species = d.speciesName || d.species?.commonName || d.species?.localName || ''
+                    const lastMsg = d.latestProposal
+                      ? `₱${d.latestProposal.pricePerKg}/kg · ${d.latestProposal.qtyKg}kg`
+                      : 'No proposals yet'
+                    const dealCode = `#${String(d.id).padStart(4, '0')}`
 
-          {/* Search input */}
-          <div style={{ padding: '0 12px 8px' }}>
-            <input
-              placeholder="Search contacts, messages…"
-              readOnly
-              style={{
-                width: '100%',
-                background: 'var(--bg-card-2)',
-                border: '1px solid var(--hairline)',
-                borderRadius: 8,
-                padding: '7px 12px',
-                color: 'var(--ink-2)',
-                fontSize: 12,
-                fontFamily: 'var(--font-ui, Rubik)',
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          {contactsQ.isLoading && (
-            <div style={{ padding: 16, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>Loading…</div>
-          )}
-
-          {contacts.map(c => {
-            const on = mode === 'dm' && activeUserId === c.id
-            return (
-              <div
-                key={c.id}
-                onClick={() => handleSelectContact(c.id)}
-                style={{
-                  padding: '12px 16px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid var(--hairline-2)',
-                  background: on ? 'var(--bg-card-2)' : 'transparent',
-                  transition: 'background 0.15s',
-                  boxShadow: on ? 'inset 2px 0 0 var(--tide)' : 'none',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <span style={{ fontFamily: 'var(--font-ui, Rubik)', fontWeight: 600, color: 'var(--ink-1)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                    {c.fullName}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--ink-4)', textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>
-                    {c.role}
-                  </span>
+                    return (
+                      <div
+                        key={`deal-${d.id}`}
+                        className={`msg-item msg-item--sub${on ? ' on' : ''}`}
+                        onClick={() => handleSelectDeal(d)}
+                        data-testid={`deal-row-${d.id}`}
+                        style={{ paddingLeft: 40 }}
+                      >
+                        <div className="msg-item__body">
+                          <div className="msg-item__row">
+                            <span className="msg-item__code" style={{ fontSize: 11 }}>
+                              {dealCode}{species ? ` · ${species}` : ''}
+                            </span>
+                            <span className="msg-item__time">{fmtDate(d.latestProposal?.createdAt || d.updatedAt || d.createdAt)}</span>
+                          </div>
+                          <div className="msg-item__last">{lastMsg}</div>
+                          <div className="msg-item__meta">
+                            {d.status === 'NEGOTIATING' && (
+                              <span className="chip chip--neg" style={{ fontSize: 9 }}>NEG</span>
+                            )}
+                            {d.status === 'AGREED' && (
+                              <span className="chip chip--ready" style={{ fontSize: 9 }}>AGREED</span>
+                            )}
+                            {(d.status === 'CANCELLED' || d.status === 'EXPIRED') && (
+                              <span className="chip chip--cancel" style={{ fontSize: 9 }}>
+                                {d.status === 'EXPIRED' ? 'EXPIRED' : 'CANCEL'}
+                              </span>
+                            )}
+                            {unread && (
+                              <span className="msg-item__unread" data-testid={`deal-unread-${d.id}`}>NEW</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
 
-          {!contactsQ.isLoading && contacts.length === 0 && (
-            <div style={{ padding: 16, fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>No conversations yet.</div>
-          )}
+            {!dealsQ.isLoading && dealGroups.length === 0 && (
+              <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
+                No active deals yet.
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Thread area — flex */}
-        <div style={{ flex: 1, background: 'var(--bg-canvas)', borderRadius: '0 var(--radius-lg, 14px) var(--radius-lg, 14px) 0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {/* ── RIGHT PANE ────────────────────────────────────────────────── */}
+        <div className="msg-thread">
+          {/* Deal thread via DealChatPane */}
           {mode === 'deal' && activeDealId != null ? (
-            <DealChatPane dealId={activeDealId} currentUserId={myId} apiClient={vendorDealsApi} />
-          ) : active ? (
             <>
-              {/* Thread header */}
-              <div style={{ height: 56, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, padding: '0 20px', borderBottom: '1px solid var(--hairline)', background: 'var(--bg-card)' }}>
-                <div className={`contact__avatar contact__avatar--${colorOf(active.id)}`} style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
-                  {initials(active.fullName)}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-1)', fontFamily: 'var(--font-ui, Rubik)' }}>{active.fullName}</div>
-                  <div style={{ fontSize: 11, color: 'var(--ink-4)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {active.role}
+              {activeDeal && (
+                <div className="msg-thread__head">
+                  <div className="msg-item__avatar" style={{ width: 40, height: 40 }}>
+                    {initials(
+                      activeDeal.counterpartyName ||
+                        activeDeal.fishermanName ||
+                        `U${activeDeal.counterpartyId ?? activeDeal.fishermanId}`,
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ font: '600 14px var(--font-display)' }}>
+                      {activeDeal.counterpartyName ||
+                        activeDeal.fishermanName ||
+                        `User #${activeDeal.counterpartyId ?? activeDeal.fishermanId}`}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--muted-2)',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      #{String(activeDeal.id).padStart(4, '0')} ·{' '}
+                      {activeDeal.speciesName ||
+                        activeDeal.species?.commonName ||
+                        activeDeal.species?.localName ||
+                        ''}
+                      {activeDeal.latestProposal?.qtyKg
+                        ? ` · ${activeDeal.latestProposal.qtyKg}kg`
+                        : ''}
+                    </div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                    <button className="topbar__icon" title="Pin">
+                      📌
+                    </button>
+                    <button className="topbar__icon" title="Catch alert">
+                      🐟
+                    </button>
+                    <button className="topbar__icon" title="More">
+                      •••
+                    </button>
                   </div>
                 </div>
-                <button className="v-btn v-btn--ghost v-btn--sm" style={{ padding: '4px 8px' }}><I.Dots size={14} /></button>
+              )}
+
+              {/* DealChatPane fills the remainder of .msg-thread */}
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0 14px 14px' }}>
+                <DealChatPane
+                  dealId={activeDealId}
+                  currentUserId={myId}
+                  apiClient={vendorDealsApi}
+                />
+              </div>
+            </>
+          ) : mode === 'dm' && activeContact ? (
+            /* DM thread — inline, not using DealChatPane */
+            <>
+              <div className="msg-thread__head">
+                <div className="msg-item__avatar" style={{ width: 40, height: 40 }}>
+                  {initials(activeContact.fullName)}
+                </div>
+                <div>
+                  <div style={{ font: '600 14px var(--font-display)' }}>{activeContact.fullName}</div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--muted-2)',
+                      fontFamily: 'var(--font-mono)',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {(activeContact.role ?? '').toLowerCase()}
+                  </div>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                  <button className="topbar__icon" title="More">
+                    •••
+                  </button>
+                </div>
               </div>
 
-              {/* Message body */}
-              <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div
+                ref={bodyRef}
+                className="msg-thread__body"
+              >
                 {convQ.isLoading && (
-                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--ink-4)' }}>Loading…</div>
+                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
+                    Loading…
+                  </div>
                 )}
                 {localMsgs.map((m) => {
                   const mine = m.senderId === myId
                   return (
-                    <div key={m.id ?? m.sentAt} className={`bubble bubble--${mine ? 'mine' : 'theirs'}`}>
+                    <div
+                      key={m.id ?? m.sentAt}
+                      className={`msg-bubble ${mine ? 'from-me' : 'from-fisher'}`}
+                    >
                       {m.content}
-                      <div className="bubble__time">{fmtDate(m.sentAt)}</div>
+                      <span className="msg-bubble__time">{fmtDate(m.sentAt)}</span>
                     </div>
                   )
                 })}
                 {!convQ.isLoading && localMsgs.length === 0 && (
-                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>
+                  <div
+                    style={{
+                      padding: 24,
+                      textAlign: 'center',
+                      fontSize: 12,
+                      color: 'var(--muted)',
+                    }}
+                  >
                     No messages yet. Say hi!
                   </div>
                 )}
               </div>
 
-              {/* Input bar */}
-              <div style={{ flexShrink: 0, padding: '12px 16px', borderTop: '1px solid var(--hairline)', background: 'var(--bg-card)', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                <textarea
-                  placeholder="Type a message…"
+              <div className="msg-composer">
+                <button className="btn btn--sm btn--ghost">+</button>
+                <input
+                  placeholder="Send a message or propose a counter…"
                   value={draft}
-                  onChange={e => setDraft(e.target.value)}
+                  onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleKey}
-                  style={{
-                    flex: 1,
-                    background: 'var(--bg-card-2)',
-                    border: '1px solid var(--hairline)',
-                    borderRadius: 8,
-                    padding: '8px 12px',
-                    color: 'var(--ink-1)',
-                    fontSize: 13,
-                    fontFamily: 'var(--font-ui, Rubik)',
-                    resize: 'none',
-                    outline: 'none',
-                    minHeight: 38,
-                    maxHeight: 120,
-                  }}
                 />
                 <button
-                  className="v-btn v-btn--primary v-btn--sm"
+                  className="btn btn--sm btn--primary"
                   onClick={handleSend}
                   disabled={!draft.trim()}
-                  style={{ alignSelf: 'flex-end' }}
                 >
-                  <I.Send size={12} /> Send
+                  Send
                 </button>
               </div>
             </>
           ) : (
             /* Empty state */
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 8, color: 'var(--ink-4)', fontFamily: 'var(--font-ui, Rubik)' }}>
-              <span style={{ fontSize: 32, opacity: 0.3 }}>💬</span>
-              <span style={{ fontSize: 14 }}>Select a conversation to start chatting</span>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                gap: 10,
+                color: 'var(--muted)',
+              }}
+            >
+              <div style={{ fontSize: 32, opacity: 0.25 }}>💬</div>
+              <div style={{ fontSize: 14, fontFamily: 'var(--font-ui)' }}>
+                Select a conversation to start
+              </div>
             </div>
           )}
         </div>
