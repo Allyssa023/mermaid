@@ -1,5 +1,6 @@
 // frontend/src/vendor/__tests__/ProcurementFeed.test.jsx
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { matchPct } from '../ProcurementFeed'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
@@ -71,4 +72,13 @@ describe('ProcurementFeed', () => {
     await waitFor(() => expect(startDealFromCartItem).toHaveBeenCalledWith(99))
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/vendor/messages?deal=42'))
   })
+})
+
+describe('matchPct', () => {
+  it('returns 100 when speciesId is in watchlist', () => {
+    expect(matchPct({ speciesId: 5 }, [3, 5, 7])).toBe(100);
+  });
+  it('returns 60 when speciesId not in watchlist', () => {
+    expect(matchPct({ speciesId: 9 }, [3, 5, 7])).toBe(60);
+  });
 })

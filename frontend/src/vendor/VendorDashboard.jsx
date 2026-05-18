@@ -1,7 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import gsap from 'gsap'
+import { useQuery } from '@tanstack/react-query'
 import { I } from '../icons'
+import '../design-system.css'
+import './vendor-shell.css'
 import { StompProvider } from '../context/StompContext'
+import { getVendorHome } from './api/home'
 import Home from './Home'
 import StorefrontEditor from './StorefrontEditor'
 import Inventory from './Inventory'
@@ -36,80 +41,69 @@ const PAGE_LABELS = {
   vshop:        'Shop Profile',
 }
 
-function Rail({ page, navigate, user, onLogout }) {
+function Rail({ page, navigate, user, onLogout, badgeCounts, onMouseEnter, onMouseLeave }) {
   const initials = user
-    ? (user.fullName || user.first || 'V').slice(0, 1) + ((user.fullName || '').split(' ')[1]?.slice(0, 1) || '')
+    ? (user.fullName || user.first || 'V').slice(0, 1) +
+      ((user.fullName || '').split(' ')[1]?.slice(0, 1) || '')
     : 'V'
-  const displayName  = user?.first || user?.fullName?.split(' ')[0] || 'Vendor'
-  const displaySub   = user?.business || user?.businessName || 'Vendor'
+  const displayName = user?.first || user?.fullName?.split(' ')[0] || 'Vendor'
+  const displaySub  = user?.businessName || user?.business || 'Vendor'
 
   return (
-    <aside className="rail">
-      <div className="rail__logo">
-        <div className="rail__logo-mark">M</div>
+    <nav className="v-rail" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
+      <div className="v-rail__brand">
+        <div className="v-rail__mark">M</div>
+        <div className="v-rail__wordmark">
+          <span className="v-rail__name">MERMAID</span>
+          <span className="v-rail__role">Vendor console</span>
+        </div>
       </div>
-      <div className="rail__items">
-        <div className="rail__label">Workspace</div>
+
+      <div className="v-rail__items">
         {VENDOR_NAV_ITEMS.map(it => {
           const Icon = I[it.icon]
+          const badge = badgeCounts?.[it.id] ?? 0
           return (
             <div
               key={it.id}
-              className={`rail-item${page === it.id ? ' rail-item--on' : ''}`}
+              className={`v-rail-item${page === it.id ? ' v-rail-item--on' : ''}`}
               onClick={() => navigate(it.id)}
-              data-tip={it.label}
+              title={it.label}
             >
-              <div className="rail-item__icon"><Icon size={18} /></div>
-              <div className="rail-item__text">{it.label}</div>
+              <span className="v-rail-item__icon"><Icon size={17} /></span>
+              <span className="v-rail-item__label">{it.label}</span>
+              {badge > 0 && <span className="v-rail-item__dot" />}
+              {badge > 0 && <span className="v-rail-item__pill">{badge}</span>}
             </div>
           )
         })}
-
-        <div className="rail__label" style={{ marginTop: 14 }}>Account</div>
-        <div className="rail-item" onClick={onLogout} data-tip="Log out">
-          <div className="rail-item__icon"><I.Logout size={18} /></div>
-          <div className="rail-item__text">Log out</div>
-        </div>
-        <div className="rail-item" data-tip="Help & docs">
-          <div className="rail-item__icon"><I.Help size={18} /></div>
-          <div className="rail-item__text">Help</div>
-        </div>
       </div>
 
-      <div className="rail__bottom">
-        <div className="rail__user">
-          <div className="rail__avatar">{initials}</div>
-          <div className="rail__user-info">
-            <span className="rail__user-name">{displayName}</span>
-            <span className="rail__user-role">VENDOR · {displaySub}</span>
+      <div className="v-rail__bottom">
+        <div className="v-rail__user" onClick={onLogout} title="Log out">
+          <div className="v-rail__avatar">{initials}</div>
+          <div className="v-rail__user-info">
+            <span className="v-rail__user-name">{displayName}</span>
+            <span className="v-rail__user-role">VENDOR · {displaySub}</span>
           </div>
         </div>
       </div>
-    </aside>
+    </nav>
   )
 }
 
 function Topbar({ page }) {
   const label = PAGE_LABELS[page] || page
   return (
-    <div className="topbar">
-      <div className="crumbs">
+    <div className="v-topbar">
+      <div className="v-crumbs">
         <span>Mermaid</span>
-        <span>/</span>
-        <span style={{color: 'var(--ink-3)'}}>Vendor</span>
-        <span>/</span>
+        <span className="sep"> / </span>
+        <span>Vendor</span>
+        <span className="sep"> / </span>
         <strong>{label}</strong>
       </div>
-      <div className="topbar__spacer" />
-      <div className="topbar__search">
-        <I.Search size={14} />
-        <input placeholder="Search listings, fishermen, alerts…" />
-        <kbd>⌘K</kbd>
-      </div>
-      <button className="topbar__icon-btn" title="Notifications">
-        <I.Bell size={16} /><span className="dot" />
-      </button>
-      <button className="topbar__icon-btn" title="Help"><I.Help size={16} /></button>
+      <div className="v-topbar__spacer" />
     </div>
   )
 }
@@ -132,8 +126,23 @@ function PageContent({ page, pageState, navigate }) {
 export default function VendorDashboard({ user, onLogout }) {
   const [page, setPage] = useState('vdashboard')
   const [pageState, setPageState] = useState(null)
+  const [railOpen, setRailOpen] = useState(false)
+  const pageRef = useRef(null)
   const location = useLocation()
   const routerNavigate = useNavigate()
+
+  const homeQ = useQuery({
+    queryKey: ['vendor-home'],
+    queryFn: getVendorHome,
+    staleTime: 60_000,
+  })
+  const home = homeQ.data
+  const badgeCounts = {
+    vinventory:   home?.lots?.length ?? 0,
+    vorders:      (home?.openOrders?.new ?? 0) + (home?.openOrders?.preparing ?? 0),
+    vprocurement: home?.recentMatchedCatchAlerts?.length ?? 0,
+    vmessages:    home?.unreadMessageCount ?? 0,
+  }
 
   // Bridge real URLs (e.g. /vendor/messages?deal=42 from ProcurementFeed) into
   // the tab-state shell. The Messages page itself reads ?deal=... via
@@ -157,22 +166,50 @@ export default function VendorDashboard({ user, onLogout }) {
     }
   }, [location.pathname])
 
-  const navigate = (id, state = null) => {
-    setPage(id)
-    setPageState(state)
-    // Keep the URL clean when leaving the messages tab via the rail.
+  const navigate = useCallback((id, state = null) => {
+    if (id === page) return
+    if (!pageRef.current) { setPage(id); setPageState(state); return }
+    gsap.killTweensOf(pageRef.current)
+    gsap.to(pageRef.current, {
+      opacity: 0, duration: 0.12,
+      onComplete: () => {
+        setPage(id)
+        setPageState(state)
+        gsap.fromTo(pageRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }
+        )
+      }
+    })
     if (id !== 'vmessages' && location.pathname.startsWith('/vendor/messages')) {
       routerNavigate('/', { replace: true })
     }
-  }
+  }, [page, location.pathname, routerNavigate])
 
   return (
     <StompProvider>
-      <div className="app" data-accent="warm" data-density="balanced">
-        <Rail page={page} navigate={navigate} user={user} onLogout={onLogout} />
-        <div className="main">
+      <div
+        className="app"
+        data-vendor-shell=""
+        data-rail-open={String(railOpen)}
+      >
+        <Rail
+          page={page}
+          navigate={navigate}
+          user={user}
+          onLogout={onLogout}
+          badgeCounts={badgeCounts}
+          onMouseEnter={() => setRailOpen(true)}
+          onMouseLeave={() => setRailOpen(false)}
+        />
+        <div
+          className="v-main"
+          onMouseEnter={() => setRailOpen(false)}
+        >
           <Topbar page={page} />
-          <PageContent page={page} pageState={pageState} navigate={navigate} />
+          <div className="v-page" ref={pageRef}>
+            <PageContent page={page} pageState={pageState} navigate={navigate} />
+          </div>
         </div>
       </div>
     </StompProvider>

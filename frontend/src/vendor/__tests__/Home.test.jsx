@@ -1,11 +1,14 @@
 // frontend/src/vendor/__tests__/Home.test.jsx
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, test } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import Home from '../Home'
+import Home, { freshnessPct } from '../Home'
 
 vi.mock('../api/home', () => ({ getVendorHome: vi.fn() }))
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { fullName: 'Inez Marina' } }) }))
+vi.mock('../api/analytics', () => ({ getSpeciesSeries: vi.fn(() => Promise.resolve([])) }))
+vi.mock('../api/storefront', () => ({ unpublishListing: vi.fn() }))
+vi.mock('../../fisherman/api/marine', () => ({ fetchAllConditions: vi.fn(() => Promise.resolve({ zones: [] })) }))
 import { getVendorHome } from '../api/home'
 
 function wrap(ui) {
@@ -42,4 +45,11 @@ describe('Vendor Home', () => {
     wrap(<Home setPage={() => {}} />)
     expect(await screen.findByText(/Server down/)).toBeInTheDocument()
   })
+})
+
+test('freshnessPct returns ~0 for brand-new lot', () => {
+  expect(freshnessPct(Date.now())).toBeCloseTo(0, 0)
+})
+test('freshnessPct clamps to 100 for lot older than 6 days', () => {
+  expect(freshnessPct(Date.now() - 7 * 86400 * 1000)).toBe(100)
 })

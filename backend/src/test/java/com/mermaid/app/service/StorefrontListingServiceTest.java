@@ -13,7 +13,10 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.ArgumentCaptor;
+
 import static org.assertj.core.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -204,6 +207,30 @@ class StorefrontListingServiceTest {
 
         assertThat(result).hasSize(1);
         verify(listingRepo).findByVendorIdAndIsDeletedFalse(10L);
+    }
+
+    // ---- incrementViewCount ----
+
+    @Test
+    void incrementViewCount_incrementsMonotonically() {
+        StorefrontListing listing = new StorefrontListing();
+        listing.setId(1L);
+        listing.setViewCount(5);
+        when(listingRepo.findByIdAndIsDeletedFalse(1L)).thenReturn(Optional.of(listing));
+        when(listingRepo.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        service.incrementViewCount(1L);
+
+        ArgumentCaptor<StorefrontListing> cap = ArgumentCaptor.forClass(StorefrontListing.class);
+        verify(listingRepo).save(cap.capture());
+        assertThat(cap.getValue().getViewCount()).isEqualTo(6);
+    }
+
+    @Test
+    void incrementViewCount_silentlyIgnoresMissingId() {
+        when(listingRepo.findByIdAndIsDeletedFalse(99L)).thenReturn(Optional.empty());
+        assertDoesNotThrow(() -> service.incrementViewCount(99L));
+        verify(listingRepo, never()).save(any());
     }
 
     // ---- helpers ----

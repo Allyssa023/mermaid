@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { I } from '../icons'
 import OrderCard from '../components/OrderCard'
 import { OrderCardSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
@@ -13,7 +12,7 @@ import {
   markPreparing, markReady, dispatchRider, markDelivered, completePickup,
 } from './api/orders'
 
-const STATUS_FILTERS = ['all', 'PENDING', 'CONFIRMED', 'COMPLETED', 'DISPUTED', 'CANCELLED']
+const IN_TRANSIT = ['PREPARING', 'READY', 'OUT_FOR_DELIVERY', 'AWAITING_RECEIPT']
 
 export default function OrdersInbox({ pageState, setPage }) {
   const qc = useQueryClient()
@@ -63,116 +62,123 @@ export default function OrdersInbox({ pageState, setPage }) {
 
   const normalize = (o) => ({
     ...o,
-    orderCode:       o.orderCode ?? `ORD-${o.id}`,
-    orderedQtyKg:    o.orderedQtyKg ?? o.qtyKg,
+    orderCode:        o.orderCode ?? `ORD-${o.id}`,
+    orderedQtyKg:     o.orderedQtyKg ?? o.qtyKg,
     agreedPricePerKg: o.agreedPricePerKg ?? o.pricePerKg,
-    species:         o.species ?? (o.speciesName ? { commonName: o.speciesName } : null),
-    buyer:           o.buyer   ?? (o.buyerName   ? { fullName:   o.buyerName   } : null),
+    species:          o.species ?? (o.speciesName ? { commonName: o.speciesName } : null),
+    buyer:            o.buyer   ?? (o.buyerName   ? { fullName:   o.buyerName   } : null),
   })
 
   const orders = (ordersQ.data ?? []).map(normalize)
+  const sevenDaysAgo = Date.now() - 7 * 86400 * 1000
 
-  const pending   = orders.filter(o => o.status === 'PENDING').length
-  const confirmed = orders.filter(o => o.status === 'CONFIRMED').length
-  const inTransit = orders.filter(o => o.status === 'CONFIRMED' && o.handoff?.status === 'CONFIRMED' && !o.payment).length
-  const completed = orders.filter(o => o.status === 'COMPLETED').length
-  const totalValue = orders
-    .filter(o => !['CANCELLED', 'DISPUTED'].includes(o.status))
-    .reduce((a, o) => a + (o.totalAmount ?? (o.orderedQtyKg ?? 0) * (o.agreedPricePerKg ?? 0)), 0)
+  const buckets = {
+    pending:   orders.filter(o => o.status === 'PENDING').length,
+    confirmed: orders.filter(o => o.status === 'CONFIRMED').length,
+    inTransit: orders.filter(o => IN_TRANSIT.includes(o.status)).length,
+    completed: orders.filter(o => o.status === 'COMPLETED').length,
+  }
+  const bucketTotal = Math.max(1, buckets.pending + buckets.confirmed + buckets.inTransit + buckets.completed)
 
-  const base = statusFilter === 'all' ? orders : orders.filter(o => o.status === statusFilter)
-  const filtered = [...base].sort((a, b) => {
-    const ad = new Date(a.createdAt).getTime()
-    const bd = new Date(b.createdAt).getTime()
-    return sortDesc ? bd - ad : ad - bd
-  })
+  const filteredOrders = orders
+    .filter(o => {
+      if (statusFilter === 'all')        return true
+      if (statusFilter === 'in-transit') return IN_TRANSIT.includes(o.status)
+      return o.status === statusFilter.toUpperCase()
+    })
+    .sort((a, b) => {
+      const ad = new Date(a.createdAt).getTime()
+      const bd = new Date(b.createdAt).getTime()
+      return sortDesc ? bd - ad : ad - bd
+    })
 
   return (
-    <div className="page">
-      <div className="page__head">
+    <div>
+      <div className="v-page-header">
         <div>
-          <div className="eyebrow">Operations · Sales</div>
-          <h1 className="page__title" style={{marginTop: 4}}><em>Orders</em></h1>
-          <p className="page__sub">
-            {buyerFilter
-              ? <>Filtered to buyer #{buyerFilter} · <a href="#" onClick={(e) => { e.preventDefault(); setPage?.('vorders', null) }}>clear filter</a></>
-              : 'Track every retail sale from confirmation to payment.'}
-          </p>
+          <h1 className="v-page-header__title">Order <em>inbox</em></h1>
+          {buyerFilter && (
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--ink-4)' }}>
+              Filtered to buyer #{buyerFilter} ·{' '}
+              <a href="#" onClick={(e) => { e.preventDefault(); setPage?.('vorders', null) }}>clear filter</a>
+            </p>
+          )}
         </div>
-        <div className="page__actions">
-          <button className="btn" onClick={handleExport}><I.Receipt size={14} /> Export CSV</button>
+        <div className="v-page-header__actions">
+          <button className="v-btn v-btn--ghost v-btn--sm" onClick={handleExport}>Export CSV</button>
+          <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => setSortDesc(v => !v)}>
+            Date {sortDesc ? '↓' : '↑'}
+          </button>
         </div>
       </div>
 
-      <div className="orders-strip">
-        <div className="stat"><div className="l">Pending</div><div className="v">{pending}</div><div className="s">Awaiting your confirm</div></div>
-        <div className="stat"><div className="l">Confirmed</div><div className="v">{confirmed}</div><div className="s">In progress</div></div>
-        <div className="stat"><div className="l">In transit</div><div className="v">{inTransit}</div><div className="s">Awaiting payment</div></div>
-        <div className="stat"><div className="l">Completed</div><div className="v">{completed}</div><div className="s">Last 7 days</div></div>
-        <div className="stat"><div className="l">Open value</div><div className="v">₱{(totalValue/1000).toFixed(1)}k</div><div className="s">Across {orders.length} orders</div></div>
-      </div>
-
-      <div className="pipeline">
-        <div className="card__head" style={{marginBottom: 0}}>
-          <div>
-            <div className="card__title">Pipeline this week</div>
-            <div className="card__sub">Distribution of open orders across stages</div>
+      {/* KPI strip */}
+      <div className="v-kpi-strip" style={{ gridTemplateColumns: 'repeat(5, 1fr)', marginBottom: 20 }}>
+        {[
+          { label: 'Pending',      value: buckets.pending },
+          { label: 'Confirmed',    value: buckets.confirmed },
+          { label: 'Completed 7d', value: orders.filter(o => o.status === 'COMPLETED' && new Date(o.completedAt || o.updatedAt).getTime() > sevenDaysAgo).length },
+          { label: 'Cancelled 7d', value: orders.filter(o => o.status === 'CANCELLED' && new Date(o.updatedAt).getTime() > sevenDaysAgo).length },
+          { label: 'Open value',   value: `₱${orders.filter(o => !['COMPLETED','CANCELLED','DISPUTED'].includes(o.status)).reduce((s, o) => s + (o.totalAmount ?? 0), 0).toFixed(0)}` },
+        ].map(({ label, value }) => (
+          <div key={label} className="v-kpi-cell">
+            <div className="v-kpi-cell__label">{label}</div>
+            <div className="v-kpi-cell__value v-mono">{value}</div>
           </div>
-          <span className="chip chip--ink">₱{(totalValue/1000).toFixed(1)}k open</span>
-        </div>
-        <div className="pipeline__bars">
-          <div className="pipeline__bar" style={{ flex: pending || 1 }} />
-          <div className="pipeline__bar" style={{ flex: confirmed || 1 }} />
-          <div className="pipeline__bar" style={{ flex: inTransit || 1 }} />
-          <div className="pipeline__bar" style={{ flex: completed || 1 }} />
-        </div>
-        <div className="pipeline__labels">
-          <span><strong>{pending}</strong> Pending</span>
-          <span><strong>{confirmed}</strong> Confirmed</span>
-          <span><strong>{inTransit}</strong> In transit</span>
-          <span><strong>{completed}</strong> Completed</span>
-        </div>
+        ))}
       </div>
 
-      <div className="row" style={{ gap: 6, marginBottom: 12 }}>
-        {STATUS_FILTERS.map(s => {
-          const active = statusFilter === s
-          const count  = s === 'all' ? orders.length : orders.filter(o => o.status === s).length
-          return (
-            <button
-              key={s}
-              className={`chip ${active ? 'chip--ink' : ''}`}
-              style={{ cursor: 'pointer', textTransform: s === 'all' ? 'capitalize' : 'none' }}
-              onClick={() => setStatusFilter(s)}
-            >
-              {s === 'all' ? 'All orders' : s.charAt(0) + s.slice(1).toLowerCase()}
-              <span style={{ marginLeft: 6, opacity: 0.7, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
-                {count}
+      {/* Pipeline visualizer */}
+      <div className="v-panel" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 4, height: 36, alignItems: 'stretch', borderRadius: 8, overflow: 'hidden' }}>
+          {[
+            { label: 'Pending',    count: buckets.pending,   color: 'var(--accent-lime)' },
+            { label: 'Confirmed',  count: buckets.confirmed, color: 'var(--tide, #5ec8e6)' },
+            { label: 'In transit', count: buckets.inTransit, color: 'var(--coral, #ff8a6b)' },
+            { label: 'Completed',  count: buckets.completed, color: 'var(--accent-violet-mid)' },
+          ].map(b => (
+            <div key={b.label}
+              style={{
+                flex: Math.max(0.5, b.count / bucketTotal),
+                background: b.color,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 8px', minWidth: 60, transition: 'flex 0.4s ease',
+              }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#0e0820', whiteSpace: 'nowrap' }}>
+                {b.label} {b.count}
               </span>
-            </button>
-          )
-        })}
-        <div style={{ flex: 1 }} />
-        <button className="btn btn--sm btn--ghost" onClick={() => setSortDesc(v => !v)}>
-          Sort: Date {sortDesc ? '↓' : '↑'}
-        </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {filtered.length === 0 && (
-        <div className="empty" style={{ marginTop: 32 }}>
-          <div className="empty__title">No orders yet</div>
-          <p>Orders from buyers will appear here.</p>
-        </div>
-      )}
-      {filtered.map(order => (
-        <OrderCard
-          key={order.id}
-          order={order}
-          viewerRole="SELLER"
-          mutations={mutations}
-        />
-      ))}
+      {/* Filter pills */}
+      <div className="v-tabs" style={{ marginBottom: 16 }}>
+        {['all', 'pending', 'confirmed', 'in-transit', 'completed', 'cancelled'].map(f => (
+          <button key={f}
+            className={`v-tab${statusFilter === f ? ' v-tab--on' : ''}`}
+            onClick={() => setStatusFilter(f)}>
+            {f === 'in-transit' ? 'In transit' : f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Order cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {filteredOrders.map(o => (
+          <OrderCard
+            key={o.id}
+            order={o}
+            viewerRole="SELLER"
+            mutations={mutations}
+          />
+        ))}
+        {filteredOrders.length === 0 && (
+          <div style={{ textAlign: 'center', color: 'var(--ink-4)', padding: 32, fontSize: 14 }}>
+            No orders in this category
+          </div>
+        )}
+      </div>
     </div>
   )
 }
-

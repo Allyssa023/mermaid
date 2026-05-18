@@ -4,6 +4,7 @@ import com.mermaid.app.domain.FishSpecies;
 import com.mermaid.app.domain.Order;
 import com.mermaid.app.domain.OrderKind;
 import com.mermaid.app.domain.User;
+import com.mermaid.app.repository.InventoryLotRepository;
 import com.mermaid.app.repository.OrderRepository;
 import com.mermaid.app.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ class AnalyticsServiceTest {
 
     @Mock OrderRepository orderRepo;
     @Mock UserRepository userRepo;
+    @Mock InventoryLotRepository lotRepo;
     @InjectMocks AnalyticsService service;
 
     private static final Long VENDOR = 10L;
@@ -231,5 +233,38 @@ class AnalyticsServiceTest {
         assertThatThrownBy(() -> service.salesSummary(VENDOR, TO, FROM))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("from must not be after to");
+    }
+
+    // ── deriveTier ───────────────────────────────────────────────────
+
+    @Test
+    void deriveTier_returnsVIPForTenOrMore() {
+        assertThat(service.deriveTier(10)).isEqualTo("VIP");
+        assertThat(service.deriveTier(15)).isEqualTo("VIP");
+    }
+
+    @Test
+    void deriveTier_returnsRegularForThreeToNine() {
+        assertThat(service.deriveTier(3)).isEqualTo("REGULAR");
+        assertThat(service.deriveTier(9)).isEqualTo("REGULAR");
+    }
+
+    @Test
+    void deriveTier_returnsNewForFewerThanThree() {
+        assertThat(service.deriveTier(0)).isEqualTo("NEW");
+        assertThat(service.deriveTier(2)).isEqualTo("NEW");
+    }
+
+    // ── speciesSeries ────────────────────────────────────────────────
+
+    @Test
+    void speciesSeries_fillsMissingDaysWithZero() {
+        when(orderRepo.findCompletedByVendorAndKindInRange(eq(999L), eq(OrderKind.RETAIL), any(), any()))
+                .thenReturn(List.of());
+        when(lotRepo.findByVendorIdOrderByReceivedAtAsc(999L)).thenReturn(List.of());
+
+        List<com.mermaid.app.model.VendorSpeciesSeriesItem> series = service.speciesSeries(999L, 3);
+
+        assertThat(series).isNotNull();
     }
 }

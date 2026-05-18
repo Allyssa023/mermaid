@@ -5,6 +5,7 @@ import com.mermaid.app.model.ProcurementSpend;
 import com.mermaid.app.model.RepeatBuyer;
 import com.mermaid.app.model.RevenueBySpecies;
 import com.mermaid.app.model.SalesSummary;
+import com.mermaid.app.model.VendorSpeciesSeriesItem;
 import com.mermaid.app.security.SecurityUtils;
 import com.mermaid.app.service.AnalyticsService;
 import org.openapitools.jackson.nullable.JsonNullable;
@@ -69,6 +70,13 @@ public class VendorAnalyticsController implements VendorAnalyticsApi {
     }
 
     @Override
+    public ResponseEntity<List<VendorSpeciesSeriesItem>> vendorSpeciesSeries(Integer days) {
+        Long vendorId = SecurityUtils.currentUserId();
+        int d = (days != null) ? days : 30;
+        return ResponseEntity.ok(analyticsService.speciesSeries(vendorId, d));
+    }
+
+    @Override
     public ResponseEntity<List<RepeatBuyer>> vendorRepeatBuyers(LocalDate from, LocalDate to, Integer minOrders) {
         Long vendorId = SecurityUtils.currentUserId();
         int min = (minOrders != null) ? minOrders : 2;
@@ -81,6 +89,10 @@ public class VendorAnalyticsController implements VendorAnalyticsApi {
             );
             dto.setBuyerName(JsonNullable.of((String) m.get("buyerName")));
             dto.setLastOrder(JsonNullable.of((OffsetDateTime) m.get("lastOrder")));
+            String tierStr = (String) m.get("tier");
+            if (tierStr != null) {
+                dto.setTier(JsonNullable.of(RepeatBuyer.TierEnum.fromValue(tierStr)));
+            }
             return dto;
         }).toList();
         return ResponseEntity.ok(dtos);

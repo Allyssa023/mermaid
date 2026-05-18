@@ -64,6 +64,9 @@ public class StorefrontListing {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "view_count", nullable = false)
+    private int viewCount = 0;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = OffsetDateTime.now();
@@ -128,4 +131,7 @@ public class StorefrontListing {
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public int getViewCount() { return viewCount; }
+    public void setViewCount(int viewCount) { this.viewCount = viewCount; }
 }

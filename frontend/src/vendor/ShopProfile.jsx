@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
 import { getShopProfile, updateShopProfile } from './api/shop'
+import { listVendorReviews } from './api/reviews'
+import { listInbox } from './api/orders'
 import { CardSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
 
@@ -28,13 +30,37 @@ function hoursFromShop(shop) {
 function toPayload(resolved) {
   // Backend ShopProfileRequest uses `hoursJson` (free-form object). Wrap our typed array.
   return {
-    displayName: resolved.displayName,
-    slug:        resolved.slug,
-    bio:         resolved.bio,
-    logoUrl:     resolved.logoUrl,
-    bannerUrl:   resolved.bannerUrl,
-    hoursJson:   { days: resolved.hoursDays },
+    displayName:    resolved.displayName,
+    slug:           resolved.slug,
+    bio:            resolved.bio,
+    logoUrl:        resolved.logoUrl,
+    bannerUrl:      resolved.bannerUrl,
+    pickupLocation: resolved.pickupLocation,
+    hoursJson:      { days: resolved.hoursDays },
   }
+}
+
+const inputStyle = {
+  background: 'var(--bg-card-2)',
+  border: '1px solid var(--hairline)',
+  borderRadius: 'var(--radius-md, 10px)',
+  color: 'var(--ink-1)',
+  padding: '8px 12px',
+  fontFamily: 'var(--font-ui, Rubik, sans-serif)',
+  fontSize: 14,
+  width: '100%',
+  boxSizing: 'border-box',
+  outline: 'none',
+}
+
+const labelStyle = {
+  display: 'block',
+  fontSize: 12,
+  color: 'var(--ink-3)',
+  fontFamily: 'var(--font-ui, Rubik, sans-serif)',
+  marginBottom: 4,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
 }
 
 export default function ShopProfile() {
@@ -42,14 +68,17 @@ export default function ShopProfile() {
   const [form, setForm]   = useState(null)
 
   const qc = useQueryClient()
-  const shopQ = useQuery({ queryKey: ['vendor', 'shop'], queryFn: getShopProfile })
+  const shopQ    = useQuery({ queryKey: ['vendor', 'shop'],    queryFn: getShopProfile })
+  const reviewsQ = useQuery({ queryKey: ['vendor', 'reviews', 'shop-kpi'], queryFn: () => listVendorReviews(0, 200) })
+  const ordersQ  = useQuery({ queryKey: ['vendor', 'orders'],  queryFn: () => listInbox() })
+
   const updateMut = useMutation({
     mutationFn: updateShopProfile,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['vendor', 'shop'] }); setSaved(true); setTimeout(() => setSaved(false), 2200) },
   })
 
-  if (shopQ.isLoading) return <div className="page"><CardSkeleton /></div>
-  if (shopQ.error)     return <div className="page"><ApiError error={shopQ.error} onRetry={shopQ.refetch} /></div>
+  if (shopQ.isLoading) return <div className="v-page"><CardSkeleton /></div>
+  if (shopQ.error)     return <div className="v-page"><ApiError error={shopQ.error} onRetry={shopQ.refetch} /></div>
   const shop = shopQ.data ?? {}
 
   const resolved = form ?? {
@@ -72,81 +101,154 @@ export default function ShopProfile() {
 
   const previewUrl = `/shop/${resolved.slug || shop.slug || ''}`
 
+  // KPI derivations
+  const reviewsList = reviewsQ.data?.content ?? reviewsQ.data ?? []
+  const avgRating = Array.isArray(reviewsList) && reviewsList.length > 0
+    ? (reviewsList.reduce((sum, r) => sum + (r.rating ?? 0), 0) / reviewsList.length).toFixed(1)
+    : null
+  const ordersList = ordersQ.data?.content ?? ordersQ.data ?? []
+  const totalOrders = Array.isArray(ordersList) ? ordersList.length : null
+
   return (
-    <div className="page">
-      <div className="page__head">
-        <div>
-          <div className="eyebrow">Shop</div>
-          <h1 className="page__title" style={{marginTop: 4}}>Your <em>public shop</em></h1>
-          <p className="page__sub">This is what buyers see at <span style={{fontFamily: 'var(--font-mono)', color: 'var(--accent)'}}>mermaid.ph{previewUrl || '/shop/your-shop'}</span></p>
-        </div>
-        <div className="row" style={{gap: 8}}>
-          <button
-            className="btn"
-            onClick={() => { if (previewUrl) window.open(previewUrl, '_blank', 'noopener,noreferrer') }}
-            disabled={!resolved.slug && !shop.slug}
-          >
-            <I.Eye size={12} /> Preview
-          </button>
-          <button
-            className="btn btn--primary"
-            onClick={() => updateMut.mutate(toPayload(resolved))}
-            disabled={updateMut.isPending}
-          >
-            <I.Check size={12} /> {updateMut.isPending ? 'Saving…' : (saved ? 'Saved!' : 'Save changes')}
-          </button>
+    <div className="v-page">
+      {/* Banner strip */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-card-2) 100%)',
+        borderRadius: 'var(--radius-lg, 14px)',
+        padding: '32px 24px',
+        marginBottom: 24,
+        borderBottom: '3px solid var(--accent-lime)',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Decorative circle */}
+        <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'var(--accent-lime)', opacity: 0.04 }} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 700, color: 'var(--ink-1)', margin: 0 }}>
+              {resolved.displayName || 'Your Shop'}
+            </h1>
+            <p style={{ color: 'var(--ink-3)', marginTop: 6, fontSize: 14, fontFamily: 'var(--font-ui, Rubik, sans-serif)', margin: '6px 0 0' }}>
+              {resolved.bio ? resolved.bio.slice(0, 80) + (resolved.bio.length > 80 ? '…' : '') : 'Manage your vendor profile'}
+            </p>
+            <p style={{ marginTop: 6, fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--accent-lime)' }}>
+              mermaid.ph{previewUrl || '/shop/your-shop'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              className="v-btn v-btn--ghost"
+              onClick={() => { if (previewUrl) window.open(previewUrl, '_blank', 'noopener,noreferrer') }}
+              disabled={!resolved.slug && !shop.slug}
+            >
+              <I.Eye size={12} /> Preview
+            </button>
+            <button
+              className="v-btn v-btn--primary"
+              onClick={() => updateMut.mutate(toPayload(resolved))}
+              disabled={updateMut.isPending}
+            >
+              <I.Check size={12} /> {updateMut.isPending ? 'Saving…' : (saved ? 'Saved!' : 'Save changes')}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid--2-1" style={{marginTop: 18}}>
-        <div className="card">
-          <div className="card__head"><div className="card__title">Basic info</div></div>
-          <div className="form-grid">
-            <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Display name</label><input className="input" value={resolved.displayName} onChange={setField('displayName')} /></div>
-            <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Public slug</label><input className="input" value={resolved.slug} onChange={setField('slug')} /></div>
-            <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Bio</label><textarea className="input" rows="3" value={resolved.bio} onChange={setField('bio')} /></div>
-            <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Pickup location</label><input className="input" value={resolved.pickupLocation} onChange={setField('pickupLocation')} /></div>
+      {/* KPI strip */}
+      <div className="v-kpi-strip" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
+        <div className="v-kpi-cell">
+          <div className="v-kpi-cell__label">Rating</div>
+          <div className="v-kpi-cell__value">{avgRating ?? '—'}</div>
+          <div className="v-kpi-cell__sub">avg from reviews</div>
+        </div>
+        <div className="v-kpi-cell">
+          {/* listInbox has no page-size param; count reflects first-page results only */}
+          <div className="v-kpi-cell__label">Orders (recent)</div>
+          <div className="v-kpi-cell__value">{totalOrders != null ? totalOrders : '—'}</div>
+          <div className="v-kpi-cell__sub">recent inbox</div>
+        </div>
+        <div className="v-kpi-cell">
+          <div className="v-kpi-cell__label">Member Since</div>
+          <div className="v-kpi-cell__value">{shop.createdAt ? new Date(shop.createdAt).getFullYear() : '—'}</div>
+          <div className="v-kpi-cell__sub">joined</div>
+        </div>
+      </div>
+
+      {/* Two-column form layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }}>
+        {/* Left column: Basic Info */}
+        <div className="v-panel">
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--ink-1)', marginBottom: 16 }}>Basic Info</div>
+
+          <div className="v-field">
+            <label style={labelStyle}>Display name</label>
+            <input className="v-input" value={resolved.displayName} onChange={setField('displayName')} style={inputStyle} />
+          </div>
+
+          <div className="v-field">
+            <label style={labelStyle}>Public slug</label>
+            <input className="v-input" value={resolved.slug} onChange={setField('slug')} style={inputStyle} />
+          </div>
+
+          <div className="v-field">
+            <label style={labelStyle}>Bio</label>
+            <textarea className="v-input" rows="3" value={resolved.bio} onChange={setField('bio')} style={{ ...inputStyle, resize: 'vertical' }} />
+          </div>
+
+          <div className="v-field">
+            <label style={labelStyle}>Pickup location</label>
+            <input className="v-input" value={resolved.pickupLocation} onChange={setField('pickupLocation')} style={inputStyle} />
+          </div>
+
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--ink-1)', marginBottom: 16, marginTop: 8 }}>Media</div>
+
+          <div className="v-field">
+            <label style={labelStyle}>Logo URL</label>
+            <input className="v-input" value={resolved.logoUrl} onChange={setField('logoUrl')} style={inputStyle} />
+          </div>
+
+          <div className="v-field">
+            <label style={labelStyle}>Banner URL</label>
+            <input className="v-input" value={resolved.bannerUrl} onChange={setField('bannerUrl')} style={inputStyle} />
           </div>
         </div>
 
-        <div style={{display: 'flex', flexDirection: 'column', gap: 14}}>
-          <div className="card">
-            <div className="card__head"><div className="card__title">Media</div></div>
-            <div className="form-grid">
-              <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Logo URL</label><input className="input" value={resolved.logoUrl} onChange={setField('logoUrl')} /></div>
-              <div className="form-row" style={{gridColumn: '1 / -1'}}><label>Banner URL</label><input className="input" value={resolved.bannerUrl} onChange={setField('bannerUrl')} /></div>
-            </div>
-          </div>
-          <div className="card">
-            <div className="card__head"><div className="card__title">Business hours</div></div>
-            <div style={{display: 'grid', gridTemplateColumns: '40px 1fr 1fr auto', gap: 8, alignItems: 'center', fontSize: 12}}>
-              {resolved.hoursDays.map((h, i) => (
-                <div key={h.day} style={{display: 'contents'}}>
-                  <strong>{DAYS[i].label}</strong>
+        {/* Right column: Business Hours */}
+        <div className="v-panel">
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 16, color: 'var(--ink-1)', marginBottom: 16 }}>Business Hours</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr auto', gap: '8px 6px', alignItems: 'center', fontSize: 12 }}>
+            <div style={{ ...labelStyle, marginBottom: 0 }}></div>
+            <div style={labelStyle}>Open</div>
+            <div style={labelStyle}>Close</div>
+            <div style={labelStyle}>Closed</div>
+            {resolved.hoursDays.map((h, i) => (
+              <div key={h.day} style={{ display: 'contents' }}>
+                <strong style={{ color: 'var(--ink-2)', fontSize: 12 }}>{DAYS[i].label}</strong>
+                <input
+                  type="time"
+                  className="v-input"
+                  value={h.openTime}
+                  onChange={(e) => setHour(i, 'openTime', e.target.value)}
+                  disabled={h.closed}
+                  style={{ ...inputStyle, padding: '6px 8px', opacity: h.closed ? 0.4 : 1 }}
+                />
+                <input
+                  type="time"
+                  className="v-input"
+                  value={h.closeTime}
+                  onChange={(e) => setHour(i, 'closeTime', e.target.value)}
+                  disabled={h.closed}
+                  style={{ ...inputStyle, padding: '6px 8px', opacity: h.closed ? 0.4 : 1 }}
+                />
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
                   <input
-                    type="time"
-                    className="input"
-                    value={h.openTime}
-                    onChange={(e) => setHour(i, 'openTime', e.target.value)}
-                    disabled={h.closed}
+                    type="checkbox"
+                    checked={!!h.closed}
+                    onChange={(e) => setHour(i, 'closed', e.target.checked)}
                   />
-                  <input
-                    type="time"
-                    className="input"
-                    value={h.closeTime}
-                    onChange={(e) => setHour(i, 'closeTime', e.target.value)}
-                    disabled={h.closed}
-                  />
-                  <label style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                    <input
-                      type="checkbox"
-                      checked={!!h.closed}
-                      onChange={(e) => setHour(i, 'closed', e.target.checked)}
-                    /> closed
-                  </label>
-                </div>
-              ))}
-            </div>
+                </label>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -56,6 +56,7 @@ public class StorefrontListingMapper {
         dto.setPhotoFlesh(JsonNullable.of(entity.getPhotoFlesh()));
         dto.setAvailableKg(availableKg != null ? availableKg.doubleValue() : 0.0);
         dto.setDeliveryFee(toDouble(entity.getDeliveryFee()));
+        dto.setViewCount(entity.getViewCount());
         return dto;
     }
 
