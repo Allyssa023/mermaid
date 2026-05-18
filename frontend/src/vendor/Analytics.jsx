@@ -8,7 +8,7 @@ import { StatTileSkeleton, TableRowSkeleton } from '../components/Skeleton'
 import ApiError from '../components/ApiError'
 
 function BarRow({ label, value, max, color = 'var(--accent-lime)' }) {
-  const pct = Math.round(value / max * 100)
+  const pct = max > 0 ? Math.round(value / max * 100) : 0
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 80px', gap: 12, alignItems: 'center', fontSize: 13 }}>
       <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
@@ -24,11 +24,15 @@ function BarRow({ label, value, max, color = 'var(--accent-lime)' }) {
 
 export default function Analytics({ setPage }) {
   const [range, setRange] = useState('30')
-  const [days, setDays] = useState(30)
+  const days = Number(range)
 
-  const now  = new Date()
-  const to   = now.toISOString().split('T')[0]
-  const from = new Date(now - Number(range) * 86_400_000).toISOString().split('T')[0]
+  const { from, to } = useMemo(() => {
+    const now = new Date()
+    return {
+      to: now.toISOString().split('T')[0],
+      from: new Date(now - Number(range) * 86_400_000).toISOString().split('T')[0],
+    }
+  }, [range])
 
   const summaryQ = useQuery({ queryKey: ['vendor', 'analytics', 'summary', range], queryFn: () => getSalesSummary(from, to) })
   const speciesQ = useQuery({ queryKey: ['vendor', 'analytics', 'species', range], queryFn: () => getRevenueBySpecies(from, to) })
@@ -44,8 +48,8 @@ export default function Analytics({ setPage }) {
   const bySpend   = spendQ.data ?? []
   const buyers    = buyersQ.data ?? []
 
-  const revMax  = bySpecies.length ? Math.max(...bySpecies.map(s => s.totalRevenue)) : 1
-  const procMax = bySpend.length   ? Math.max(...bySpend.map(s => s.totalSpend))     : 1
+  const revMax  = Math.max(1, ...bySpecies.map(s => s.totalRevenue ?? 0))
+  const procMax = Math.max(1, ...bySpend.map(s => s.totalSpend ?? 0))
 
   const topSpecies = bySpecies.length
     ? bySpecies.reduce((best, s) => s.totalRevenue > (best?.totalRevenue ?? 0) ? s : best, null)?.speciesName ?? '—'
@@ -94,12 +98,12 @@ export default function Analytics({ setPage }) {
       <div className="v-kpi-strip" style={{ marginBottom: 24 }}>
         <div className="v-kpi-cell">
           <div className="v-kpi-cell__label">Revenue</div>
-          <div className="v-kpi-cell__value">₱{(a.totalRevenue / 1000).toFixed(0)}k</div>
+          <div className="v-kpi-cell__value">₱{((a.totalRevenue ?? 0) / 1000).toFixed(0)}k</div>
           <div className="v-kpi-cell__sub">₱{a.totalRevenue?.toLocaleString()} total</div>
         </div>
         <div className="v-kpi-cell">
           <div className="v-kpi-cell__label">Avg order value</div>
-          <div className="v-kpi-cell__value">₱{a.avgOrderValue?.toLocaleString()}</div>
+          <div className="v-kpi-cell__value">₱{(a.avgOrderValue ?? 0).toLocaleString()}</div>
           <div className="v-kpi-cell__sub">per order</div>
         </div>
         <div className="v-kpi-cell">
@@ -123,18 +127,6 @@ export default function Analytics({ setPage }) {
       <div className="v-panel" style={{ marginBottom: 24 }}>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 12 }}>
           Revenue vs. Spend
-        </div>
-        {/* Chart range tabs */}
-        <div className="v-tabs" style={{ marginBottom: 16 }}>
-          {[{ label: '7d', val: 7 }, { label: '30d', val: 30 }, { label: '90d', val: 90 }, { label: '1y', val: 365 }].map(r => (
-            <button
-              key={r.val}
-              className={`v-tab${days === r.val ? ' v-tab--on' : ''}`}
-              onClick={() => setDays(r.val)}
-            >
-              {r.label}
-            </button>
-          ))}
         </div>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={chartData} barGap={2}>
@@ -215,7 +207,7 @@ export default function Analytics({ setPage }) {
                     <span className={`v-chip v-chip--${tierClass}`}>{b.tier ?? 'NEW'}</span>
                   </td>
                   <td style={{ color: 'var(--text-secondary)' }}>{b.orderCount}</td>
-                  <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>₱{b.totalSpent.toLocaleString()}</td>
+                  <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>₱{b.totalSpent?.toLocaleString() ?? '—'}</td>
                   <td style={{ textAlign: 'right' }}>
                     <button
                       className="btn btn--ghost btn--sm"
