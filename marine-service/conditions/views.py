@@ -122,9 +122,13 @@ class ZoneForecastView(APIView):
     authentication_classes = [ApiKeyAuthentication]
     permission_classes = [HasValidApiKey]
 
+    _STALE_TTL = 86400 * 30  # 30 days — survives network outages
+
     def get(self, request, zone_id):
         zone = _get_zone_or_404(zone_id)
         cache_key = f"forecast:{zone_id}"
+        stale_key = f"forecast-stale:{zone_id}"
+
         cached = _cache.get(cache_key)
         if cached:
             return Response(ZoneForecastSerializer(cached).data)
@@ -134,10 +138,18 @@ class ZoneForecastView(APIView):
             forecast = open_meteo.fetch_forecast(zone, client)
         except (httpx.HTTPStatusError, httpx.RequestError) as exc:
             logger.error("Open-Meteo forecast error for %s: %s", zone_id, exc)
+            stale = _cache.get(stale_key)
+            if stale:
+                logger.warning(
+                    "Serving stale forecast for zone %s (Open-Meteo unreachable)", zone_id
+                )
+                return Response(ZoneForecastSerializer(stale).data)
             return Response(
                 {"detail": "Marine data service temporarily unavailable"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
+        # Write live cache (1-hour TTL) and stale shadow (30-day TTL)
         _cache.set(cache_key, forecast, settings.FORECAST_CACHE_TTL)
+        _cache.set(stale_key, forecast, self._STALE_TTL)
         return Response(ZoneForecastSerializer(forecast).data)
