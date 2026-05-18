@@ -195,7 +195,7 @@ Typography: Space Grotesk (display headings) / Rubik (UI labels, body).
 ```
 This achieves lime/violet bubbles without touching `DealChatPane.jsx` internals.
 
-**Unread tracking:** Use the existing `readLastViewed` / `writeLastViewed` utilities from `src/utils/dealsLocalStorage.js` — do **not** introduce a new `Set`. When a deal is selected call `writeLastViewed(dealId, lastMessageId)`. Unread dot renders when `deal.lastMessageAt` is newer than what was last viewed per that deal. The STOMP subscription is already wired in existing `Messages.jsx` — keep it.
+**Unread tracking:** Use the existing `readLastViewed` / `writeLastViewed` utilities from `src/utils/dealsLocalStorage.js` — do **not** introduce a new `Set`. When a deal is selected call `writeLastViewed(dealId)` (one argument — stores current timestamp). `readLastViewed(dealId)` returns a `Date`. Unread dot renders when `new Date(deal.lastMessageAt) > readLastViewed(dealId)`. The STOMP subscription is already wired in existing `Messages.jsx` — keep it.
 
 **Layout:**
 - Left sidebar (`280px` fixed, `--bg-card` background): scrollable deal list from `listMyDeals()`.
