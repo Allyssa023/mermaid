@@ -144,6 +144,9 @@ public class SecurityConfig {
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(new JwtAuthenticationConverter()))
                 .bearerTokenResolver(cookieBearerTokenResolver())
+            )
+            .oauth2Login(oauth -> oauth
+                .successHandler(oAuth2SuccessHandler)
             );
         return http.build();
     }

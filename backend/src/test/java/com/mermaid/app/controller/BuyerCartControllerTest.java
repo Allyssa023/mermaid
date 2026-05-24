@@ -85,7 +85,7 @@ class BuyerCartControllerTest {
     @Test
     void addItem_validRequest_returns200() throws Exception {
         when(cartService.addItem(eq(1L), any(AddCartItemRequest.class)))
-                .thenReturn(emptyCart());
+                .thenReturn(new CartService.AddItemResult(emptyCart(), null));
 
         mockMvc.perform(post("/buyer/cart/items")
                 .with(asBuyer(1L)).with(csrf())

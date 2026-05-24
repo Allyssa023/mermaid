@@ -28,19 +28,36 @@ public class ProcurementOrderService {
     private final FishSpeciesRepository speciesRepo;
     private final InventoryService inventoryService;
     private final ApplicationEventPublisher eventPublisher;
+    private final LiveEventPublisher liveEventPublisher;
 
     public ProcurementOrderService(CatchAlertRepository alertRepo,
                                    OrderRepository orderRepo,
                                    OrderStatusEventRepository eventRepo,
                                    FishSpeciesRepository speciesRepo,
                                    InventoryService inventoryService,
-                                   ApplicationEventPublisher eventPublisher) {
+                                   ApplicationEventPublisher eventPublisher,
+                                   LiveEventPublisher liveEventPublisher) {
         this.alertRepo = alertRepo;
         this.orderRepo = orderRepo;
         this.eventRepo = eventRepo;
         this.speciesRepo = speciesRepo;
         this.inventoryService = inventoryService;
         this.eventPublisher = eventPublisher;
+        this.liveEventPublisher = liveEventPublisher;
+    }
+
+    private void broadcastAlertChange(CatchAlert alert, String reason) {
+        if (alert == null) return;
+        Long alertId = alert.getId();
+        Long fishermanId = alert.getFishermanId();
+        liveEventPublisher.runAfterCommit(() -> {
+            liveEventPublisher.broadcast("catch-alerts", "CATCH_ALERT_CHANGED",
+                java.util.Map.of("alertId", alertId, "reason", reason));
+            if (fishermanId != null) {
+                liveEventPublisher.pushToUser(fishermanId, "MY_CATCH_ALERT_CHANGED",
+                    java.util.Map.of("alertId", alertId, "reason", reason));
+            }
+        });
     }
 
     @Transactional(readOnly = true)
@@ -86,6 +103,7 @@ public class ProcurementOrderService {
             alert.setStatus("SOLD");
         }
         alertRepo.save(alert);
+        broadcastAlertChange(alert, "CLAIMED");
 
         Order order = new Order();
         order.setKind(OrderKind.PROCUREMENT);
@@ -96,9 +114,9 @@ public class ProcurementOrderService {
         order.setDeal(deal);
         order.setOrderedQtyKg(proposal.getQtyKg());
         order.setAgreedPricePerKg(proposal.getPricePerKg());
-        order.setStatus("PENDING");
+        order.setStatus("CONFIRMED");
         Order saved = orderRepo.save(order);
-        recordEvent(saved.getId(), "PENDING", deal.getVendorId(),
+        recordEvent(saved.getId(), "CONFIRMED", deal.getVendorId(),
                 "Order placed via deal " + deal.getId(),
                 deal.getVendorId(), deal.getFishermanId());
         return saved;
@@ -159,6 +177,7 @@ public class ProcurementOrderService {
                 .max(BigDecimal.ZERO);
         alert.setClaimedKg(restored);
         alertRepo.save(alert);
+        broadcastAlertChange(alert, "RELEASED");
     }
 
     @Transactional
@@ -238,7 +257,11 @@ public class ProcurementOrderService {
         order.setPaymentMethod(paymentMethod);
         order.setSettledAt(OffsetDateTime.now());
         order.setSettleNotes(settleNotes);
-        return orderRepo.save(order);
+        Order saved = orderRepo.save(order);
+        recordEvent(orderId, "SETTLED", vendorId,
+                "Order settled via " + paymentMethod,
+                vendorId, order.getSellerId());
+        return saved;
     }
 
     private void recordEvent(Long orderId, String status, Long actorId, String note,

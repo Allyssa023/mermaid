@@ -38,12 +38,12 @@ beforeEach(() => {
 describe('FishermanProfilePage', () => {
   it('displays fullName as read-only text', async () => {
     wrap(<FishermanProfilePage setPage={vi.fn()} setProfileDirty={vi.fn()} />)
-    expect(await screen.findByText(/Isidro Cruz/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/Isidro Cruz/i)).length).toBeGreaterThan(0)
   })
 
   it('email is NOT in an editable input', async () => {
     wrap(<FishermanProfilePage setPage={vi.fn()} setProfileDirty={vi.fn()} />)
-    await screen.findByText(/Isidro Cruz/i)
+    await screen.findAllByText(/Isidro Cruz/i)
     const emailInput = screen.queryByDisplayValue(/isidro@test\.com/i)
     expect(emailInput?.tagName?.toLowerCase()).not.toBe('input')
   })

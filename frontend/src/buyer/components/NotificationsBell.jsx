@@ -4,10 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../../icons'
 import { timeAgo } from '../utils/format'
 import { getNotifications, markRead, markAllRead, getUnreadCount } from '../../api/notifications'
+import { useStomp } from '../../context/StompContext'
 
-export default function NotificationsBell() {
+export default function NotificationsBell({ onNavigate, btnClassName = "topbar__icon-btn" }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const stomp = useStomp()
   const [open, setOpen] = useState(false)
   const wrapRef = useRef(null)
 
@@ -44,6 +46,17 @@ export default function NotificationsBell() {
   })
 
   useEffect(() => {
+    if (!stomp || !stomp.connected) return
+    const sub = stomp.subscribe('/user/queue/notifications', () => {
+      qc.invalidateQueries({ queryKey: ['notifCount'] })
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    })
+    return () => {
+      if (sub) sub.unsubscribe()
+    }
+  }, [stomp, stomp?.connected, qc])
+
+  useEffect(() => {
     function onDocClick(e) {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
     }
@@ -53,16 +66,34 @@ export default function NotificationsBell() {
 
   function handleClickItem(n) {
     if (!n.readAt) markReadMut.mutate(n.id)
-    if (n.link) navigate(n.link)
+    if (n.link) {
+      if (onNavigate) {
+        let dest = n.link
+        if (dest.startsWith('/')) {
+          dest = dest.substring(1)
+        }
+        if (dest.includes('order')) {
+          onNavigate('borders')
+        } else if (dest.includes('message')) {
+          onNavigate('bmessages')
+        } else if (dest.includes('cart')) {
+          onNavigate('bcart')
+        } else {
+          onNavigate('bhome')
+        }
+      } else {
+        navigate(n.link)
+      }
+    }
     setOpen(false)
   }
 
   return (
     <div ref={wrapRef} style={{ position: 'relative' }}>
-      <button className="topbar__icon-btn" title="Notifications" onClick={() => setOpen(o => !o)}>
+      <button className={btnClassName} title="Notifications" onClick={() => setOpen(o => !o)} style={{ position: 'relative' }}>
         <I.Bell size={16} />
         {unread > 0 && (
-          <span style={{
+          <span className="bell-btn__dot" style={{
             position: 'absolute', top: 2, right: 2,
             minWidth: 14, height: 14, borderRadius: 99,
             background: 'var(--unsafe)', color: '#fff',

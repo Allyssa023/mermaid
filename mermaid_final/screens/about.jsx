@@ -18,12 +18,9 @@ function AboutScreen({ onNav }) {
                 MERMAID is a Marine Safety and Market Information Dashboard for the Philippine coastal economy. We started with one co-op in Lingayen and a hunch: that fishermen, vendors, buyers, and BFAR officers were all solving the same five problems on five different group chats.
               </p>
             </div>
-            <div style={{ position: 'relative', minHeight: 280 }}>
-              <div style={{ position: 'absolute', top: 0, right: 20 }}>
-                <MarineMascot kind="anchor" size={180} />
-              </div>
-              <div style={{ position: 'absolute', bottom: 0, left: 0 }}>
-                <MarineMascot kind="fish" size={160} />
+            <div style={{ position: 'relative', minHeight: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="mascot-mermaid-wrap" aria-hidden="true">
+                <img src="assets/mermaid.png" alt="" className="mascot" width={4000} height={2660} loading="eager" decoding="async" />
               </div>
             </div>
           </div>

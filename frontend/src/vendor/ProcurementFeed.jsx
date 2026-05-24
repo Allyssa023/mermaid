@@ -38,6 +38,9 @@ export default function ProcurementFeed({ pageState }) {
   const feedQ   = useQuery({
     queryKey: ['vendor', 'feed', watchlistFilter],
     queryFn: () => getFeed(watchlistFilter?.speciesId),
+    refetchInterval: tab === 'feed' ? 5000 : false,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   })
   const cartQ   = useQuery({ queryKey: ['vendor', 'cart'], queryFn: getCart })
   const ordersQ = useQuery({
@@ -115,7 +118,6 @@ export default function ProcurementFeed({ pageState }) {
 
   const tabs = [
     { id: 'feed',    label: 'Feed' },
-    { id: 'cart',    label: `Cart (${cartItems.length})` },
     { id: 'orders',  label: 'Deals' },
     { id: 'credits', label: ordersQ.data ? `Credits (${creditOrders.length})` : 'Credits' },
   ]
@@ -199,18 +201,10 @@ export default function ProcurementFeed({ pageState }) {
                   </div>
                   <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                     <button
-                      className="v-btn v-btn--ghost v-btn--sm"
-                      style={{ flex: 1 }}
-                      onClick={() => addMut.mutate({ catchAlertId: a.id, qtyKg: qty })}
-                      disabled={!!inCart || addMut.isPending || !canBuy}
-                    >
-                      {inCart ? <><I.Check size={11} /> In cart</> : <><I.Plus size={11} /> Add to cart</>}
-                    </button>
-                    <button
                       className="v-btn v-btn--primary v-btn--sm"
                       style={{ flex: 1 }}
                       onClick={() => startDealMut.mutate(a)}
-                      disabled={startDealMut.isPending || addMut.isPending || !canBuy || !!inCart}
+                      disabled={startDealMut.isPending || !canBuy}
                     >
                       <I.Arrow size={11} /> {startDealMut.isPending ? 'Starting…' : 'Start deal'}
                     </button>
@@ -219,83 +213,6 @@ export default function ProcurementFeed({ pageState }) {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {tab === 'cart' && (
-        <div className="v-panel" style={{ marginTop: 4 }}>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, color: 'var(--ink-1)' }}>Your cart</div>
-            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>{cartItems.length} items pending order</div>
-          </div>
-          {cartQ.isLoading && <TableRowSkeleton rows={3} />}
-          {cartQ.error && <ApiError error={cartQ.error} onRetry={cartQ.refetch} />}
-          {!cartQ.isLoading && cartItems.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--ink-4)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Cart is empty</div>
-              <p style={{ fontSize: 13 }}>Add alerts from the live feed.</p>
-            </div>
-          ) : (
-            <table className="v-table">
-              <thead><tr><th>Code</th><th>Species</th><th>Fisher</th><th>Qty (kg)</th><th>Price/kg</th><th>Deal</th><th></th></tr></thead>
-              <tbody>
-                {cartItems.map(item => {
-                  const status = item.dealStatus ?? null
-                  const isStale = status === 'REJECTED' || status === 'EXPIRED' || status === 'CANCELLED'
-                  return (
-                    <tr key={item.id}>
-                      <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--ink-4)' }}>CA-{item.catchAlertId}</span></td>
-                      <td>{item.speciesName ?? item.catchAlert?.speciesName ?? '—'}</td>
-                      <td style={{ color: 'var(--ink-3)' }}>{item.fishermanName ?? '—'}</td>
-                      <td className="v-mono">{item.qtyKg} kg</td>
-                      <td className="v-mono">₱{item.pricePerKg}</td>
-                      <td>
-                        {status == null && <span className="v-chip v-chip--muted">No deal</span>}
-                        {status === 'NEGOTIATING' && <span className="v-chip v-chip--tide">Negotiating</span>}
-                        {isStale && <span className="v-chip v-chip--muted">{status.charAt(0) + status.slice(1).toLowerCase()}</span>}
-                        {status === 'AGREED' && <span className="v-chip v-chip--kelp">Order placed</span>}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          {status == null && (
-                            <button
-                              className="v-btn v-btn--primary v-btn--sm"
-                              onClick={() => startDealFromItemMut.mutate(item.id)}
-                              disabled={startDealFromItemMut.isPending}
-                            >
-                              <I.Arrow size={11} /> Start deal
-                            </button>
-                          )}
-                          {status === 'NEGOTIATING' && (
-                            <button
-                              className="v-btn v-btn--ghost v-btn--sm"
-                              onClick={() => navigate(`/vendor/messages?deal=${item.dealId}`)}
-                            >
-                              Open chat
-                            </button>
-                          )}
-                          {isStale && (
-                            <button
-                              className="v-btn v-btn--primary v-btn--sm"
-                              onClick={() => startDealFromItemMut.mutate(item.id)}
-                              disabled={startDealFromItemMut.isPending}
-                            >
-                              Restart
-                            </button>
-                          )}
-                          {status !== 'AGREED' && (
-                            <button className="v-btn v-btn--ghost v-btn--sm" onClick={() => removeMut.mutate(item.id)} disabled={removeMut.isPending}>
-                              <I.Trash size={11} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          )}
         </div>
       )}
 

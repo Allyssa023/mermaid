@@ -11,6 +11,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -20,10 +24,12 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepo;
     private final ObjectMapper objectMapper;
+    private final SimpMessagingTemplate ws;
 
-    public NotificationService(NotificationRepository notificationRepo, ObjectMapper objectMapper) {
+    public NotificationService(NotificationRepository notificationRepo, ObjectMapper objectMapper, SimpMessagingTemplate ws) {
         this.notificationRepo = notificationRepo;
         this.objectMapper = objectMapper;
+        this.ws = ws;
     }
 
     @Transactional
@@ -46,7 +52,9 @@ public class NotificationService {
                 throw new IllegalStateException("Failed to serialize notification payload", e);
             }
         }
-        return notificationRepo.save(n);
+        Notification saved = notificationRepo.save(n);
+        sendLiveNotification(userId, saved);
+        return saved;
     }
 
     @Transactional
@@ -57,7 +65,40 @@ public class NotificationService {
         n.setTitle(title);
         n.setBody(body);
         n.setLink(link);
-        return notificationRepo.save(n);
+        Notification saved = notificationRepo.save(n);
+        sendLiveNotification(userId, saved);
+        return saved;
+    }
+
+    private void sendLiveNotification(Long userId, Notification n) {
+        if (userId == null) return;
+        runAfterCommit(() -> {
+            try {
+                ws.convertAndSendToUser(userId.toString(), "/queue/notifications", Map.of(
+                    "id", n.getId(),
+                    "type", n.getType(),
+                    "title", n.getTitle() == null ? "" : n.getTitle(),
+                    "body", n.getBody() == null ? "" : n.getBody(),
+                    "link", n.getLink() == null ? "" : n.getLink(),
+                    "createdAt", n.getCreatedAt() == null ? OffsetDateTime.now().toString() : n.getCreatedAt().toString()
+                ));
+            } catch (Exception e) {
+                // Defensive: prevent websocket failures from rollback of database transaction
+            }
+        });
+    }
+
+    private void runAfterCommit(Runnable r) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    r.run();
+                }
+            });
+        } else {
+            r.run();
+        }
     }
 
     @Transactional(readOnly = true)

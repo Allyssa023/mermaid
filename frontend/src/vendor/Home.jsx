@@ -418,8 +418,8 @@ function OrdersPanel({ home, orders, setPage, onConfirm, confirmPending }) {
   const [filter, setFilter] = useState('ALL')
 
   const statusChip = (s) => {
-    if (s === 'PENDING')   return <span className="chip chip--new">Pending</span>
-    if (s === 'CONFIRMED') return <span className="chip chip--prep">Confirmed</span>
+    if (s === 'PENDING')   return <span className="chip chip--prep">Pending</span>
+    if (s === 'CONFIRMED') return <span className="chip chip--confirmed-lime">Confirmed</span>
     if (s === 'COMPLETED') return <span className="chip chip--ready">Completed</span>
     if (s === 'CANCELLED') return <span className="chip chip--cancel">Cancelled</span>
     return <span className="chip chip--done">{s}</span>
@@ -794,6 +794,27 @@ export default function Home({ setPage }) {
           <span className="pill-btn on">24H</span>
           <span className="pill-btn">Whole fresh</span>
           <span className="pill-btn">Desc</span>
+        </div>
+      </div>
+
+      {/* KPI Summary Strip */}
+      <div className="kpi-strip" style={{ marginBottom: 24 }}>
+        <div className="cell">
+          <div className="l">Today's Revenue</div>
+          <div className="v">₱{Number(home.todayRevenue ?? 0).toLocaleString()}</div>
+          <div className="s">gross sales today</div>
+        </div>
+        <div className="cell">
+          <div className="l">Open Orders</div>
+          <div className="v">
+            {(home.openOrders?.new ?? 0) + (home.openOrders?.preparing ?? 0) + (home.openOrders?.ready ?? 0)}
+          </div>
+          <div className="s">{home.openOrders?.new ?? 0} new pending</div>
+        </div>
+        <div className="cell">
+          <div className="l">Notifications</div>
+          <div className="v">{home.unreadNotifications ?? 0}</div>
+          <div className="s">unread alerts</div>
         </div>
       </div>
 

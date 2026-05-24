@@ -32,6 +32,7 @@ public class BuyerOrderService {
     private final OrderTimelineService timelineService;
     private final PaymentRepository paymentRepo;
     private final InventoryService inventoryService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     public BuyerOrderService(OrderRepository orderRepository,
                              StorefrontListingRepository storefrontListingRepo,
@@ -39,7 +40,8 @@ public class BuyerOrderService {
                              BuyerOrderMapper buyerOrderMapper,
                              OrderTimelineService timelineService,
                              PaymentRepository paymentRepo,
-                             InventoryService inventoryService) {
+                             InventoryService inventoryService,
+                             org.springframework.context.ApplicationEventPublisher eventPublisher) {
         this.orderRepository = orderRepository;
         this.storefrontListingRepo = storefrontListingRepo;
         this.fishSpeciesRepo = fishSpeciesRepo;
@@ -47,6 +49,7 @@ public class BuyerOrderService {
         this.timelineService = timelineService;
         this.paymentRepo = paymentRepo;
         this.inventoryService = inventoryService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -121,6 +124,9 @@ public class BuyerOrderService {
 
         Order saved = orderRepository.save(order);
         timelineService.recordEvent(saved.getId(), "PENDING", buyerId, "Order placed by buyer");
+        eventPublisher.publishEvent(new com.mermaid.app.event.OrderStatusChangeEvent(
+            this, saved.getId(), saved.getBuyerId(), saved.getSellerId(), "PENDING", "Order placed by buyer"
+        ));
         return buyerOrderMapper.toModel(saved);
     }
 
@@ -156,14 +162,18 @@ public class BuyerOrderService {
             throw new org.springframework.security.access.AccessDeniedException("Not your order");
         }
 
+        String note;
+        String newStatus;
         boolean isDelivery = "DELIVERY".equals(order.getDispatchMode());
         if (isDelivery) {
             if ("OUT_FOR_DELIVERY".equals(order.getStatus())) {
                 // Normal delivery path: buyer confirms receipt while rider is out → AWAITING_RECEIPT
                 // Vendor then finalises with markDelivered → COMPLETED
-                order.setStatus("AWAITING_RECEIPT");
+                newStatus = "AWAITING_RECEIPT";
+                note = "Buyer confirmed receipt — awaiting vendor confirmation";
+                order.setStatus(newStatus);
                 orderRepository.save(order);
-                timelineService.recordEvent(orderId, "AWAITING_RECEIPT", buyerId, "Buyer confirmed receipt — awaiting vendor confirmation");
+                timelineService.recordEvent(orderId, newStatus, buyerId, note);
             } else if ("AWAITING_RECEIPT".equals(order.getStatus())) {
                 // Vendor skipped OUT_FOR_DELIVERY step; buyer confirms goods received → COMPLETED
                 paymentRepo.findByOrderId(orderId).ifPresent(payment -> {
@@ -173,10 +183,12 @@ public class BuyerOrderService {
                         paymentRepo.save(payment);
                     }
                 });
-                order.setStatus("COMPLETED");
+                newStatus = "COMPLETED";
+                note = "Buyer confirmed receipt of delivery";
+                order.setStatus(newStatus);
                 order.setCompletedAt(OffsetDateTime.now());
                 orderRepository.save(order);
-                timelineService.recordEvent(orderId, "COMPLETED", buyerId, "Buyer confirmed receipt of delivery");
+                timelineService.recordEvent(orderId, newStatus, buyerId, note);
                 if (order.getStorefrontListingId() != null) {
                     inventoryService.deductForOrder(orderId);
                 }
@@ -187,9 +199,11 @@ public class BuyerOrderService {
             // Pickup flow
             if ("READY".equals(order.getStatus())) {
                 // Buyer arrived and picked up — notify vendor to confirm
-                order.setStatus("AWAITING_RECEIPT");
+                newStatus = "AWAITING_RECEIPT";
+                note = "Buyer confirmed pickup — awaiting vendor confirmation";
+                order.setStatus(newStatus);
                 orderRepository.save(order);
-                timelineService.recordEvent(orderId, "AWAITING_RECEIPT", buyerId, "Buyer confirmed pickup — awaiting vendor confirmation");
+                timelineService.recordEvent(orderId, newStatus, buyerId, note);
             } else if ("AWAITING_RECEIPT".equals(order.getStatus())) {
                 // Vendor already confirmed handoff; complete directly
                 paymentRepo.findByOrderId(orderId).ifPresent(payment -> {
@@ -199,10 +213,12 @@ public class BuyerOrderService {
                         paymentRepo.save(payment);
                     }
                 });
-                order.setStatus("COMPLETED");
+                newStatus = "COMPLETED";
+                note = "Buyer confirmed receipt";
+                order.setStatus(newStatus);
                 order.setCompletedAt(OffsetDateTime.now());
                 orderRepository.save(order);
-                timelineService.recordEvent(orderId, "COMPLETED", buyerId, "Buyer confirmed receipt");
+                timelineService.recordEvent(orderId, newStatus, buyerId, note);
                 if (order.getStorefrontListingId() != null) {
                     inventoryService.deductForOrder(orderId);
                 }
@@ -210,6 +226,10 @@ public class BuyerOrderService {
                 throw new IllegalStateException("Order cannot be confirmed at this stage");
             }
         }
+
+        eventPublisher.publishEvent(new com.mermaid.app.event.OrderStatusChangeEvent(
+            this, orderId, order.getBuyerId(), order.getSellerId(), newStatus, note
+        ));
 
         return buyerOrderMapper.toModel(order);
     }
@@ -227,6 +247,9 @@ public class BuyerOrderService {
         order.setStatus("DISPUTED");
         orderRepository.save(order);
         timelineService.recordEvent(orderId, "DISPUTED", buyerId, "Buyer raised dispute: " + reason);
+        eventPublisher.publishEvent(new com.mermaid.app.event.OrderStatusChangeEvent(
+            this, orderId, order.getBuyerId(), order.getSellerId(), "DISPUTED", "Buyer raised dispute: " + reason
+        ));
         return buyerOrderMapper.toModel(order);
     }
 }

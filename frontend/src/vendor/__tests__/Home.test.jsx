@@ -7,7 +7,7 @@ import Home, { freshnessPct } from '../Home'
 vi.mock('../api/home', () => ({ getVendorHome: vi.fn() }))
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { fullName: 'Inez Marina' } }) }))
 vi.mock('../api/analytics', () => ({ getSpeciesSeries: vi.fn(() => Promise.resolve([])) }))
-vi.mock('../api/storefront', () => ({ unpublishListing: vi.fn() }))
+vi.mock('../api/storefront', () => ({ unpublishListing: vi.fn(), listListings: vi.fn(() => Promise.resolve([])) }))
 vi.mock('../../fisherman/api/marine', () => ({ fetchAllConditions: vi.fn(() => Promise.resolve({ zones: [] })) }))
 import { getVendorHome } from '../api/home'
 
@@ -20,8 +20,8 @@ const MOCK = {
   todayRevenue: 24800,
   openOrders: { new: 3, preparing: 4, ready: 2 },
   unreadNotifications: 4,
-  lowStock: [{ speciesName: 'Yellowfin Tuna', remainingKg: 4.2 }],
-  recentMatchedCatchAlerts: [{ id: 1, speciesName: 'Grouper', fishermanName: 'Ramiro', quantityKg: 3.2 }],
+  lowStockSpecies: [{ speciesName: 'Yellowfin Tuna', availableKg: 4.2 }],
+  recentMatchedAlerts: [{ catchAlertId: 1, speciesName: 'Grouper', fishermanName: 'Ramiro', createdAt: new Date().toISOString() }],
 }
 
 beforeEach(() => { vi.clearAllMocks(); getVendorHome.mockResolvedValue(MOCK) })

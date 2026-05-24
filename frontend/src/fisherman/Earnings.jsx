@@ -9,8 +9,8 @@ const PAGE_SIZE = 10
 const STATS = [
   { key: 'totalGross',        label: 'Total gross',    color: null,               foot: 'Last 30 days' },
   { key: 'cashCollected',     label: 'Cash collected', color: 'var(--safe)',       foot: null },
-  { key: 'creditOutstanding', label: 'Outstanding',    color: 'var(--caution)',   foot: 'unpaid credit' },
-  { key: 'avgPerOrder',       label: 'Avg / order',    color: null,               foot: null },
+  { key: 'creditOutstanding', label: 'Credit Outstanding', color: 'var(--caution)', foot: 'unpaid credit' },
+  { key: 'orderCount',        label: 'Orders',         color: null,               foot: null },
 ]
 
 function Pager({ page, total, onPage }) {
@@ -65,15 +65,17 @@ export default function EarningsPage() {
     STATS.forEach(({ key }, i) => {
       const el = statRefs.current[i]
       if (!el) return
-      const raw = key === 'avgPerOrder'
-        ? (summary.totalGross ?? 0) / Math.max(summary.orderCount ?? 1, 1)
+      const raw = key === 'orderCount'
+        ? summary.orderCount ?? 0
         : summary[key] ?? 0
       const obj = { val: 0 }
       gsap.to(obj, {
         val: raw, duration: 0.8, ease: 'power2.out',
         onUpdate: () => {
           if (!el) return
-          el.textContent = `₱${obj.val.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+          el.textContent = key === 'orderCount'
+            ? `${Math.round(obj.val)}`
+            : `₱${obj.val.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
         },
       })
     })
@@ -103,14 +105,16 @@ export default function EarningsPage() {
 
       <div className="grid--kpi" style={{ marginBottom: 22 }}>
         {STATS.map(({ key, label, color, foot }, i) => {
-          const raw = key === 'avgPerOrder'
-            ? (summary?.totalGross ?? 0) / Math.max(summary?.orderCount ?? 1, 1)
+          const raw = key === 'orderCount'
+            ? summary?.orderCount ?? 0
             : summary?.[key] ?? 0
-          const display = `₱${raw.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
+          const display = key === 'orderCount'
+            ? `${raw}`
+            : `₱${raw.toLocaleString('en-PH', { minimumFractionDigits: 0 })}`
           const footText = foot ?? (key === 'cashCollected' && summary
             ? `${Math.round((summary.cashCollected / (summary.totalGross || 1)) * 100)}% of gross`
-            : key === 'avgPerOrder' && summary
-              ? `${summary.orderCount ?? 0} orders`
+            : key === 'orderCount' && summary
+              ? `Avg ₱${Math.round((summary.totalGross || 0) / Math.max(summary.orderCount || 1, 1)).toLocaleString('en-PH')}/order`
               : '')
           return (
             <div key={key} className="kpi">

@@ -71,7 +71,7 @@ export default function Analytics({ setPage }) {
         <div className="cell">
           <div className="l">Revenue</div>
           <div className="v">₱{((a.totalRevenue ?? 0) / 1000).toFixed(0)}<small>k</small></div>
-          <div className="s">in period</div>
+          <div className="s">in period (₱{(a.totalRevenue ?? 0).toLocaleString()})</div>
         </div>
         <div className="cell">
           <div className="l">Volume</div>
@@ -153,6 +153,12 @@ export default function Analytics({ setPage }) {
               : tier === 'REGULAR' || tier === 'Reg'
                 ? { background: 'var(--tide-soft)', color: 'var(--tide)', border: '1px solid var(--hairline)', fontSize: 9.5 }
                 : { background: 'var(--panel-3)', color: 'var(--muted)', border: '1px solid var(--hairline)', fontSize: 9.5 }
+            const chipClass = `chip ${
+              b.tier === 'VIP' ? 'v-chip--lime'
+              : (b.tier === 'REGULAR' || b.tier === 'Reg') ? 'v-chip--kelp'
+              : b.tier === 'NEW' ? 'v-chip--tide'
+              : 'v-chip--muted'
+            }`
             return (
               <div key={b.buyerId ?? b.buyerName} className="buyer-row">
                 <div className="buyer-row__identity">
@@ -160,7 +166,7 @@ export default function Analytics({ setPage }) {
                   <div className="buyer-row__sub">ID {b.buyerId ?? '—'}</div>
                 </div>
                 <div className="buyer-row__tier">
-                  <span className="chip" style={chipStyle}>{tier}</span>
+                  <span className={chipClass} style={chipStyle}>{tier}</span>
                 </div>
                 <div className="buyer-row__metric">
                   <div className="buyer-row__val">{b.orderCount}</div>

@@ -112,7 +112,7 @@ export default function CatchAlerts() {
         </div>
         <div className="page__actions">
           <button className="btn btn--ghost" onClick={() => alertsQ.refetch()}><I.Refresh size={12} /> Refresh</button>
-          <button className="btn btn--lime" onClick={() => setDrawer(true)}><I.Plus size={12} /> New alert</button>
+          <button className="btn btn--lime" onClick={() => setDrawer(true)}><I.Plus size={12} /> Create Alert</button>
         </div>
       </div>
 

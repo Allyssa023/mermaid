@@ -105,7 +105,7 @@ export default function FishermanProfilePage({ setProfileDirty }) {
         <div className="page__actions">
           <button className="btn btn--ghost">Edit profile</button>
           <button className="btn btn--lime" onClick={() => updateMut.mutate(form)} disabled={updateMut.isPending}>
-            {updateMut.isPending ? 'Saving…' : 'Save changes'}
+            {updateMut.isPending ? 'Saving…' : 'Save Profile'}
           </button>
         </div>
       </div>

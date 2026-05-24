@@ -67,7 +67,7 @@ function getPrimaryAction(order, viewerRole) {
     return null
   }
   if (status === 'COMPLETED') {
-    if (viewerRole === 'BUYER')  return 'LEAVE_REVIEW'
+    return null
   }
   return null
 }
@@ -117,8 +117,15 @@ export default function OrderCard({ order, currentRole, viewerRole: viewerRolePr
     finally { setSubmitting(false); setModal(null) }
   }
 
+  const STATUS_CHIP_MOD = {
+    PENDING: 'chip--new', CONFIRMED: 'chip--prep', PREPARING: 'chip--prep',
+    READY: 'chip--ready', OUT_FOR_DELIVERY: 'chip--ready', AWAITING_RECEIPT: 'chip--ready',
+    COMPLETED: 'chip--done', CANCELLED: 'chip--cancel', DISPUTED: 'chip--neg',
+  }
   const statusChip = (
-    <span className={`chip chip--${order.status.toLowerCase()}`}>{order.status}</span>
+    <span className={`chip ${STATUS_CHIP_MOD[order.status] ?? 'chip--done'}`}>
+      <span className="chip__dot" />{order.status}
+    </span>
   )
 
   const dispatchChip = order.dispatchMode && (
@@ -136,8 +143,8 @@ export default function OrderCard({ order, currentRole, viewerRole: viewerRolePr
       </div>
 
       <div className="order-card__summary">
-        <span>{order.species?.commonName ?? order.listing?.title}</span>
-        <span>{order.orderedQtyKg} kg · ₱{order.agreedPricePerKg}/kg</span>
+        <span>{order.species?.commonName ?? order.listing?.title ?? order.speciesName ?? '—'}</span>
+        <span>{order.orderedQtyKg ?? '—'} kg · ₱{order.agreedPricePerKg ?? '—'}/kg</span>
       </div>
 
       {expanded && (

@@ -9,8 +9,8 @@ import { endTrip, listCatchLogs } from './api/trips'
 
 const RISK_ORDER = { UNSAFE: 2, CAUTION: 1, SAFE: 0 }
 
-const ADVISORY_ICON = { HIGH: 'Wave', MEDIUM: 'Wind', LOW: 'Drop', INFO: 'Alert' }
-const ADVISORY_TONE = { HIGH: 'unsafe', MEDIUM: 'caution', LOW: 'safe', INFO: 'violet' }
+const ADVISORY_ICON = { CRITICAL: 'Alert', HIGH: 'Wave', MEDIUM: 'Wind', LOW: 'Drop', INFO: 'Alert' }
+const ADVISORY_TONE = { CRITICAL: 'unsafe', HIGH: 'unsafe', MEDIUM: 'caution', LOW: 'safe', INFO: 'violet' }
 
 function overallLabel(risk) {
   return risk === 'UNSAFE' ? 'Dangerous' : risk === 'CAUTION' ? 'Manageable' : 'Favorable'
@@ -520,10 +520,10 @@ export default function FishermanHomePage({ setPage, activeTrip }) {
                   <div className="card__title">Advisories</div>
                   <div className="card__sub">{advisories.length} active · Region I</div>
                 </div>
-                {advisories.filter(a => a.severity === 'HIGH').length > 0 && (
+                {advisories.filter(a => a.severity === 'HIGH' || a.severity === 'CRITICAL').length > 0 && (
                   <span className="chip chip--unsafe" style={{ padding: '3px 8px', flexShrink: 0 }}>
                     <span className="chip__dot" />
-                    {advisories.filter(a => a.severity === 'HIGH').length} HIGH
+                    {advisories.filter(a => a.severity === 'HIGH' || a.severity === 'CRITICAL').length} HIGH
                   </span>
                 )}
               </div>

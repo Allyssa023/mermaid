@@ -43,17 +43,26 @@ describe('CatchAlertsPage', () => {
 
   it('renders quantity kg', async () => {
     wrap(<CatchAlerts setPage={vi.fn()} />)
-    expect(await screen.findByText(/12 kg/i)).toBeInTheDocument()
+    const elements = await screen.findAllByText((content, node) => {
+      const hasText = (node) => node.textContent === '12kg'
+      const nodeHasText = hasText(node)
+      const childrenDontHaveText = Array.from(node.children).every(
+        child => !hasText(child)
+      )
+      return nodeHasText && childrenDontHaveText
+    })
+    expect(elements.length).toBeGreaterThan(0)
   })
 
   it('shows Create Alert button', async () => {
     wrap(<CatchAlerts setPage={vi.fn()} />)
-    expect(await screen.findByText(/Create Alert/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/Create Alert/i)).length).toBeGreaterThan(0)
   })
 
   it('opens drawer on Create Alert click', async () => {
     wrap(<CatchAlerts setPage={vi.fn()} />)
-    fireEvent.click(await screen.findByText(/Create Alert/i))
-    expect(screen.getByText(/Expires in/i)).toBeInTheDocument()
+    const buttons = await screen.findAllByText(/Create Alert/i)
+    fireEvent.click(buttons[0])
+    expect(screen.getByText(/Expires in \(hours\)/i)).toBeInTheDocument()
   })
 })

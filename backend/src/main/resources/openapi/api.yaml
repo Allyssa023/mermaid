@@ -6381,6 +6381,9 @@ components:
         updatedAt:
           type: string
           format: date-time
+        paymentMethod:
+          type: string
+          nullable: true
 
     HandoffCreateRequest:
       type: object

@@ -108,8 +108,11 @@ public class BuyerOrderController implements BuyerOrdersApi {
         if (handoff != null && "CONFIRMED".equals(handoff.getStatus()) && handoff.getTotalAmount() != null) {
             // Handoff-confirmed deal order — use the locked amount
             amount = handoff.getTotalAmount();
-        } else if (order.getKind() == OrderKind.RETAIL && handoff != null && !"CONFIRMED".equals(handoff.getStatus())) {
-            // Deal order with an unconfirmed handoff — block until both parties confirm
+        } else if (order.getCatchAlertId() != null && (handoff == null || !"CONFIRMED".equals(handoff.getStatus()))) {
+            // Deal-based order (linked to a catch alert) with no confirmed handoff —
+            // block payment until both parties confirm the physical handoff.
+            // Marketplace buyer→vendor orders (catchAlertId == null) skip this check
+            // because they don't use a handoff step.
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Cannot pay before handoff is confirmed");
         } else {

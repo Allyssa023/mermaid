@@ -23,7 +23,7 @@ const AVATAR_GRADS = [
   'linear-gradient(135deg,#46d39a,#14b8a6)',
 ]
 
-function KpiCard({ label, value, sub, color = '#c2ef4e', icon: Icon, rows = [], valueLabel = 'Total Value' }) {
+function KpiCard({ label, value, sub, color = '#3ee2ff', icon: Icon, rows = [], valueLabel = 'Total Value' }) {
   return (
     <div className="kpi">
       <div className="kpi__head">
@@ -411,47 +411,6 @@ function MarketplaceGrid({ listings, setPage }) {
   )
 }
 
-function SavedVendorsCard({ setPage }) {
-  return (
-    <div className="s-card saved-anim">
-      <div className="s-card__head">
-        <div>
-          <div className="s-card__title">Saved Vendors</div>
-          <div className="s-card__sub">24 active right now</div>
-        </div>
-        <button className="btn-v2 btn-v2--ghost btn-v2--sm" onClick={() => setPage('bsaved')}>All saved <I.ArrowRight size={11} /></button>
-      </div>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div className="inv-row-v2">
-          <div className="inv-row-v2__avatar" style={{ background: AVATAR_GRADS[0] }}>OC</div>
-          <div className="inv-row-v2__main">
-            <div className="inv-row-v2__name">OceanCatch Co.</div>
-            <div className="inv-row-v2__sub">@oceancatch • 4.9 ★ • 142 orders</div>
-          </div>
-          <div className="inv-row-v2__chip inv-row-v2__chip--ok">LIVE</div>
-        </div>
-        <div className="inv-row-v2">
-          <div className="inv-row-v2__avatar" style={{ background: AVATAR_GRADS[1] }}>MS</div>
-          <div className="inv-row-v2__main">
-            <div className="inv-row-v2__name">Marina Seafoods</div>
-            <div className="inv-row-v2__sub">@marina • 4.7 ★ • 89 orders</div>
-          </div>
-          <div className="inv-row-v2__chip inv-row-v2__chip--ok">LIVE</div>
-        </div>
-        <div className="inv-row-v2">
-          <div className="inv-row-v2__avatar" style={{ background: AVATAR_GRADS[2] }}>DF</div>
-          <div className="inv-row-v2__main">
-            <div className="inv-row-v2__name">DeepBlue Fresh</div>
-            <div className="inv-row-v2__sub">@deepblue • 4.8 ★ • 201 orders</div>
-          </div>
-          <div className="inv-row-v2__chip inv-row-v2__chip--low">PAUSED</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function ActivityCard({ activity }) {
   return (
     <div className="s-card act-anim">
@@ -626,7 +585,7 @@ export default function Home({ setPage, setListingId }) {
         </div>
         <div className="kpi-anim">
           <KpiCard
-            icon={I.Check} color="#c2ef4e"
+            icon={I.Check} color="#3ee2ff"
             sub="Logistics" label="Pending Deliveries"
             value={stats?.pending ?? 0}
             valueLabel="Awaiting dispatch"
@@ -656,7 +615,6 @@ export default function Home({ setPage, setListingId }) {
       <div className="split-2-v2" style={{ marginTop: 24 }}>
         <MarketplaceGrid listings={freshListings.slice(0, 4)} setPage={setPage} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <SavedVendorsCard setPage={setPage} />
           <ActivityCard activity={activity} />
         </div>
       </div>

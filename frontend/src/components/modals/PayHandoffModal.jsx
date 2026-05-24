@@ -2,12 +2,11 @@
 import { useState } from 'react'
 import CrudModal from './CrudModal'
 
-const XENDIT_METHODS = ['GCASH', 'PAYMAYA', 'CARD']
+const XENDIT_METHODS = ['GCASH', 'PAYMAYA']
 
 const METHODS = [
   { code: 'GCASH',   label: 'GCash',               group: 'online',  icon: '📱' },
   { code: 'PAYMAYA', label: 'PayMaya / Maya',       group: 'online',  icon: '📱' },
-  { code: 'CARD',    label: 'Credit / Debit Card',  group: 'online',  icon: '💳' },
   { code: 'CASH',    label: 'Cash',                 group: 'manual',  icon: '💵' },
   { code: 'CREDIT',  label: 'Credit (pay later)',   group: 'manual',  icon: '📝' },
 ]

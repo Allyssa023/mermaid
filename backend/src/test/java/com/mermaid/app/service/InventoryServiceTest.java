@@ -32,6 +32,7 @@ class InventoryServiceTest {
     @Mock FishSpeciesRepository speciesRepo;
     @Mock NotificationRepository notificationRepo;
     @Mock HandoffConfirmationRepository handoffRepo;
+    @Mock LiveEventPublisher liveEventPublisher;
     @InjectMocks InventoryService service;
 
     // ---- addLotFromProcurement ----

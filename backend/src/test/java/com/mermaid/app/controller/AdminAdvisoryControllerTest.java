@@ -131,6 +131,27 @@ class AdminAdvisoryControllerTest {
                .andExpect(status().isNotFound());
     }
 
+    @Test
+    void adminUpdateAdvisory_endNow_setsInactiveAndReturns200() throws Exception {
+        AdvisoryUpdateRequest request = new AdvisoryUpdateRequest();
+        request.setIsActive(false);
+        request.setActiveTo(OffsetDateTime.now());
+
+        Advisory deactivated = new Advisory(
+            1L, "Storm Warning", "Rough seas expected",
+            Severity.HIGH, "Visayan Sea",
+            OffsetDateTime.now().minusDays(1), OffsetDateTime.now(), false);
+
+        when(advisoryService.update(eq(1L), any(AdvisoryUpdateRequest.class))).thenReturn(deactivated);
+
+        mockMvc.perform(put("/admin/advisories/1")
+               .with(jwt().jwt(b -> b.subject("1").claim("roles", List.of("ROLE_ADMIN"))))
+               .contentType(MediaType.APPLICATION_JSON)
+               .content(objectMapper.writeValueAsString(request)))
+               .andExpect(status().isOk())
+               .andExpect(jsonPath("$.isActive").value(false));
+    }
+
     // --- Fish species CRUD ---
 
     @Test

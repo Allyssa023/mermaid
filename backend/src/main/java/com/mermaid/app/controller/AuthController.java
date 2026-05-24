@@ -58,8 +58,19 @@ public class AuthController implements AuthApi {
 
     @Override
     public ResponseEntity<UserProfile> completeProfile(com.mermaid.app.model.CompleteProfileRequest request) {
-        UserProfile profile = authService.completeProfile(request.getRole());
-        return ResponseEntity.ok(profile);
+        AuthService.CompleteProfileResult result = authService.completeProfileWithToken(request.getRole());
+
+        ResponseCookie jwtCookie = ResponseCookie.from("jwt", result.jwt())
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(result.expiresIn())
+                .sameSite("Lax")
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .body(result.profile());
     }
 
     @Override

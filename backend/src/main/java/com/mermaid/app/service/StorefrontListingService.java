@@ -19,15 +19,18 @@ public class StorefrontListingService {
     private final StorefrontListingLotRepository listingLotRepo;
     private final InventoryLotRepository lotRepo;
     private final InventoryService inventoryService;
+    private final LiveEventPublisher liveEventPublisher;
 
     public StorefrontListingService(StorefrontListingRepository listingRepo,
                                     StorefrontListingLotRepository listingLotRepo,
                                     InventoryLotRepository lotRepo,
-                                    InventoryService inventoryService) {
+                                    InventoryService inventoryService,
+                                    LiveEventPublisher liveEventPublisher) {
         this.listingRepo = listingRepo;
         this.listingLotRepo = listingLotRepo;
         this.lotRepo = lotRepo;
         this.inventoryService = inventoryService;
+        this.liveEventPublisher = liveEventPublisher;
     }
 
     @Transactional
@@ -38,6 +41,9 @@ public class StorefrontListingService {
         draft.setStatus(StorefrontListingStatus.PUBLISHED);
         StorefrontListing saved = listingRepo.save(draft);
         saveLotLinks(saved.getId(), lotIds);
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(vendorId, "INVENTORY_CHANGED", Map.of())
+        );
         return saved;
     }
 
@@ -64,6 +70,9 @@ public class StorefrontListingService {
             listingLotRepo.deleteAll(listingLotRepo.findByIdListingId(listingId));
             saveLotLinks(listingId, lotIds);
         }
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(vendorId, "INVENTORY_CHANGED", Map.of())
+        );
         return saved;
     }
 
@@ -84,14 +93,22 @@ public class StorefrontListingService {
         }
         validateFreshnessPhotos(listing);
         listing.setStatus(StorefrontListingStatus.PUBLISHED);
-        return listingRepo.save(listing);
+        StorefrontListing saved = listingRepo.save(listing);
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(vendorId, "INVENTORY_CHANGED", Map.of())
+        );
+        return saved;
     }
 
     @Transactional
     public StorefrontListing unpublish(Long vendorId, Long listingId) {
         StorefrontListing listing = getOwnedListing(vendorId, listingId);
         listing.setStatus(StorefrontListingStatus.UNPUBLISHED);
-        return listingRepo.save(listing);
+        StorefrontListing saved = listingRepo.save(listing);
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(vendorId, "INVENTORY_CHANGED", Map.of())
+        );
+        return saved;
     }
 
     @Transactional
@@ -99,6 +116,9 @@ public class StorefrontListingService {
         StorefrontListing listing = getOwnedListing(vendorId, listingId);
         listing.setDeleted(true);
         listingRepo.save(listing);
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(vendorId, "INVENTORY_CHANGED", Map.of())
+        );
     }
 
     @Transactional(readOnly = true)

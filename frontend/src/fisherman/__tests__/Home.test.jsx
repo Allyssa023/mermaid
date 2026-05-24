@@ -52,12 +52,12 @@ describe('FishermanHomePage', () => {
 
   it('renders SAFE risk badge', async () => {
     wrap(<Home setPage={vi.fn()} activeTrip={null} />)
-    expect(await screen.findByText(/SAFE/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/SAFE/i)).length).toBeGreaterThan(0)
   })
 
   it('renders wave height', async () => {
     wrap(<Home setPage={vi.fn()} activeTrip={null} />)
-    expect(await screen.findByText(/0\.8/)).toBeInTheDocument()
+    expect((await screen.findAllByText(/0\.8/)).length).toBeGreaterThan(0)
   })
 
   it('renders skeleton while loading', () => {

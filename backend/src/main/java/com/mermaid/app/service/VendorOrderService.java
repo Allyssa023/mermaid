@@ -32,7 +32,7 @@ public class VendorOrderService {
         "CONFIRMED",        Set.of("PREPARING", "CANCELLED"),
         "PREPARING",        Set.of("READY", "OUT_FOR_DELIVERY", "CANCELLED"),
         "READY",            Set.of("AWAITING_RECEIPT", "COMPLETED"),
-        "OUT_FOR_DELIVERY", Set.of("CANCELLED"),
+        "OUT_FOR_DELIVERY", Set.of("COMPLETED", "CANCELLED"),
         "AWAITING_RECEIPT", Set.of("COMPLETED", "DISPUTED"),
         "COMPLETED",        Set.of(),
         "CANCELLED",        Set.of(),

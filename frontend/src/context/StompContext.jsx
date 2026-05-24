@@ -56,11 +56,13 @@ export function StompProvider({ children }) {
             const msg = JSON.parse(frame.body)
             if (msg?.dealId != null) {
               qc.invalidateQueries({ queryKey: ['deal', msg.dealId, 'messages'] })
+              qc.invalidateQueries({ queryKey: ['deals', 'mine'] })
             }
             const otherUserId = msg?.senderId ?? msg?.recipientId
             if (otherUserId != null) {
               qc.invalidateQueries({ queryKey: ['conversation', otherUserId] })
             }
+            qc.invalidateQueries({ queryKey: ['chatUsers'] })
           } catch (e) {
             console.error('STOMP /user/queue/messages parse error', e)
           }
@@ -69,9 +71,63 @@ export function StompProvider({ children }) {
         // Notifications: refresh bell + notifications list
         const notificationsSub = c.subscribe('/user/queue/notifications', () => {
           qc.invalidateQueries({ queryKey: ['notifications'] })
+          qc.invalidateQueries({ queryKey: ['notifCount'] })
         })
 
-        subsRef.current = [dealsSub, messagesSub, notificationsSub]
+        // Per-user live entity changes (orders, my catch alerts, inventory)
+        const liveSub = c.subscribe('/user/queue/live', (frame) => {
+          try {
+            const evt = JSON.parse(frame.body)
+            const kind = evt?.kind
+            const payload = evt?.payload ?? {}
+            if (kind === 'ORDER_CHANGED') {
+              qc.invalidateQueries({ queryKey: ['orders'] })
+              qc.invalidateQueries({ queryKey: ['buyerOrders'] })
+              qc.invalidateQueries({ queryKey: ['vendor', 'orders'] })
+              qc.invalidateQueries({ queryKey: ['vendor', 'supplierOrders'] })
+              qc.invalidateQueries({ queryKey: ['fisherman', 'orders'] })
+              qc.invalidateQueries({ queryKey: ['fisherman', 'procurement'] })
+              if (payload.orderId != null) {
+                qc.invalidateQueries({ queryKey: ['order', payload.orderId] })
+                qc.invalidateQueries({ queryKey: ['orderTimeline', payload.orderId] })
+              }
+            } else if (kind === 'MY_CATCH_ALERT_CHANGED') {
+              qc.invalidateQueries({ queryKey: ['fisherman', 'catch-alerts'] })
+              qc.invalidateQueries({ queryKey: ['catchAlerts', 'own'] })
+            } else if (kind === 'INVENTORY_CHANGED') {
+              qc.invalidateQueries({ queryKey: ['vendor', 'inventory'] })
+              qc.invalidateQueries({ queryKey: ['vendor', 'storefront'] })
+              qc.invalidateQueries({ queryKey: ['buyerListings'] })
+              qc.invalidateQueries({ queryKey: ['listingDetail'] })
+              qc.invalidateQueries({ queryKey: ['vendor', 'home'] })
+            } else if (kind === 'CART_CHANGED') {
+              // Invalidate any RQ-backed cart consumers
+              qc.invalidateQueries({ queryKey: ['cart'] })
+              qc.invalidateQueries({ queryKey: ['vendor', 'cart'] })
+              // BuyerCartContext sits outside StompProvider — signal via DOM event.
+              try {
+                window.dispatchEvent(new CustomEvent('mermaid:cart-changed', { detail: payload }))
+              } catch (_) { /* SSR / non-browser */ }
+            }
+          } catch (e) {
+            console.error('STOMP /user/queue/live parse error', e)
+          }
+        })
+
+        // Broadcast topic: catch alerts feed (vendor procurement)
+        const alertsTopicSub = c.subscribe('/topic/catch-alerts', (frame) => {
+          try {
+            const evt = JSON.parse(frame.body)
+            if (evt?.kind === 'CATCH_ALERT_CHANGED') {
+              qc.invalidateQueries({ queryKey: ['vendor', 'feed'] })
+              qc.invalidateQueries({ queryKey: ['catchAlerts'] })
+            }
+          } catch (e) {
+            console.error('STOMP /topic/catch-alerts parse error', e)
+          }
+        })
+
+        subsRef.current = [dealsSub, messagesSub, notificationsSub, liveSub, alertsTopicSub]
       },
       onDisconnect: () => {
         teardownSubs()

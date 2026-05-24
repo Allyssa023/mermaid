@@ -27,6 +27,7 @@ class StorefrontListingServiceTest {
     @Mock StorefrontListingLotRepository listingLotRepo;
     @Mock InventoryLotRepository lotRepo;
     @Mock InventoryService inventoryService;
+    @Mock LiveEventPublisher liveEventPublisher;
     @InjectMocks StorefrontListingService service;
 
     // ---- create ----

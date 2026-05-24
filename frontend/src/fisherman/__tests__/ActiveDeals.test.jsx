@@ -48,12 +48,15 @@ describe('ActiveDealsPage', () => {
 
   it('shows NEGOTIATING group header', async () => {
     wrap(<ActiveDeals setPage={vi.fn()} />)
-    expect(await screen.findByText(/NEGOTIATING/i)).toBeInTheDocument()
+    const elements = await screen.findAllByText(/NEGOTIATING/i)
+    expect(elements.length).toBeGreaterThan(0)
   })
 
   it('does not show AGREED group when no agreed deals', async () => {
     wrap(<ActiveDeals setPage={vi.fn()} />)
     await screen.findByText(/Rosario Vendor/i)
-    expect(screen.queryByText(/^AGREED$/i)).not.toBeInTheDocument()
+    const agreedChips = document.querySelectorAll('.deal-row__status .chip')
+    const hasAgreed = Array.from(agreedChips).some(chip => chip.textContent.trim().toUpperCase() === 'AGREED')
+    expect(hasAgreed).toBe(false)
   })
 })

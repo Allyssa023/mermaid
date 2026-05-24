@@ -287,139 +287,179 @@ export default function VendorMessagesPage() {
         <div className="msg-list">
           <div className="msg-list__head">
             <div className="msg-list__title">Conversations</div>
-            <div className="msg-list__filter">
+            <div className="msg-tabs">
               <button
-                className={filter === 'all' ? 'on' : ''}
-                onClick={() => setFilter('all')}
+                className={`msg-tabs__btn${mode === 'deal' ? ' msg-tabs__btn--on' : ''}`}
+                onClick={() => setMode('deal')}
               >
-                All
+                Deals
               </button>
               <button
-                className={filter === 'unread' ? 'on' : ''}
-                onClick={() => setFilter('unread')}
+                className={`msg-tabs__btn${mode === 'dm' ? ' msg-tabs__btn--on' : ''}`}
+                onClick={() => setMode('dm')}
               >
-                Unread
-              </button>
-              <button
-                className={filter === 'negotiating' ? 'on' : ''}
-                onClick={() => setFilter('negotiating')}
-              >
-                Negotiating
-              </button>
-              <button
-                className={filter === 'agreed' ? 'on' : ''}
-                onClick={() => setFilter('agreed')}
-              >
-                Agreed
+                Buyer Chats
               </button>
             </div>
+            {mode === 'deal' && (
+              <div className="msg-list__filter">
+                <button className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>All</button>
+                <button className={filter === 'unread' ? 'on' : ''} onClick={() => setFilter('unread')}>Unread</button>
+                <button className={filter === 'negotiating' ? 'on' : ''} onClick={() => setFilter('negotiating')}>Negotiating</button>
+                <button className={filter === 'agreed' ? 'on' : ''} onClick={() => setFilter('agreed')}>Agreed</button>
+              </div>
+            )}
           </div>
 
           <div className="msg-list__body">
-            {dealsQ.isLoading && (
-              <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
-                Loading deals…
-              </div>
-            )}
-
-            {/* Grouped deal rows */}
-            {dealGroups.length === 0 && !dealsQ.isLoading && (
-              <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
-                No active deals yet.
-              </div>
-            )}
-
-            {dealGroups.map(({ pid, name, deals }) => {
-              const isOpen = expandedGroups.has(pid)
-              const groupUnread = deals.some((d) => dealUnread[d.id])
-              const latestAt = fmtDate(
-                deals.reduce((best, d) => {
-                  const t = d.latestProposal?.createdAt || d.updatedAt || d.createdAt
-                  return !best || (t && t > best) ? t : best
-                }, null)
-              )
-              const groupActive = mode === 'deal' && deals.some((d) => d.id === activeDealId)
-
-              return (
-                <div key={`group-${pid}`}>
-                  {/* Person row */}
-                  <div
-                    className={`msg-item msg-item--group${groupActive ? ' on' : ''}`}
-                    onClick={() => toggleGroup(pid)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="msg-item__avatar">{initials(name)}</div>
-                    <div className="msg-item__body">
-                      <div className="msg-item__row">
-                        <span className="msg-item__name">{name}</span>
-                        <span className="msg-item__time">{latestAt}</span>
-                      </div>
-                      <div className="msg-item__last" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
-                          {deals.length} deal{deals.length !== 1 ? 's' : ''}
-                        </span>
-                        {groupUnread && (
-                          <span className="msg-item__unread">NEW</span>
-                        )}
-                        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted)', transition: 'transform 0.15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
-                      </div>
-                    </div>
+            {mode === 'deal' && (
+              <>
+                {dealsQ.isLoading && (
+                  <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
+                    Loading deals…
                   </div>
+                )}
 
-                  {/* Deal sub-rows */}
-                  {isOpen && deals.map((d) => {
-                    const on = mode === 'deal' && activeDealId === d.id
-                    const unread = dealUnread[d.id]
-                    const species = d.speciesName || d.species?.commonName || d.species?.localName || ''
-                    const lastMsg = d.latestProposal
-                      ? `₱${d.latestProposal.pricePerKg}/kg · ${d.latestProposal.qtyKg}kg`
-                      : 'No proposals yet'
-                    const dealCode = `#${String(d.id).padStart(4, '0')}`
+                {/* Grouped deal rows */}
+                {dealGroups.length === 0 && !dealsQ.isLoading && (
+                  <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
+                    No active deals yet.
+                  </div>
+                )}
 
-                    return (
+                {dealGroups.map(({ pid, name, deals }) => {
+                  const isOpen = expandedGroups.has(pid)
+                  const groupUnread = deals.some((d) => dealUnread[d.id])
+                  const latestAt = fmtDate(
+                    deals.reduce((best, d) => {
+                      const t = d.latestProposal?.createdAt || d.updatedAt || d.createdAt
+                      return !best || (t && t > best) ? t : best
+                    }, null)
+                  )
+                  const groupActive = mode === 'deal' && deals.some((d) => d.id === activeDealId)
+
+                  return (
+                    <div key={`group-${pid}`}>
+                      {/* Person row */}
                       <div
-                        key={`deal-${d.id}`}
-                        className={`msg-item msg-item--sub${on ? ' on' : ''}`}
-                        onClick={() => handleSelectDeal(d)}
-                        data-testid={`deal-row-${d.id}`}
-                        style={{ paddingLeft: 40 }}
+                        className={`msg-item msg-item--group${groupActive ? ' on' : ''}`}
+                        onClick={() => toggleGroup(pid)}
+                        style={{ cursor: 'pointer' }}
                       >
+                        <div className="msg-item__avatar">{initials(name)}</div>
                         <div className="msg-item__body">
                           <div className="msg-item__row">
-                            <span className="msg-item__code" style={{ fontSize: 11 }}>
-                              {dealCode}{species ? ` · ${species}` : ''}
-                            </span>
-                            <span className="msg-item__time">{fmtDate(d.latestProposal?.createdAt || d.updatedAt || d.createdAt)}</span>
+                            <span className="msg-item__name">{name}</span>
+                            <span className="msg-item__time">{latestAt}</span>
                           </div>
-                          <div className="msg-item__last">{lastMsg}</div>
-                          <div className="msg-item__meta">
-                            {d.status === 'NEGOTIATING' && (
-                              <span className="chip chip--neg" style={{ fontSize: 9 }}>NEG</span>
+                          <div className="msg-item__last" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-mono)' }}>
+                              {deals.length} deal{deals.length !== 1 ? 's' : ''}
+                            </span>
+                            {groupUnread && (
+                              <span className="msg-item__unread">NEW</span>
                             )}
-                            {d.status === 'AGREED' && (
-                              <span className="chip chip--ready" style={{ fontSize: 9 }}>AGREED</span>
-                            )}
-                            {(d.status === 'CANCELLED' || d.status === 'EXPIRED') && (
-                              <span className="chip chip--cancel" style={{ fontSize: 9 }}>
-                                {d.status === 'EXPIRED' ? 'EXPIRED' : 'CANCEL'}
-                              </span>
-                            )}
-                            {unread && (
-                              <span className="msg-item__unread" data-testid={`deal-unread-${d.id}`}>NEW</span>
-                            )}
+                            <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--muted)', transition: 'transform 0.15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span>
                           </div>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
-              )
-            })}
 
-            {!dealsQ.isLoading && dealGroups.length === 0 && (
-              <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
-                No active deals yet.
-              </div>
+                      {/* Deal sub-rows */}
+                      {isOpen && deals.map((d) => {
+                        const on = mode === 'deal' && activeDealId === d.id
+                        const unread = dealUnread[d.id]
+                        const species = d.speciesName || d.species?.commonName || d.species?.localName || ''
+                        const lastMsg = d.latestProposal
+                          ? `₱${d.latestProposal.pricePerKg}/kg · ${d.latestProposal.qtyKg}kg`
+                          : 'No proposals yet'
+                        const dealCode = `#${String(d.id).padStart(4, '0')}`
+
+                        return (
+                          <div
+                            key={`deal-${d.id}`}
+                            className={`msg-item msg-item--sub${on ? ' on' : ''}`}
+                            onClick={() => handleSelectDeal(d)}
+                            data-testid={`deal-row-${d.id}`}
+                            style={{ paddingLeft: 40 }}
+                          >
+                            <div className="msg-item__body">
+                              <div className="msg-item__row">
+                                <span className="msg-item__code" style={{ fontSize: 11 }}>
+                                  {dealCode}{species ? ` · ${species}` : ''}
+                                </span>
+                                <span className="msg-item__time">{fmtDate(d.latestProposal?.createdAt || d.updatedAt || d.createdAt)}</span>
+                              </div>
+                              <div className="msg-item__last">{lastMsg}</div>
+                              <div className="msg-item__meta">
+                                {d.status === 'NEGOTIATING' && (
+                                  <span className="chip chip--neg" style={{ fontSize: 9 }}>NEG</span>
+                                )}
+                                {d.status === 'AGREED' && (
+                                  <span className="chip chip--ready" style={{ fontSize: 9 }}>AGREED</span>
+                                )}
+                                {(d.status === 'CANCELLED' || d.status === 'EXPIRED') && (
+                                  <span className="chip chip--cancel" style={{ fontSize: 9 }}>
+                                    {d.status === 'EXPIRED' ? 'EXPIRED' : 'CANCEL'}
+                                  </span>
+                                )}
+                                {unread && (
+                                  <span className="msg-item__unread" data-testid={`deal-unread-${d.id}`}>NEW</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+
+                {!dealsQ.isLoading && dealGroups.length === 0 && (
+                  <div style={{ padding: 24, textAlign: 'center', fontSize: 12, color: 'var(--muted)' }}>
+                    No active deals yet.
+                  </div>
+                )}
+              </>
+            )}
+
+            {mode === 'dm' && (
+              <>
+                {contactsQ.isLoading && (
+                  <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
+                    Loading conversations…
+                  </div>
+                )}
+
+                {contacts.length === 0 && !contactsQ.isLoading && (
+                  <div style={{ padding: '16px', fontSize: 12, color: 'var(--muted)' }}>
+                    No conversations yet.
+                  </div>
+                )}
+
+                {contacts.map((c) => {
+                  const on = activeUserId === c.id
+                  const lastMsg = c.lastMessage
+                  return (
+                    <div
+                      key={c.id}
+                      className={`msg-item${on ? ' on' : ''}`}
+                      onClick={() => handleSelectContact(c.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="msg-item__avatar">{initials(c.fullName)}</div>
+                      <div className="msg-item__body">
+                        <div className="msg-item__row">
+                          <span className="msg-item__name">{c.fullName}</span>
+                          <span className="msg-item__time">
+                            {lastMsg ? fmtDate(lastMsg.sentAt) : ''}
+                          </span>
+                        </div>
+                        <div className="msg-item__last">{lastMsg?.content ?? c.role}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
             )}
           </div>
         </div>

@@ -263,6 +263,11 @@ public class AuthService {
      */
     @Transactional
     public UserProfile completeProfile(Role role) {
+        return completeProfileWithToken(role).profile();
+    }
+
+    @Transactional
+    public CompleteProfileResult completeProfileWithToken(Role role) {
         Long userId = currentUserId();
         if (userId == null) throw new InvalidCredentialsException();
         User user = userRepository.findById(userId)
@@ -272,8 +277,11 @@ public class AuthService {
         }
         user.setRole(role);
         userRepository.save(user);
-        return toUserProfile(user);
+        String jwt = jwtTokenService.issueToken(user);
+        return new CompleteProfileResult(toUserProfile(user), jwt, jwtTokenService.getExpirySeconds());
     }
+
+    public record CompleteProfileResult(UserProfile profile, String jwt, long expiresIn) {}
 
     /**
      * Load current user from DB by JWT subject (userId). Ensures we return up-to-date data

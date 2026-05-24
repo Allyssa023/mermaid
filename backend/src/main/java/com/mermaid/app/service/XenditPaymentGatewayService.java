@@ -59,12 +59,11 @@ public class XenditPaymentGatewayService implements PaymentGatewayService {
         body.put("capture_method",  "AUTOMATIC");
         body.put("channel_code",    channelCode);
 
-        if (!isCard) {
-            body.put("channel_properties", Map.of(
-                "success_return_url", returnUrl,
-                "failure_return_url", returnUrl
-            ));
-        }
+        body.put("channel_properties", Map.of(
+            "success_return_url", returnUrl,
+            "failure_return_url", returnUrl,
+            "cancel_return_url",  returnUrl
+        ));
 
         try {
             log.info("Xendit payment_requests body: {}", body);

@@ -6,8 +6,11 @@ import { I } from '../icons'
 import '../design-system.css'
 import './vendor-shell.css'
 import { StompProvider } from '../context/StompContext'
+import VendorNotificationsBell from './components/NotificationsBell'
 import { getVendorHome } from './api/home'
 import { listListings } from './api/storefront'
+import { getFeed } from './api/procurement'
+import { getNotifications } from '../api/notifications'
 import Home from './Home'
 import StorefrontEditor from './StorefrontEditor'
 import Inventory from './Inventory'
@@ -93,7 +96,6 @@ function Rail({ page, navigate, badgeCounts, listings, onLogout, onMouseEnter, o
                 >
                   <span className="ric">{Icon && <Icon size={17} />}</span>
                   <span className="rail-item__label">{it.label}</span>
-                  {badge > 0 && <span className="rail-item__count">{badge}</span>}
                 </div>
               )
             })}
@@ -148,7 +150,7 @@ function Rail({ page, navigate, badgeCounts, listings, onLogout, onMouseEnter, o
   )
 }
 
-function Topbar({ page, user, onNewListing }) {
+function Topbar({ page, user, onNewListing, onNavigate }) {
   const label = PAGE_LABELS[page] || page
   const initials = user
     ? (user.fullName || user.first || 'V').slice(0, 1) +
@@ -188,10 +190,7 @@ function Topbar({ page, user, onNewListing }) {
         <strong>{label}</strong>
       </div>
 
-      <button className="topbar__icon" title="Notifications">
-        <I.Bell size={15} />
-        <span className="dot" />
-      </button>
+      <VendorNotificationsBell onNavigate={onNavigate} btnClassName="topbar__icon" />
       <button className="topbar__icon" title="Settings"><I.Settings size={15} /></button>
     </div>
   )
@@ -230,13 +229,54 @@ export default function VendorDashboard({ user, onLogout }) {
     queryFn: listListings,
     staleTime: 60_000,
   })
+  const unreadNotifsQ = useQuery({
+    queryKey: ['notifications', { unreadOnly: true }],
+    queryFn: () => getNotifications({ unreadOnly: true, size: 100 }),
+    refetchInterval: 30000,
+    staleTime: 0,
+  })
+  const feedQ = useQuery({
+    queryKey: ['vendor', 'feed', null],
+    queryFn: () => getFeed(null),
+    refetchInterval: 30000,
+    staleTime: 0,
+  })
+
   const home = homeQ.data
   const listings = listingsQ.data ?? []
+  const unreadNotifs = Array.isArray(unreadNotifsQ.data) ? unreadNotifsQ.data : []
+  const feed = feedQ.data ?? []
+
+  const orderUnread = unreadNotifs.filter(n => n.type === 'ORDER_STATUS' || (n.link && n.link.includes('order'))).length
+  const messageUnread = unreadNotifs.filter(n => n.type === 'MESSAGE' || (n.link && n.link.includes('message'))).length
+
+  // Calculate unseen active catch alerts count
+  const maxAlertId = feed.length > 0 ? Math.max(...feed.map(a => a.id)) : 0
+  const [lastSeenId, setLastSeenId] = useState(() => {
+    return parseInt(localStorage.getItem('vendor_seen_catch_alert_id') || '0', 10)
+  })
+
+  useEffect(() => {
+    if (!localStorage.getItem('vendor_seen_catch_alert_id') && maxAlertId > 0) {
+      localStorage.setItem('vendor_seen_catch_alert_id', String(maxAlertId))
+      setLastSeenId(maxAlertId)
+    }
+  }, [maxAlertId])
+
+  useEffect(() => {
+    if (page === 'vprocurement' && maxAlertId > lastSeenId) {
+      localStorage.setItem('vendor_seen_catch_alert_id', String(maxAlertId))
+      setLastSeenId(maxAlertId)
+    }
+  }, [page, maxAlertId, lastSeenId])
+
+  const newCatchAlertsCount = page === 'vprocurement' ? 0 : feed.filter(a => a.id > lastSeenId).length
+
   const badgeCounts = {
     vinventory:   home?.lowStockSpecies?.length ?? 0,
-    vorders:      (home?.openOrders?.new ?? 0) + (home?.openOrders?.preparing ?? 0),
-    vprocurement: home?.recentMatchedAlerts?.length ?? 0,
-    vmessages:    home?.unreadNotifications ?? 0,
+    vorders:      orderUnread,
+    vprocurement: newCatchAlertsCount,
+    vmessages:    messageUnread,
   }
 
   useEffect(() => {
@@ -290,7 +330,7 @@ export default function VendorDashboard({ user, onLogout }) {
           onMouseLeave={() => setRailOpen(false)}
         />
         <div className="main">
-          <Topbar page={page} user={user} onNewListing={() => navigate('vstore')} />
+          <Topbar page={page} user={user} onNewListing={() => navigate('vstore')} onNavigate={navigate} />
           <div ref={pageRef} style={{ flex: 1, overflowY: 'auto' }}>
             <PageContent page={page} pageState={pageState} navigate={navigate} />
           </div>

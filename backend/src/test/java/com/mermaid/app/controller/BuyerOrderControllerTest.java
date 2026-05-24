@@ -210,6 +210,7 @@ class BuyerOrderControllerTest {
     @Test
     void createPaymentIntent_retailWithoutConfirmedHandoff_returns422() throws Exception {
         var order = minimalOrder(12L, 42L, 99L);
+        order.setCatchAlertId(100L);
         when(orderRepository.findById(12L)).thenReturn(Optional.of(order));
         when(paymentRepository.findByOrderId(12L)).thenReturn(Optional.empty());
         when(handoffConfirmationRepository.findByOrderId(12L)).thenReturn(Optional.empty());

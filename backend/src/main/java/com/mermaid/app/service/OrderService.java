@@ -196,6 +196,11 @@ public class OrderService {
 
         HandoffConfirmation saved = handoffRepo.save(handoff);
         checkBothConfirmed(saved, order);
+
+        if (!"CONFIRMED".equals(saved.getStatus())) {
+            recordStatusEvent(orderId, "HANDOFF_PENDING", userId, "Handoff initiated by " + (userId.equals(order.getSellerId()) ? "fisherman" : "vendor"));
+        }
+
         return toHandoffModel(handoffRepo.save(saved));
     }
 
@@ -210,8 +215,13 @@ public class OrderService {
             .orElseThrow(() -> new ResourceNotFoundException("Handoff not found for order: " + orderId));
 
         handoff.setConfirmedBySeller(true);
-        checkBothConfirmed(handoff, order);
-        return toHandoffModel(handoffRepo.save(handoff));
+        HandoffConfirmation saved = handoffRepo.save(handoff);
+        checkBothConfirmed(saved, order);
+
+        if (!"CONFIRMED".equals(saved.getStatus())) {
+            recordStatusEvent(orderId, "HANDOFF_PENDING", fishermanId, "Handoff confirmed by seller");
+        }
+        return toHandoffModel(saved);
     }
 
     @Transactional
@@ -225,8 +235,13 @@ public class OrderService {
             .orElseThrow(() -> new ResourceNotFoundException("Handoff not found for order: " + orderId));
 
         handoff.setConfirmedByBuyer(true);
-        checkBothConfirmed(handoff, order);
-        return toHandoffModel(handoffRepo.save(handoff));
+        HandoffConfirmation saved = handoffRepo.save(handoff);
+        checkBothConfirmed(saved, order);
+
+        if (!"CONFIRMED".equals(saved.getStatus())) {
+            recordStatusEvent(orderId, "HANDOFF_PENDING", vendorId, "Handoff confirmed by buyer");
+        }
+        return toHandoffModel(saved);
     }
 
     private void checkBothConfirmed(HandoffConfirmation handoff, Order order) {
@@ -306,8 +321,9 @@ public class OrderService {
         if (req.getProofReference() != null && req.getProofReference().isPresent()) {
             payment.setProofReference(req.getProofReference().get());
         }
-
-        return toPaymentModel(paymentRepo.save(payment));
+        Payment saved = paymentRepo.save(payment);
+        recordStatusEvent(orderId, "PAYMENT_PENDING", vendorId, "Payment recorded — awaiting confirmation");
+        return toPaymentModel(saved);
     }
 
     @Transactional
@@ -428,5 +444,10 @@ public class OrderService {
         } catch (Exception e) {
             log.warn("Failed to record status event for order {}: {}", orderId, e.getMessage());
         }
+    }
+
+    @Transactional
+    public void publishOrderUpdate(Long orderId, String status, String note) {
+        recordStatusEvent(orderId, status, null, note);
     }
 }

@@ -8,7 +8,6 @@ const PAYMENT_METHODS = [
   { id: 'COD',     label: 'Cash on Delivery', sub: 'Pay when you receive',       icon: '💵' },
   { id: 'GCASH',   label: 'GCash',            sub: 'Redirect to GCash app',      icon: '📱' },
   { id: 'PAYMAYA', label: 'PayMaya',           sub: 'Redirect to Maya app',       icon: '💳' },
-  { id: 'CARD',    label: 'Debit / Credit',   sub: 'Visa, Mastercard via Xendit', icon: '🏦' },
 ]
 
 export default function Checkout({ setPage, buyNow, setBuyNow }) {

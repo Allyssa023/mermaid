@@ -13,7 +13,7 @@ const AVATAR_GRADS = [
   'linear-gradient(135deg,#fa7faa,#c4326a)',
   'linear-gradient(135deg,#46d39a,#14b8a6)',
   'linear-gradient(135deg,#60a5fa,#3b82f6)',
-  'linear-gradient(135deg,#c2ef4e,#84cc16)',
+  'linear-gradient(135deg,#3ee2ff,#84cc16)',
 ]
 
 const SORT_OPTIONS = ['Freshness', 'Price ↑', 'Price ↓', 'Trending']
@@ -89,7 +89,7 @@ function HeroStrip({ listing, onDetail, onCart }) {
 }
 
 /* ── Catch card — reference-style ── */
-function CatchCard({ listing, savedIds, onToggleSave, onDetail, onCart }) {
+function CatchCard({ listing, onDetail, onCart }) {
   const name    = listing.speciesName ?? listing.title ?? 'Fish'
   const vendor  = listing.vendorName ?? 'Vendor'
   const availKg = listing.availableKg ?? 0
@@ -98,7 +98,6 @@ function CatchCard({ listing, savedIds, onToggleSave, onDetail, onCart }) {
   const initials = listingInitials(name)
   const fresh   = calcFreshness(listing)
   const hasDelivery = (listing.deliveryFee ?? 0) > 0
-  const isSaved = savedIds.has(listing.id)
 
   return (
     <article
@@ -115,13 +114,6 @@ function CatchCard({ listing, savedIds, onToggleSave, onDetail, onCart }) {
         </div>
         <span className="catch-card__id">LST-{listing.id}</span>
         <div className="spacer" style={{ flex: 1 }} />
-        <button
-          className={`icon-btn${isSaved ? ' icon-btn--saved' : ''}`}
-          title={isSaved ? 'Remove from favorites' : 'Save'}
-          onClick={e => { e.stopPropagation(); onToggleSave(listing.id) }}
-        >
-          <I.Heart size={13} />
-        </button>
       </div>
 
       <div className="catch-card__species">{name}</div>
@@ -173,7 +165,6 @@ export default function Marketplace({ setPage, setBuyNow, setListingId }) {
   const [freshFilter, setFreshFilter] = useState('Any')
   const [search, setSearch]   = useState('')
   const [sort, setSort]       = useState('Freshness')
-  const [savedIds, setSavedIds] = useState(new Set())
   const [cartModal, setCartModal] = useState(null)
   const gridRef = useRef(null)
 
@@ -237,7 +228,6 @@ export default function Marketplace({ setPage, setBuyNow, setListingId }) {
     }
   }, [listings])
 
-  const toggleSave   = (id) => setSavedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   const handleDetail = (l)  => { setListingId(l.id); setPage('blisting') }
   const handleCart   = (l)  => setCartModal(l)
   const clearFilters = ()   => { setSearch(''); setSelectedSpeciesId(null); setFreshFilter('Any') }
@@ -404,8 +394,6 @@ export default function Marketplace({ setPage, setBuyNow, setListingId }) {
                   <CatchCard
                     key={l.id}
                     listing={l}
-                    savedIds={savedIds}
-                    onToggleSave={toggleSave}
                     onDetail={handleDetail}
                     onCart={handleCart}
                   />

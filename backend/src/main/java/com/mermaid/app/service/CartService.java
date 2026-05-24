@@ -35,19 +35,29 @@ public class CartService {
     private final UserRepository userRepo;
     private final CartMapper mapper;
     private final InventoryService inventoryService;
+    private final LiveEventPublisher liveEventPublisher;
 
     public CartService(CartRepository cartRepo,
                        CartItemRepository itemRepo,
                        StorefrontListingRepository listingRepo,
                        UserRepository userRepo,
                        CartMapper mapper,
-                       InventoryService inventoryService) {
+                       InventoryService inventoryService,
+                       LiveEventPublisher liveEventPublisher) {
         this.cartRepo = cartRepo;
         this.itemRepo = itemRepo;
         this.listingRepo = listingRepo;
         this.userRepo = userRepo;
         this.mapper = mapper;
         this.inventoryService = inventoryService;
+        this.liveEventPublisher = liveEventPublisher;
+    }
+
+    private void broadcastCartChange(Long buyerId, String reason) {
+        if (buyerId == null) return;
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(buyerId, "CART_CHANGED", Map.of("reason", reason))
+        );
     }
 
     @Transactional(readOnly = true)
@@ -122,6 +132,7 @@ public class CartService {
             itemRepo.save(ci);
         }
 
+        broadcastCartChange(buyerId, "ADDED");
         return new AddItemResult(getCart(buyerId), warning);
     }
 
@@ -152,6 +163,7 @@ public class CartService {
             item.setNotes(nullableNotes(req.getNotes()));
         }
         itemRepo.save(item);
+        broadcastCartChange(buyerId, "UPDATED");
         return getCart(buyerId);
     }
 
@@ -165,6 +177,7 @@ public class CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item not found: " + itemId));
         cart.getItems().remove(item);
         itemRepo.delete(item);
+        broadcastCartChange(buyerId, "REMOVED");
         return getCart(buyerId);
     }
 
@@ -174,6 +187,7 @@ public class CartService {
             cart.getItems().clear();
             cartRepo.save(cart);
         });
+        broadcastCartChange(buyerId, "CLEARED");
         return getCart(buyerId);
     }
 

@@ -937,3 +937,85 @@ button { font-family: inherit; }
   .nav__items { display: none; }
   .nav__cta { gap: 6px; }
 }
+
+/* ---------- mascot images (whale / mermaid) ---------- */
+.mascot {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Home hero — whale floats top-right, mirrors the violet/cyan atmosphere */
+.mascot-whale-wrap {
+  position: absolute;
+  /* anchor to the viewport's right edge, not the container's */
+  right: calc(50% - 50vw);
+  top: -40px;
+  width: 720px;
+  max-width: 55vw;
+  pointer-events: none;
+  z-index: 0;
+  animation: mascot-float 7s ease-in-out infinite;
+}
+.mascot-whale-wrap .mascot-whale {
+  transform: rotate(-4deg);
+  filter:
+    drop-shadow(0 30px 60px rgba(106, 95, 193, 0.45))
+    drop-shadow(0 0 40px rgba(62, 226, 255, 0.18));
+}
+.mascot-whale-wrap .mascot-whale2 {
+  position: absolute;
+  left: 38%;
+  bottom: -14%;
+  width: 60%;
+  height: auto;
+  transform: rotate(-6deg);
+  filter:
+    drop-shadow(0 24px 40px rgba(106, 95, 193, 0.5))
+    drop-shadow(0 0 32px rgba(62, 226, 255, 0.18));
+}
+
+/* About hero — mermaid centered as the column's hero illustration */
+.mascot-mermaid-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  filter:
+    drop-shadow(0 24px 50px rgba(106, 95, 193, 0.5))
+    drop-shadow(0 0 32px rgba(62, 226, 255, 0.14));
+  animation: mascot-float 8s ease-in-out infinite;
+}
+.mascot-mermaid-wrap::before {
+  /* soft violet halo behind the figure */
+  content: "";
+  position: absolute;
+  inset: 8% 6%;
+  background: radial-gradient(closest-side, rgba(106, 95, 193, 0.35), transparent 70%);
+  filter: blur(28px);
+  z-index: -1;
+}
+
+@keyframes mascot-float {
+  0%, 100% { transform: translateY(0) rotate(var(--mascot-rot, 0deg)); }
+  50%      { transform: translateY(-10px) rotate(var(--mascot-rot, 0deg)); }
+}
+.mascot-whale-wrap { --mascot-rot: -4deg; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-whale-wrap,
+  .mascot-mermaid-wrap { animation: none; }
+}
+
+@media (max-width: 900px) {
+  .mascot-whale-wrap {
+    width: 480px;
+    right: calc(50% - 50vw);
+    top: -20px;
+  }
+  .mascot-mermaid-wrap { max-width: 320px; }
+}

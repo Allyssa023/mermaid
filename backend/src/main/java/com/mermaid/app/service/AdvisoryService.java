@@ -29,7 +29,7 @@ public class AdvisoryService {
 
     @Transactional(readOnly = true)
     public List<com.mermaid.app.model.Advisory> listAll() {
-        return repo.findAllActiveOrderByCreatedAtDesc().stream()
+        return repo.findAllOrderByCreatedAtDesc().stream()
             .map(mapper::toModel)
             .collect(Collectors.toList());
     }

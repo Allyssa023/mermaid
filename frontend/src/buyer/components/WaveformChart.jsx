@@ -47,7 +47,7 @@ export default function WaveformChart({ progress = 0.6, score = 96 }) {
             <stop offset="100%" stopColor="#5eead4" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="fresh-line" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#c2ef4e" />
+            <stop offset="0%" stopColor="#3ee2ff" />
             <stop offset="55%" stopColor="#5eead4" />
             <stop offset="85%" stopColor="#fbbf24" />
             <stop offset="100%" stopColor="#f87171" />
@@ -78,8 +78,8 @@ export default function WaveformChart({ progress = 0.6, score = 96 }) {
 
         {/* Now marker */}
         <line x1={nowX} y1={padT - 2} x2={nowX} y2={padT + innerH}
-          stroke="#c2ef4e" strokeWidth="1" strokeDasharray="2 2" opacity="0.6" />
-        <circle cx={nowX} cy={nowY} r="3.5" fill="#c2ef4e"
+          stroke="#3ee2ff" strokeWidth="1" strokeDasharray="2 2" opacity="0.6" />
+        <circle cx={nowX} cy={nowY} r="3.5" fill="#3ee2ff"
           stroke="#150f23" strokeWidth="2" />
 
         {/* Phase labels */}

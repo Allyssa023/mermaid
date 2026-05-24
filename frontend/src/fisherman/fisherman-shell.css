@@ -7,7 +7,7 @@
   --font-code:    'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   --primary:                #150f23;
   --ink-deep:               #1f1633;
-  --accent-lime:            #c2ef4e;
+  --accent-lime:            #3ee2ff;
   --accent-pink:            #fa7faa;
   --accent-violet:          #6a5fc1;
   --accent-violet-deep:     #422082;
@@ -62,7 +62,7 @@
   --caution-soft:        rgba(252,211,77,0.12);
   --unsafe:              #fb7185;
   --unsafe-soft:         rgba(251,113,133,0.12);
-  --accent-lime:         #c2ef4e;
+  --accent-lime:         #3ee2ff;
   --accent-violet:       #6a5fc1;
   --accent-violet-deep:  #422082;
   --accent-violet-mid:   #79628c;
@@ -194,6 +194,21 @@
   display: none;
 }
 [data-fisherman-shell][data-rail-open="true"] .f-rail__item__label { display: block; opacity: 1; transition-delay: 80ms; }
+
+.f-rail__item__count {
+  margin-left: auto;
+  font-size: 10px; font-family: var(--font-mono); font-weight: 700;
+  padding: 1px 6px; border-radius: 999px;
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6);
+  opacity: 0; transition: opacity 120ms ease;
+  display: none;
+}
+[data-fisherman-shell][data-rail-open="true"] .f-rail__item__count {
+  display: block; opacity: 1; transition-delay: 80ms;
+}
+.f-rail__item.active .f-rail__item__count {
+  background: var(--accent-lime); color: var(--ink-deep, #150f23);
+}
 
 /* Collapsed: center everything */
 [data-fisherman-shell]:not([data-rail-open="true"]) .f-rail__logo { justify-content: center; padding: 10px 0; }
@@ -426,6 +441,9 @@
   background: rgba(255,255,255,0.06);
   color: var(--ink-2);
   border: 1px solid var(--hairline);
+}
+[data-fisherman-shell] .chip::before {
+  display: none !important;
 }
 .chip__dot {
   width: 5px; height: 5px; border-radius: 99px; flex-shrink: 0;
@@ -982,7 +1000,6 @@ kbd {
 .tabs {
   display: flex; gap: 2px;
   border-bottom: 1px solid var(--hairline);
-  margin: 18px 0 22px;
 }
 .tabs__item {
   padding: 10px 16px; background: transparent; border: none;

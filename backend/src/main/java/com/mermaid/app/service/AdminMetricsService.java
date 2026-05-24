@@ -36,7 +36,7 @@ public class AdminMetricsService {
         m.setBuyers((int) userRepo.countByRole(Role.BUYER));
         m.setAdmins((int) userRepo.countByRole(Role.ADMIN));
         m.setNewThisWeek((int) userRepo.countCreatedAfter(OffsetDateTime.now().minusDays(7)));
-        m.setActiveNow((int) userRepo.countLastLoginAfter(OffsetDateTime.now().minusMinutes(15)));
+        m.setActiveNow((int) userRepo.countLastLoginAfter(OffsetDateTime.now().minusHours(24)));
         m.setTotalTrips((int) tripRepo.count());
         m.setActiveTrips((int) tripRepo.countByStatus(TripStatus.ACTIVE));
         m.setTripsToday((int) tripRepo.countStartedToday());

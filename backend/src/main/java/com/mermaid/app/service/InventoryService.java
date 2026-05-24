@@ -33,6 +33,7 @@ public class InventoryService {
     private final FishSpeciesRepository speciesRepo;
     private final NotificationRepository notificationRepo;
     private final HandoffConfirmationRepository handoffRepo;
+    private final LiveEventPublisher liveEventPublisher;
 
     public InventoryService(InventoryLotRepository lotRepo,
                             InventoryMovementRepository moveRepo,
@@ -42,7 +43,8 @@ public class InventoryService {
                             OrderRepository orderRepo,
                             FishSpeciesRepository speciesRepo,
                             NotificationRepository notificationRepo,
-                            HandoffConfirmationRepository handoffRepo) {
+                            HandoffConfirmationRepository handoffRepo,
+                            LiveEventPublisher liveEventPublisher) {
         this.lotRepo = lotRepo;
         this.moveRepo = moveRepo;
         this.notifications = notifications;
@@ -52,6 +54,7 @@ public class InventoryService {
         this.speciesRepo = speciesRepo;
         this.notificationRepo = notificationRepo;
         this.handoffRepo = handoffRepo;
+        this.liveEventPublisher = liveEventPublisher;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -83,6 +86,10 @@ public class InventoryService {
         movement.setRefOrderId(orderId);
         moveRepo.save(movement);
 
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(order.getBuyerId(), "INVENTORY_CHANGED", Map.of())
+        );
+
         return lot;
     }
 
@@ -91,6 +98,8 @@ public class InventoryService {
         List<InventoryLot> locked = lotRepo.findByIdInForUpdate(List.of(lotId));
         InventoryLot lot = locked.stream().findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory lot not found: " + lotId));
+
+        final Long vendorId = lot.getVendorId();
 
         BigDecimal newRemaining = lot.getRemainingKg().add(deltaKg);
         if (newRemaining.compareTo(ZERO) < 0) {
@@ -107,7 +116,11 @@ public class InventoryService {
         movement.setNote(note);
         moveRepo.save(movement);
 
-        maybeFireLowStock(lot.getVendorId(), lot.getSpeciesId());
+        maybeFireLowStock(vendorId, lot.getSpeciesId());
+
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(vendorId, "INVENTORY_CHANGED", Map.of())
+        );
 
         return lot;
     }
@@ -198,6 +211,10 @@ public class InventoryService {
         }
 
         maybeFireLowStock(listing.getVendorId(), listing.getSpeciesId());
+
+        liveEventPublisher.runAfterCommit(() ->
+            liveEventPublisher.pushToUser(listing.getVendorId(), "INVENTORY_CHANGED", Map.of())
+        );
     }
 
     @Transactional(readOnly = true)

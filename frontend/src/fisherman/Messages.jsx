@@ -23,15 +23,24 @@ const fmtDate = (iso) => {
   return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
 }
 
-export default function MessagesPage() {
+export default function MessagesPage({ openDealId, clearOpenDealId }) {
   const { user } = useAuth()
   const myId = user?.id
-  const [activeDealId, setActiveDealId] = useState(null)
+  const [activeDealId, setActiveDealId] = useState(openDealId ?? null)
   const [filter, setFilter] = useState('all')
   const [expandedGroups, setExpandedGroups] = useState(() => new Set())
 
   const dealsQ = useQuery({ queryKey: ['deals', 'mine'], queryFn: () => listMyDeals() })
   const allDeals = dealsQ.data ?? []
+
+  // When navigated here with a specific deal (e.g. after accepting), auto-select it
+  useEffect(() => {
+    if (openDealId != null) {
+      setActiveDealId(openDealId)
+      writeLastViewed(openDealId)
+      clearOpenDealId?.()
+    }
+  }, [openDealId, clearOpenDealId])
 
   const dealUnread = useMemo(() => {
     const map = {}
@@ -61,8 +70,46 @@ export default function MessagesPage() {
       if (!map.has(pid)) map.set(pid, { pid, name, deals: [] })
       map.get(pid).deals.push(d)
     }
-    return Array.from(map.values())
-  }, [filteredDeals])
+    const groups = Array.from(map.values())
+
+    // Sort deals inside each group (Negotiating first, then Agreed, then Closed; newest first)
+    for (const g of groups) {
+      g.deals.sort((a, b) => {
+        const getTier = (status) => {
+          if (status === 'NEGOTIATING') return 0
+          if (status === 'AGREED') return 1
+          return 2
+        }
+        const tierA = getTier(a.status)
+        const tierB = getTier(b.status)
+        if (tierA !== tierB) return tierA - tierB
+
+        const timeA = new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0).getTime()
+        const timeB = new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0).getTime()
+        return timeB - timeA
+      })
+    }
+
+    // Sort groups by the highest tier deal they have, then by latest activity (newest first)
+    groups.sort((a, b) => {
+      const getGroupMinTier = (deals) => {
+        return Math.min(...deals.map(d => {
+          if (d.status === 'NEGOTIATING') return 0
+          if (d.status === 'AGREED') return 1
+          return 2
+        }))
+      }
+      const tierA = getGroupMinTier(a.deals)
+      const tierB = getGroupMinTier(b.deals)
+      if (tierA !== tierB) return tierA - tierB
+
+      const aMaxTime = Math.max(...a.deals.map(d => new Date(d.lastMessageAt || d.updatedAt || d.createdAt || 0).getTime()))
+      const bMaxTime = Math.max(...b.deals.map(d => new Date(d.lastMessageAt || d.updatedAt || d.createdAt || 0).getTime()))
+      return bMaxTime - aMaxTime
+    })
+
+    return groups
+  }, [filteredDeals, activeDealId])
 
   useEffect(() => {
     if (dealGroups.length === 0) return
@@ -107,7 +154,7 @@ export default function MessagesPage() {
         {/* Left pane */}
         <div className="f-msg-list">
           <div className="f-msg-list__head">
-            <div className="f-msg-list__title">Conversations</div>
+            <div className="f-msg-list__title">Chats</div>
             <div className="f-msg-list__filter">
               {['all', 'unread', 'negotiating', 'agreed'].map(f => (
                 <button key={f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>

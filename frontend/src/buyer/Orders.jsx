@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
-import { listOrders, cancelOrder, reorder, confirmReceipt, disputeOrder, getTimeline } from './api/orders'
+import { listOrders, cancelOrder, reorder, confirmReceipt, disputeOrder, getTimeline, createPaymentIntent } from './api/orders'
 import ReviewModal from './components/ReviewModal'
 import { PageHead } from './components/PageHead'
 
@@ -64,9 +64,30 @@ function OrderDetailPanel({ order, setPage, onCancel, onReorder, onConfirmReceip
     staleTime: 30_000,
   })
 
+  const [paying, setPaying] = useState(false)
+
+  const handlePay = async () => {
+    setPaying(true)
+    try {
+      const intent = await createPaymentIntent(order.id, order.paymentMethod || 'GCASH')
+      if (intent?.redirectUrl) {
+        window.location.href = intent.redirectUrl
+      } else {
+        alert('Could not initiate payment. Please try again.')
+      }
+    } catch (err) {
+      alert(err?.message || 'Payment initiation failed')
+    } finally {
+      setPaying(false)
+    }
+  }
+
   const timeline = timelineQ.data ?? []
   const subtotal = (order.orderedQtyKg ?? 0) * (order.agreedPricePerKg ?? 0)
   const total    = subtotal + Number(order.deliveryFee ?? 0)
+
+  const isPaid = order.status === 'COMPLETED' || order.payment?.status === 'CONFIRMED' || order.payment?.status === 'SETTLED'
+  const needsPayment = order.paymentMethod && order.paymentMethod !== 'COD' && (!order.payment || order.payment.status === 'PENDING') && order.status !== 'CANCELLED' && order.status !== 'COMPLETED'
 
   return (
     <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -85,11 +106,11 @@ function OrderDetailPanel({ order, setPage, onCancel, onReorder, onConfirmReceip
       {/* Species block */}
       <div className="cell-species" style={{ padding: 12, background: 'var(--layer-1)', border: '1px solid var(--hairline-rgba)', borderRadius: 10 }}>
         <div className="cell-species__avatar" style={{ background: AVATAR_GRADS[order.id % 5], width: 42, height: 42, borderRadius: 10, fontSize: 13, display: 'grid', placeItems: 'center', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-          {(order.speciesName ?? 'F').slice(0, 2).toUpperCase()}
+          {(order.species?.commonName ?? order.speciesName ?? 'F').slice(0, 2).toUpperCase()}
         </div>
         <div className="cell-species__main" style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 15, fontWeight: 600, display: 'block' }}>{order.speciesName ?? '—'}</span>
-          <span className="muted" style={{ fontSize: 12 }}>{order.vendorName ?? order.sellerName ?? '—'}</span>
+          <span style={{ fontSize: 15, fontWeight: 600, display: 'block' }}>{order.species?.commonName ?? order.speciesName ?? '—'}</span>
+          <span className="muted" style={{ fontSize: 12 }}>{order.seller?.fullName ?? order.vendorName ?? order.sellerName ?? order.seller?.shopName ?? order.seller?.name ?? '—'}</span>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{order.orderedQtyKg}<small className="muted"> kg</small></div>
@@ -102,7 +123,7 @@ function OrderDetailPanel({ order, setPage, onCancel, onReorder, onConfirmReceip
         <div className="metric-card-v2">
           <div className="metric-card-v2__head">
             <span className="metric-card-v2__title">Total</span>
-            <span className="metric-card-v2__chip">{order.status === 'COMPLETED' ? 'paid' : 'due'}</span>
+            <span className="metric-card-v2__chip">{isPaid ? 'paid' : 'due'}</span>
           </div>
           <div className="metric-card-v2__value" style={{ fontSize: 18 }}>₱{Math.round(total).toLocaleString()}</div>
         </div>
@@ -137,7 +158,20 @@ function OrderDetailPanel({ order, setPage, onCancel, onReorder, onConfirmReceip
 
       {/* Actions */}
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-        <button className="btn btn--sm" style={{ flex: 1 }} onClick={() => setPage('bmessages')}>
+        {needsPayment && (
+          <button className="btn btn--primary btn--sm" style={{ flex: '1 1 100%', justifyContent: 'center' }} onClick={handlePay} disabled={paying}>
+            {paying ? 'Processing…' : <>Pay ₱{Math.round(total).toLocaleString()} now <I.ArrowRight size={11} /></>}
+          </button>
+        )}
+        <button className="btn btn--sm" style={{ flex: 1 }} onClick={() => {
+          const vId = order.seller?.id
+          const vName = order.vendorName ?? order.sellerName ?? order.seller?.fullName ?? 'Vendor'
+          if (vId) {
+            setPage('bmessages', { id: vId, fullName: vName, role: 'VENDOR' })
+          } else {
+            setPage('bmessages')
+          }
+        }}>
           <I.Message size={11} /> Message vendor
         </button>
         {order.status === 'COMPLETED' && (
@@ -189,7 +223,7 @@ export default function Orders({ setPage }) {
   const ordersQ = useQuery({
     queryKey: ['buyerOrders'],
     queryFn: () => listOrders(),
-    staleTime: 30_000,
+    refetchInterval: 4000,
   })
 
   const cancelMut  = useMutation({ mutationFn: id => cancelOrder(id, 'Buyer cancelled'), onSuccess: () => qc.invalidateQueries({ queryKey: ['buyerOrders'] }) })
@@ -203,7 +237,7 @@ export default function Orders({ setPage }) {
 
   const totalSpent    = all.filter(o => o.status === 'COMPLETED').reduce((s, o) => s + (o.orderedQtyKg ?? 0) * (o.agreedPricePerKg ?? 0), 0)
   const activeCount   = all.filter(o => ACTIVE_STATUSES.includes(o.status)).length
-  const uniqueVendors = new Set(all.map(o => o.vendorName ?? o.sellerName).filter(Boolean)).size
+  const uniqueVendors = new Set(all.map(o => o.vendorName ?? o.sellerName ?? o.seller?.shopName ?? o.seller?.fullName ?? o.seller?.name).filter(Boolean)).size
 
   const countByTab = Object.fromEntries(TABS.map(t => [t, t === 'All' ? all.length : all.filter(o => o.status === t).length]))
   const filtered   = activeTab === 'All' ? all : all.filter(o => o.status === activeTab)
@@ -324,11 +358,11 @@ export default function Orders({ setPage }) {
                         <td>
                           <div className="cell-species">
                             <div className="cell-species__avatar" style={{ background: AVATAR_GRADS[o.id % 5] }}>
-                              {(o.speciesName ?? 'F').slice(0, 2).toUpperCase()}
+                              {(o.species?.commonName ?? o.speciesName ?? 'F').slice(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <div className="cell-species__name">{o.speciesName ?? '—'}</div>
-                              <div className="cell-species__buyer">{o.vendorName ?? o.sellerName ?? '—'}</div>
+                              <div className="cell-species__name">{o.species?.commonName ?? o.speciesName ?? '—'}</div>
+                              <div className="cell-species__buyer">{o.seller?.fullName ?? o.vendorName ?? o.sellerName ?? '—'}</div>
                             </div>
                           </div>
                         </td>

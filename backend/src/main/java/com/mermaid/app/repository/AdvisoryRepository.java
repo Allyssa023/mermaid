@@ -13,6 +13,9 @@ public interface AdvisoryRepository extends JpaRepository<Advisory, Long> {
     @Query("SELECT a FROM Advisory a WHERE a.isActive = true ORDER BY a.createdAt DESC")
     List<Advisory> findAllActiveOrderByCreatedAtDesc();
 
+    @Query("SELECT a FROM Advisory a ORDER BY a.createdAt DESC")
+    List<Advisory> findAllOrderByCreatedAtDesc();
+
     @Query("SELECT a FROM Advisory a " +
            "WHERE a.isActive = true " +
            "AND a.activeFrom <= :now AND a.activeTo >= :now " +

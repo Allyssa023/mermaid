@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
+import { useLocation, useNavigate as useReactRouterNavigate } from 'react-router-dom'
 import gsap from 'gsap'
 import { I } from '../icons'
 import { useCart } from '../context/CartContext'
@@ -12,9 +13,10 @@ import Cart from './Cart'
 import Checkout from './Checkout'
 import ListingDetail from './ListingDetail'
 import Orders from './Orders'
-import Favorites from './Favorites'
 import Messages from './Messages'
 import Profile from './Profile'
+import NotificationsBell from './components/NotificationsBell'
+import PaymentReturn from './PaymentReturn'
 
 const PAGE_LABELS = {
   bhome:     'Home',
@@ -23,7 +25,6 @@ const PAGE_LABELS = {
   bcheckout: 'Checkout',
   blisting:  'Listing Detail',
   borders:   'My Orders',
-  bsaved:    'Saved',
   bmessages: 'Messages',
   bprofile:  'Profile',
 }
@@ -36,7 +37,6 @@ const NAV_GROUPS = [
       { id: 'bbrowse',   icon: 'Store',     label: 'Browse Market' },
       { id: 'bcart',     icon: 'Cart',      label: 'Cart' },
       { id: 'borders',   icon: 'Clipboard', label: 'My Orders' },
-      { id: 'bsaved',    icon: 'Heart',     label: 'Saved' },
       { id: 'bmessages', icon: 'Message',   label: 'Messages' },
     ],
   },
@@ -187,16 +187,13 @@ function Topbar({ user, onBrowse, cart, navigate }) {
         <kbd>⌘K</kbd>
       </div>
 
-      <button className="bell-btn" title="Notifications">
-        <I.Bell size={15} />
-        <span className="bell-btn__dot" />
-      </button>
+      <NotificationsBell onNavigate={navigate} btnClassName="bell-btn" />
       <button className="topbar__icon" title="Settings"><I.Settings size={15} /></button>
     </div>
   )
 }
 
-function PageContent({ page, setPage, buyNow, setBuyNow, listingId, setListingId, user }) {
+function PageContent({ page, setPage, buyNow, setBuyNow, listingId, setListingId, user, initialContact }) {
   switch (page) {
     case 'bhome':     return <Home setPage={setPage} user={user} />
     case 'bbrowse':   return <Marketplace setPage={setPage} setBuyNow={setBuyNow} setListingId={setListingId} />
@@ -204,20 +201,29 @@ function PageContent({ page, setPage, buyNow, setBuyNow, listingId, setListingId
     case 'bcheckout': return <Checkout setPage={setPage} buyNow={buyNow} setBuyNow={setBuyNow} />
     case 'blisting':  return <ListingDetail setPage={setPage} listingId={listingId} setBuyNow={setBuyNow} setListingId={setListingId} />
     case 'borders':   return <Orders setPage={setPage} />
-    case 'bsaved':    return <Favorites setPage={setPage} />
-    case 'bmessages': return <Messages setPage={setPage} user={user} />
+    case 'bmessages': return <Messages setPage={setPage} user={user} initialContact={initialContact} />
     case 'bprofile':  return <Profile setPage={setPage} user={user} />
+    case 'bpayment_return': return <PaymentReturn setDashboardPage={setPage} />
     default:          return <Home setPage={setPage} user={user} />
   }
 }
 
 export default function BuyerDashboard({ user, onLogout }) {
+  const location = useLocation()
+  const routerNavigate = useReactRouterNavigate()
   const [page, setPage] = useState('bhome')
   const [buyNow, setBuyNow] = useState(null)
   const [listingId, setListingId] = useState(null)
+  const [initialContact, setInitialContact] = useState(null)
   const [railOpen, setRailOpen] = useState(false)
   const pageRef = useRef(null)
   const { cart } = useCart()
+
+  useEffect(() => {
+    if (location.pathname === '/payment/return') {
+      setPage('bpayment_return')
+    }
+  }, [location.pathname])
 
   const badgeCounts = {
     bcart:     cart?.itemCount ?? 0,
@@ -246,6 +252,11 @@ export default function BuyerDashboard({ user, onLogout }) {
     if (state !== null) {
       if (id === 'blisting') setListingId(state)
       if (id === 'bcheckout') setBuyNow(state)
+      if (id === 'bmessages') setInitialContact(state)
+    } else {
+      if (id !== 'bmessages') {
+        setInitialContact(null)
+      }
     }
   }, [page])
 
@@ -272,6 +283,7 @@ export default function BuyerDashboard({ user, onLogout }) {
             listingId={listingId}
             setListingId={setListingId}
             user={user}
+            initialContact={initialContact}
           />
         </div>
       </div>

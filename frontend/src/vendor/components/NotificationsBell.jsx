@@ -16,7 +16,7 @@ function dealNotifTitle(kind) {
   return 'Deal update'
 }
 
-export default function VendorNotificationsBell() {
+export default function VendorNotificationsBell({ onNavigate, btnClassName }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -125,12 +125,34 @@ export default function VendorNotificationsBell() {
     } else if (!n.readAt) {
       markReadMut.mutate(n.id)
     }
-    if (n.type === 'DEAL_NEW_PROPOSAL' && n.dealId != null) {
-      navigate(`/vendor/messages?deal=${n.dealId}`)
-    } else if (n.type === 'DEAL_AGREED') {
-      navigate('/vendor/orders')
-    } else if (n.link) {
-      navigate(n.link)
+    if (onNavigate) {
+      let dest = n.link || ''
+      if (dest.startsWith('/')) {
+        dest = dest.substring(1)
+      }
+      if (n.type === 'DEAL_NEW_PROPOSAL' && n.dealId != null) {
+        onNavigate('vmessages', { dealId: n.dealId })
+      } else if (n.type === 'DEAL_AGREED') {
+        onNavigate('vorders')
+      } else if (dest.includes('order')) {
+        onNavigate('vorders')
+      } else if (dest.includes('message')) {
+        onNavigate('vmessages')
+      } else if (dest.includes('procurement')) {
+        onNavigate('vprocurement')
+      } else if (dest.includes('inventory')) {
+        onNavigate('vinventory')
+      } else {
+        onNavigate('vdashboard')
+      }
+    } else {
+      if (n.type === 'DEAL_NEW_PROPOSAL' && n.dealId != null) {
+        navigate(`/vendor/messages?deal=${n.dealId}`)
+      } else if (n.type === 'DEAL_AGREED') {
+        navigate('/vendor/orders')
+      } else if (n.link) {
+        navigate(n.link)
+      }
     }
     setOpen(false)
   }
@@ -140,7 +162,8 @@ export default function VendorNotificationsBell() {
       <button
         title="Notifications"
         onClick={() => setOpen(o => !o)}
-        style={{
+        className={btnClassName}
+        style={btnClassName ? { position: 'relative' } : {
           position: 'relative', background: 'none', border: 'none',
           cursor: 'pointer', padding: '6px 8px', borderRadius: 6,
           color: '#374151',
@@ -148,14 +171,14 @@ export default function VendorNotificationsBell() {
       >
         <I.Bell size={18} />
         {unread > 0 && (
-          <span style={{
+          <span className={btnClassName ? "dot" : ""} style={btnClassName ? undefined : {
             position: 'absolute', top: 2, right: 2,
             minWidth: 14, height: 14, borderRadius: 99,
             background: '#ef4444', color: '#fff',
             fontSize: 9, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '0 3px',
-          }}>{unread > 9 ? '9+' : unread}</span>
+          }}>{btnClassName ? null : (unread > 9 ? '9+' : unread)}</span>
         )}
       </button>
 

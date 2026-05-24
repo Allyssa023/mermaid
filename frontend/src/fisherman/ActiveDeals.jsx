@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { I } from '../icons'
 import {
   listMyDeals, submitProposal,
-  acceptProposal, cancelDeal,
+  cancelDeal, engageDeal,
 } from './api/deals'
 
 const PAGE_SIZE = 10
@@ -74,12 +74,11 @@ export default function ActiveDeals({ setPage }) {
   })
 
   const acceptMut = useMutation({
-    mutationFn: (dealId) => {
-      const deal = allDeals.find(d => d.id === dealId)
-      const pending = deal?.latestProposal?.status === 'PENDING' ? deal.latestProposal : null
-      return pending ? acceptProposal(dealId, pending.id) : Promise.reject(new Error('No pending proposal'))
+    mutationFn: (dealId) => engageDeal(dealId),
+    onSuccess: (_data, dealId) => {
+      qc.invalidateQueries({ queryKey: ['deals', 'mine', 'all'] })
+      setPage?.('messages', { dealId })
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['deals', 'mine', 'all'] }),
   })
 
   const cancelMut = useMutation({
@@ -99,10 +98,27 @@ export default function ActiveDeals({ setPage }) {
   const CLOSED_STATUSES = ['REJECTED', 'EXPIRED', 'CANCELLED']
 
   const filtered = useMemo(() => {
-    if (filter === 'PROPOSALS') return allDeals.filter(d => d.status === 'NEGOTIATING')
-    if (filter === 'AGREED')    return allDeals.filter(d => d.status === 'AGREED')
-    if (filter === 'CLOSED')    return allDeals.filter(d => CLOSED_STATUSES.includes(d.status))
-    return allDeals
+    let list
+    if (filter === 'PROPOSALS') list = allDeals.filter(d => d.status === 'NEGOTIATING')
+    else if (filter === 'AGREED') list = allDeals.filter(d => d.status === 'AGREED')
+    else if (filter === 'CLOSED') list = allDeals.filter(d => CLOSED_STATUSES.includes(d.status))
+    else list = [...allDeals]
+
+    // Order: Negotiating first, then Agreed, then Closed; within each group newest first
+    return list.sort((a, b) => {
+      const getTier = (status) => {
+        if (status === 'NEGOTIATING') return 0
+        if (status === 'AGREED') return 1
+        return 2
+      }
+      const tierA = getTier(a.status)
+      const tierB = getTier(b.status)
+      if (tierA !== tierB) return tierA - tierB
+
+      const dateA = new Date(a.updatedAt || a.createdAt || 0).getTime()
+      const dateB = new Date(b.updatedAt || b.createdAt || 0).getTime()
+      return dateB - dateA
+    })
   }, [allDeals, filter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))

@@ -27,8 +27,8 @@ function PageHead({ eyebrow, title, em, sub, actions }) {
 }
 
 const statusChip = (s) => {
-  if (s === 'PENDING')   return <span className="chip chip--new">Pending</span>
-  if (s === 'CONFIRMED') return <span className="chip chip--prep">Confirmed</span>
+  if (s === 'PENDING')   return <span className="chip chip--prep">Pending</span>
+  if (s === 'CONFIRMED') return <span className="chip chip--confirmed-lime">Confirmed</span>
   if (s === 'COMPLETED') return <span className="chip chip--ready">Completed</span>
   if (s === 'CANCELLED') return <span className="chip chip--cancel">Cancelled</span>
   if (IN_TRANSIT.includes(s)) return <span className="chip chip--prep">{s.charAt(0) + s.slice(1).toLowerCase().replace(/_/g, ' ')}</span>
@@ -55,6 +55,7 @@ export default function OrdersInbox({ pageState, setPage }) {
   const ordersQ = useQuery({
     queryKey: ['vendor', 'orders', { buyerId: buyerFilter }],
     queryFn: () => listInbox({ buyerId: buyerFilter ?? undefined }),
+    refetchInterval: 4000,
   })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['vendor', 'orders'] })
@@ -206,8 +207,8 @@ export default function OrdersInbox({ pageState, setPage }) {
           <div className="pipeline-bar completed" style={{ flex: completed || 0.5 }} />
         </div>
         <div className="pipeline-labels">
-          <span><span className="swatch" style={{ background: 'var(--accent-lime)' }} /><strong>{pending}</strong>Pending</span>
-          <span><span className="swatch" style={{ background: 'var(--tide)' }} /><strong>{confirmed}</strong>Confirmed</span>
+          <span><span className="swatch" style={{ background: 'var(--tide)' }} /><strong>{pending}</strong>Pending</span>
+          <span><span className="swatch" style={{ background: '#c2ef4e' }} /><strong>{confirmed}</strong>Confirmed</span>
           <span><span className="swatch" style={{ background: 'var(--accent-pink)' }} /><strong>{inTransit}</strong>In transit</span>
           <span><span className="swatch" style={{ background: 'var(--accent-violet-mid)' }} /><strong>{completed}</strong>Completed</span>
         </div>

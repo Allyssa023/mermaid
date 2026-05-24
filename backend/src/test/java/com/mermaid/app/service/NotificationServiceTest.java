@@ -21,10 +21,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
 
     @Mock NotificationRepository notificationRepo;
+    @Mock SimpMessagingTemplate ws;
     @InjectMocks NotificationService service;
 
     @Test

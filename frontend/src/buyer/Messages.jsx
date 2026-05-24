@@ -45,9 +45,14 @@ export default function Messages({ userProfile, user: userProp, initialContact }
   const contactsQ = useQuery({ queryKey: ['chatUsers'], queryFn: getChatUsers })
   const contacts  = contactsQ.data || []
 
+  const displayContacts = [...contacts]
+  if (initialContact && !contacts.some(c => c.id === initialContact.id)) {
+    displayContacts.unshift(initialContact)
+  }
+
   useEffect(() => {
-    if (!activeUserId && contacts.length > 0) setActiveUserId(contacts[0].id)
-  }, [contacts, activeUserId])
+    if (!activeUserId && displayContacts.length > 0) setActiveUserId(displayContacts[0].id)
+  }, [displayContacts, activeUserId])
 
   const convQ = useQuery({
     queryKey: ['conversation', activeUserId],
@@ -84,16 +89,16 @@ export default function Messages({ userProfile, user: userProp, initialContact }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
-  const active = contacts.find(c => c.id === activeUserId)
+  const active = displayContacts.find(c => c.id === activeUserId)
   const filteredContacts = search.trim()
-    ? contacts.filter(c => c.fullName?.toLowerCase().includes(search.toLowerCase()))
-    : contacts
+    ? displayContacts.filter(c => c.fullName?.toLowerCase().includes(search.toLowerCase()))
+    : displayContacts
 
   return (
     <div className="page-wrap">
       <PageHead
         eyebrow="Insight · messages"
-        sub={`${contacts.length} conversations`}
+        sub={`${displayContacts.length} conversations`}
         title="Vendor"
         lime="chats"
       />

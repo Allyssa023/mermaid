@@ -6,6 +6,7 @@ import '../design-system.css'
 import './fisherman-shell.css'
 import { StompProvider } from '../context/StompContext'
 import { listTrips } from './api/trips'
+import { getNotifications } from '../api/notifications'
 
 import FishermanHomePage    from './Home'
 import TripsPage            from './Trips'
@@ -52,6 +53,7 @@ function initials(name) {
 
 export default function FishermanDashboard({ user, onLogout }) {
   const [page, setPageState] = useState('dashboard')
+  const [openDealId, setOpenDealId] = useState(null)
   const [railOpen, setRailOpen] = useState(false)
   const [profileDirty, setProfileDirty] = useState(false)
   const [leaveConfirm, setLeaveConfirm] = useState(null)
@@ -66,9 +68,28 @@ export default function FishermanDashboard({ user, onLogout }) {
   })
   const activeTrip = activeTripsQ.data ?? null
 
-  const navigateTo = useCallback((to) => {
-    if (to === page) return
+  const unreadNotifsQ = useQuery({
+    queryKey: ['notifications', { unreadOnly: true }],
+    queryFn: () => getNotifications({ unreadOnly: true, size: 100 }),
+    refetchInterval: 30000,
+    staleTime: 0,
+  })
+  const unreadNotifs = Array.isArray(unreadNotifsQ.data) ? unreadNotifsQ.data : []
+
+  const orderUnread = unreadNotifs.filter(n => n.type === 'ORDER_STATUS' || (n.link && n.link.includes('order'))).length
+  const messageUnread = unreadNotifs.filter(n => n.type === 'MESSAGE' || (n.link && n.link.includes('message'))).length
+  const dealUnread = unreadNotifs.filter(n => n.type?.includes('DEAL') || (n.link && n.link.includes('deal'))).length
+
+  const badgeCounts = {
+    orders: orderUnread,
+    deals: dealUnread,
+    messages: messageUnread,
+  }
+
+  const navigateTo = useCallback((to, opts) => {
+    if (to === page && !opts?.dealId) return
     if (profileDirty && page === 'profile') { setLeaveConfirm({ to }); return }
+    setOpenDealId(opts?.dealId ?? null)
     if (!pageRef.current) { setPageState(to); return }
     gsap.killTweensOf(pageRef.current)
     gsap.to(pageRef.current, {
@@ -97,6 +118,17 @@ export default function FishermanDashboard({ user, onLogout }) {
     }
     tick(); const id = setInterval(tick, 60_000); return () => clearInterval(id)
   }, [activeTrip])
+
+  useEffect(() => {
+    const handleNavigate = (e) => {
+      const { page: targetPage, dealId } = e.detail || {}
+      if (targetPage) {
+        navigateTo(targetPage, { dealId })
+      }
+    }
+    window.addEventListener('mermaid:navigate', handleNavigate)
+    return () => window.removeEventListener('mermaid:navigate', handleNavigate)
+  }, [navigateTo])
 
   const userInitials = initials(user?.fullName)
   const userName = user?.fullName ?? 'Fisherman'
@@ -127,6 +159,7 @@ export default function FishermanDashboard({ user, onLogout }) {
           <div className="f-rail__nav">
             {NAV_ITEMS.map((item, i) => {
               const NavIcon = I[item.icon] || I.Clipboard
+              const badge = badgeCounts?.[item.id] ?? 0
               return (
                 <button
                   key={item.id}
@@ -231,6 +264,8 @@ export default function FishermanDashboard({ user, onLogout }) {
               setPage={navigateTo}
               setProfileDirty={setProfileDirty}
               activeTrip={activeTrip}
+              openDealId={openDealId}
+              clearOpenDealId={() => setOpenDealId(null)}
             />
           </div>
         </div>

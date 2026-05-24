@@ -109,12 +109,14 @@ public class PaymentWebhookController implements WebhooksApi {
             p.setPaidAt(OffsetDateTime.now());
             paymentRepository.save(p);
             log.info("Credit payment {} settled via Xendit for order {}", paymentRequestId, p.getOrderId());
+            orderService.publishOrderUpdate(p.getOrderId(), "CREDIT_SETTLED", "Credit settled via Xendit");
         } else {
             // Normal payment — mark as CONFIRMED, fisherman will confirm to complete
             p.setStatus("CONFIRMED");
             p.setPaidAt(OffsetDateTime.now());
             paymentRepository.save(p);
             log.info("Payment {} confirmed via webhook for order {}", paymentRequestId, p.getOrderId());
+            orderService.publishOrderUpdate(p.getOrderId(), "PAYMENT_CONFIRMED", "Payment confirmed via webhook");
         }
 
         // NOTE: We intentionally do NOT auto-complete the order here.

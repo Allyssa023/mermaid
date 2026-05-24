@@ -11,6 +11,15 @@ vi.mock('../api/trips', () => ({
   startTrip: vi.fn(),
   endTrip: vi.fn(),
   saveChecklist: vi.fn(),
+  listCatchLogs: vi.fn().mockResolvedValue([]),
+  createCatchLog: vi.fn(),
+  deleteCatchLog: vi.fn(),
+}))
+vi.mock('../api/marine', () => ({
+  fetchAllConditions: vi.fn().mockResolvedValue({ zones: [] }),
+}))
+vi.mock('../api/lookup', () => ({
+  fetchSpecies: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: { id: 1 }, loading: false }),
@@ -30,28 +39,31 @@ function wrap(ui) {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  listTrips.mockResolvedValue([MOCK_TRIP])
+  listTrips.mockResolvedValue([])
 })
 
 describe('TripsPage', () => {
   it('renders trip departure point', async () => {
+    listTrips.mockResolvedValue([MOCK_TRIP])
     wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
-    expect(await screen.findByText(/San Juan Port/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/San Juan Port/i)).length).toBeGreaterThan(0)
   })
 
   it('shows ACTIVE status chip', async () => {
+    listTrips.mockResolvedValue([MOCK_TRIP])
     wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
-    expect(await screen.findByText(/ACTIVE/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/ACTIVE/i)).length).toBeGreaterThan(0)
   })
 
   it('shows Start New Trip button', async () => {
     wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
-    expect(await screen.findByText(/Start New Trip/i)).toBeInTheDocument()
+    expect((await screen.findAllByText(/Start New Trip/i)).length).toBeGreaterThan(0)
   })
 
   it('opens modal on Start New Trip click', async () => {
     wrap(<TripsPage setPage={vi.fn()} activeTrip={null} />)
-    fireEvent.click(await screen.findByText(/Start New Trip/i))
+    const buttons = await screen.findAllByText(/Start New Trip/i)
+    fireEvent.click(buttons[0])
     expect(screen.getByText(/Departure Point/i)).toBeInTheDocument()
   })
 })

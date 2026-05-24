@@ -31,8 +31,9 @@ function HomeScreen({ onNav }) {
           </div>
 
           {/* mascot */}
-          <div style={{ position: 'absolute', right: -20, top: -30, pointerEvents: 'none' }}>
-            <MarineMascot kind="whale" size={240} />
+          <div className="mascot-whale-wrap" aria-hidden="true">
+            <img src="assets/whale.png" alt="" className="mascot mascot-whale" width={1920} height={1080} loading="eager" decoding="async" />
+            <img src="assets/whale2.png" alt="" className="mascot mascot-whale2" width={800} height={800} loading="eager" decoding="async" />
           </div>
         </div>
 

@@ -73,13 +73,6 @@ function InlineActions({ o, mutations, onOpenModal }) {
     }
     return null
   }
-  if (o.status === 'COMPLETED') {
-    return (
-      <button className="btn btn--sm btn--ghost" onClick={() => onOpenModal(o, 'PAYOUT')}>
-        Get Payout
-      </button>
-    )
-  }
   return null
 }
 
@@ -93,6 +86,7 @@ export default function OrdersPage() {
   const ordersQ = useQuery({
     queryKey: ['fisherman', 'orders'],
     queryFn: () => listOrders(null),
+    refetchInterval: 4000,
   })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['fisherman', 'orders'] })
@@ -186,7 +180,7 @@ export default function OrdersPage() {
                 <tr>
                   <th>Order</th><th>Vendor</th><th>Species</th>
                   <th>Qty</th><th>Price</th><th>Total</th>
-                  <th>Payment</th><th>Handoff</th><th>Status</th><th>Actions</th>
+                  <th>Payment</th><th>Handoff</th><th>Status</th><th style={{ textAlign: 'center' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -199,7 +193,7 @@ export default function OrdersPage() {
                   const hfLabel = o.handoff?.status ?? (typeof o.handoff === 'string' ? o.handoff : null)
                   const pmLabel = o.payment?.method ?? (typeof o.payment === 'string' ? o.payment : null)
                   return (
-                    <tr key={o.id}>
+                    <tr key={o.id} data-testid="order-card">
                       <td>
                         <kbd>{o.orderCode ?? `O-${o.id}`}</kbd>
                         <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 2 }}>
@@ -227,7 +221,7 @@ export default function OrdersPage() {
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
                           <InlineActions
                             o={o}
                             mutations={mutations}

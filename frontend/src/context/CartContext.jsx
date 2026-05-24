@@ -36,6 +36,14 @@ export function CartProvider({ children }) {
     refresh();
   }, [refresh]);
 
+  // Listen for STOMP-driven cart change events (dispatched by StompContext).
+  useEffect(() => {
+    if (!isBuyer) return;
+    const onChange = () => { refresh(); };
+    window.addEventListener('mermaid:cart-changed', onChange);
+    return () => window.removeEventListener('mermaid:cart-changed', onChange);
+  }, [isBuyer, refresh]);
+
   // Mutations throw on failure — callers own their error display.
   // Only refresh() writes to context.error (warranting a full-page block).
 

@@ -28,19 +28,36 @@ public class CatchAlertService {
     private final UserRepository userRepo;
     private final CatchAlertMapper mapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final LiveEventPublisher liveEventPublisher;
 
     public CatchAlertService(CatchAlertRepository alertRepo,
                               FishSpeciesRepository speciesRepo,
                               DemandListingRepository listingRepo,
                               UserRepository userRepo,
                               CatchAlertMapper mapper,
-                              ApplicationEventPublisher eventPublisher) {
+                              ApplicationEventPublisher eventPublisher,
+                              LiveEventPublisher liveEventPublisher) {
         this.alertRepo = alertRepo;
         this.speciesRepo = speciesRepo;
         this.listingRepo = listingRepo;
         this.userRepo = userRepo;
         this.mapper = mapper;
         this.eventPublisher = eventPublisher;
+        this.liveEventPublisher = liveEventPublisher;
+    }
+
+    private void broadcastAlertChange(CatchAlert alert, String reason) {
+        if (alert == null) return;
+        Long alertId = alert.getId();
+        Long fishermanId = alert.getFishermanId();
+        liveEventPublisher.runAfterCommit(() -> {
+            liveEventPublisher.broadcast("catch-alerts", "CATCH_ALERT_CHANGED",
+                java.util.Map.of("alertId", alertId, "reason", reason));
+            if (fishermanId != null) {
+                liveEventPublisher.pushToUser(fishermanId, "MY_CATCH_ALERT_CHANGED",
+                    java.util.Map.of("alertId", alertId, "reason", reason));
+            }
+        });
     }
 
     private String resolveName(Long userId) {
@@ -86,6 +103,7 @@ public class CatchAlertService {
 
         CatchAlert saved = alertRepo.save(alert);
         eventPublisher.publishEvent(new CatchAlertCreatedEvent(saved.getId()));
+        broadcastAlertChange(saved, "CREATED");
         List<Long> matched = matchedListingIds(species.getId());
         return mapper.toModel(saved, resolveName(fishermanId), matched);
     }
@@ -108,6 +126,7 @@ public class CatchAlertService {
         }
         alert.setStatus("CANCELLED");
         CatchAlert saved = alertRepo.save(alert);
+        broadcastAlertChange(saved, "CANCELLED");
         return mapper.toModel(saved, resolveName(fishermanId), List.of());
     }
 

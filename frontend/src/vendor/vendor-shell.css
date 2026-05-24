@@ -7,7 +7,7 @@
   /* ---- Sentri tokens (verbatim) ---- */
   --primary:                #150f23;
   --ink-deep:               #1f1633;
-  --accent-lime:            #c2ef4e;
+  --accent-lime:            #3ee2ff;
   --accent-pink:            #fa7faa;
   --accent-violet:          #6a5fc1;
   --accent-violet-deep:     #422082;
@@ -779,6 +779,7 @@ body {
   content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor;
 }
 .chip--new      { color: var(--accent-lime); background: rgba(194,239,78,0.12); border-color: rgba(194,239,78,0.3); }
+.chip--confirmed-lime { color: #c2ef4e; background: rgba(194,239,78,0.12); border-color: rgba(194,239,78,0.3); }
 .chip--prep     { color: var(--tide);        background: var(--tide-soft);      border-color: rgba(94,200,230,0.3); }
 .chip--ready    { color: var(--kelp);        background: var(--kelp-soft);      border-color: rgba(70,211,154,0.3); }
 .chip--done     { color: var(--muted);       background: var(--panel-3);        border-color: var(--hairline); }
@@ -1134,8 +1135,8 @@ body {
   border-radius: 4px 0 0 4px;
   background: var(--hairline);
 }
-.inbox-row__pipe--pending  { background: var(--accent-lime); }
-.inbox-row__pipe--confirmed{ background: var(--tide); }
+.inbox-row__pipe--pending  { background: var(--tide); }
+.inbox-row__pipe--confirmed{ background: #c2ef4e; }
 .inbox-row__pipe--ready    { background: var(--kelp); }
 .inbox-row__pipe--done     { background: var(--accent-violet-mid); }
 .inbox-row__pipe--cancel   { background: var(--coral); }
@@ -1310,18 +1311,56 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: 13px 15px;
+  padding: 14px 16px;
   background: var(--panel);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   box-shadow: none;
+  margin-bottom: 8px;
 }
-.card.order-card .order-card__head   { margin-bottom: 6px; }
-.card.order-card .order-card__summary { margin: 4px 0; font-size: 12.5px; color: var(--muted); }
+.card.order-card .order-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.card.order-card .order-card__code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted-2);
+  letter-spacing: 0.03em;
+}
+.card.order-card .order-card__summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 2px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.card.order-card .order-card__summary span:first-child {
+  font-weight: 600;
+  color: var(--ink-on-dark);
+  font-family: var(--font-display);
+}
+.card.order-card .order-card__summary span:last-child {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+}
 .card.order-card .order-card__actions { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
-.card.order-card .order-card__code { color: var(--muted-2); }
-.card.order-card .whos-turn { color: var(--muted-2); }
-.card.order-card .whos-turn--yours { color: var(--accent-lime); }
+.card.order-card .whos-turn { font-size: 11px; color: var(--muted-2); padding: 4px 0; }
+.card.order-card .whos-turn--yours { color: var(--accent-lime); font-weight: 600; }
+/* chip dot support in vendor context */
+.chip__dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.chip--new  .chip__dot { background: var(--accent-lime); }
+.chip--prep .chip__dot { background: var(--tide); }
+.chip--ready .chip__dot { background: var(--kelp); }
+.chip--done  .chip__dot { background: var(--muted-2); }
+.chip--cancel .chip__dot { background: var(--coral); }
+.chip--neg   .chip__dot { background: var(--accent-pink); }
 
 /* Pipeline progress (Orders) */
 .pipeline-card {
@@ -1332,8 +1371,8 @@ body {
 }
 .pipeline-bars { display: flex; gap: 6px; margin-top: 12px; height: 14px; border-radius: 999px; overflow: hidden; background: var(--panel-3); }
 .pipeline-bar { height: 100%; border-radius: 999px; transition: flex .3s; }
-.pipeline-bar.pending   { background: var(--accent-lime); }
-.pipeline-bar.confirmed { background: var(--tide); }
+.pipeline-bar.pending   { background: var(--tide); }
+.pipeline-bar.confirmed { background: #c2ef4e; }
 .pipeline-bar.transit   { background: var(--accent-pink); }
 .pipeline-bar.completed { background: var(--accent-violet-mid); }
 .pipeline-labels { display: flex; gap: 18px; margin-top: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted-2); font-family: var(--font-mono); }
@@ -1343,10 +1382,11 @@ body {
 /* ---- Messages two-pane ---- */
 .msg-shell {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 360px 1fr;
   gap: 14px;
   height: calc(100vh - var(--topbar-h) - 60px);
   min-height: 560px;
+  width: 100%;
 }
 .msg-list, .msg-thread {
   background: var(--panel);
@@ -1355,12 +1395,47 @@ body {
   overflow: hidden;
   display: flex; flex-direction: column;
 }
-.msg-list__head { padding: 14px 16px; border-bottom: 1px solid var(--hairline-soft); }
+.msg-list__head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hairline-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .msg-list__title { font: 600 14px var(--font-display); }
+
+/* ── Mode tabs (Deals / Buyer Chats) ── */
+.msg-tabs {
+  display: flex;
+  width: 100%;
+  background: var(--panel-2, rgba(255,255,255,0.04));
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+}
+.msg-tabs__btn {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted, #6b7280);
+  font: 600 11px var(--font-ui);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.msg-tabs__btn:hover { color: var(--on-dark); }
+.msg-tabs__btn--on {
+  background: var(--accent-lime, #84cc16);
+  color: var(--ink-deep, #0a0e1a);
+  box-shadow: 0 1px 4px rgba(132,204,22,0.3);
+}
+
 .msg-list__filter {
-  display: flex; gap: 6px; margin-top: 10px;
+  display: flex; gap: 6px; width: 100%;
 }
 .msg-list__filter button {
+  flex: 1;
   font: 600 11px var(--font-ui);
   padding: 4px 10px; border-radius: 999px; border: 1px solid var(--hairline);
   background: var(--panel-2); color: var(--muted); cursor: pointer;

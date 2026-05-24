@@ -11,7 +11,7 @@ const AVATAR_GRADS = [
   'linear-gradient(135deg,#fa7faa,#c4326a)',
   'linear-gradient(135deg,#46d39a,#14b8a6)',
   'linear-gradient(135deg,#60a5fa,#3b82f6)',
-  'linear-gradient(135deg,#c2ef4e,#84cc16)',
+  'linear-gradient(135deg,#3ee2ff,#84cc16)',
 ]
 
 function speciesInitials(name = '') {
@@ -86,8 +86,7 @@ export default function Cart({ setPage }) {
   // Exclude unavailable (SOLD_OUT / closed) items from totals
   const availableGrand = groups.reduce((sum, g) =>
     sum + (g.items ?? []).reduce((s, it) => it.warning ? s : s + (it.lineTotal ?? 0), 0), 0)
-  const handling  = Math.round(availableGrand * 0.02)
-  const total     = availableGrand + handling
+  const total     = availableGrand
 
   /* ── Loading ── */
   if (loading) {
@@ -314,11 +313,6 @@ export default function Cart({ setPage }) {
                 <span className="mono">₱{Math.round(g.subtotal ?? 0).toLocaleString()}</span>
               </div>
             ))}
-            <div className="sum-row">
-              <span>Cold-chain handling</span>
-              <span className="mono">₱{handling.toLocaleString()}</span>
-            </div>
-
             <div className="sum-divider" />
 
             <div className="sum-row sum-row--total">
@@ -341,17 +335,6 @@ export default function Cart({ setPage }) {
             >
               <I.Refresh size={11} /> Save as recurring
             </button>
-
-            {/* Cold-chain status inset */}
-            <div style={{ marginTop: 14, padding: 12, borderRadius: 10, background: 'var(--layer-1)', border: '1px solid var(--hairline)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <I.Bolt size={12} style={{ color: 'var(--accent-lime)' }} />
-                <span style={{ fontSize: 12, fontWeight: 600 }}>Cold-chain on track</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--on-dark-muted)' }}>
-                {groups.length} vendor{groups.length !== 1 ? 's' : ''} in this cart maintain 0–4°C transit.
-              </div>
-            </div>
 
             {/* Clear cart */}
             <button

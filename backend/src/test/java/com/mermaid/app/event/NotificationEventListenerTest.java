@@ -1,5 +1,6 @@
 package com.mermaid.app.event;
 
+import com.mermaid.app.service.LiveEventPublisher;
 import com.mermaid.app.service.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.*;
 class NotificationEventListenerTest {
 
     @Mock NotificationService notificationService;
+    @Mock LiveEventPublisher liveEventPublisher;
     @InjectMocks NotificationEventListener listener;
 
     @Test
@@ -35,6 +37,10 @@ class NotificationEventListenerTest {
             eq(5L), eq("ORDER_STATUS"), eq("Order Confirmed"),
             contains("CONFIRMED"), eq("/orders/10")
         );
+
+        // Should push live event to both
+        verify(liveEventPublisher).pushToUser(eq(42L), eq("ORDER_CHANGED"), anyMap());
+        verify(liveEventPublisher).pushToUser(eq(5L), eq("ORDER_CHANGED"), anyMap());
     }
 
     @Test
@@ -49,6 +55,9 @@ class NotificationEventListenerTest {
             eq(42L), eq("ORDER_STATUS"), eq("Order Cancelled"),
             contains("CANCELLED"), anyString()
         );
+
+        verify(liveEventPublisher).pushToUser(eq(42L), eq("ORDER_CHANGED"), anyMap());
+        verify(liveEventPublisher).pushToUser(eq(5L), eq("ORDER_CHANGED"), anyMap());
     }
 
     @Test

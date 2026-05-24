@@ -71,6 +71,7 @@ class VendorStorefrontControllerTest {
         StorefrontListingResponse dto = responseDto(1L);
 
         when(service.listForVendor(10L)).thenReturn(List.of(sl));
+        when(inventoryService.effectiveAvailableKg(any())).thenReturn(bd("20.00"));
         when(inventoryService.availableKg(10L, 5L)).thenReturn(bd("20.00"));
         when(mapper.toDto(eq(sl), any(BigDecimal.class))).thenReturn(dto);
 
@@ -93,6 +94,7 @@ class VendorStorefrontControllerTest {
         dto.setStatus(StorefrontListingResponse.StatusEnum.UNPUBLISHED);
 
         when(service.unpublish(10L, 1L)).thenReturn(unpublished);
+        when(inventoryService.effectiveAvailableKg(any())).thenReturn(bd("20.00"));
         when(inventoryService.availableKg(10L, 5L)).thenReturn(bd("20.00"));
         when(mapper.toDto(eq(unpublished), any(BigDecimal.class))).thenReturn(dto);
 
@@ -120,6 +122,7 @@ class VendorStorefrontControllerTest {
         StorefrontListingResponse dto = responseDto(100L);
 
         when(service.create(eq(10L), any(), eq(List.of(1L)))).thenReturn(saved);
+        when(inventoryService.effectiveAvailableKg(any())).thenReturn(bd("20.00"));
         when(inventoryService.availableKg(10L, 5L)).thenReturn(bd("20.00"));
         when(mapper.toDto(eq(saved), any(BigDecimal.class))).thenReturn(dto);
 
@@ -164,6 +167,7 @@ class VendorStorefrontControllerTest {
         StorefrontListingResponse dto = responseDto(1L);
 
         when(service.publish(10L, 1L)).thenReturn(published);
+        when(inventoryService.effectiveAvailableKg(any())).thenReturn(bd("20.00"));
         when(inventoryService.availableKg(10L, 5L)).thenReturn(bd("20.00"));
         when(mapper.toDto(eq(published), any(BigDecimal.class))).thenReturn(dto);
 

@@ -9,7 +9,7 @@
   /* ---- Sentri Foundation Tokens ---- */
   --primary:                #150f23;
   --ink-deep:               #1f1633;
-  --accent-lime:            #c2ef4e;   /* Sentri signature lime */
+  --accent-lime:            #3ee2ff;   /* Sentri signature lime */
   --accent-pink:            #fa7faa;
   --accent-violet:          #6a5fc1;
   --accent-violet-deep:     #422082;
@@ -889,7 +889,7 @@ body {
 .vendor-fav-card__avatar {
   position: absolute; left: 14px; bottom: -20px;
   width: 44px; height: 44px; border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent-lime), #c4326a);
+  background: linear-gradient(135deg, var(--accent-lime), var(--accent-violet-deep));
   display: grid; place-items: center;
   font: 700 16px var(--font-display); color: var(--ink-deep);
   border: 3px solid var(--canvas);
@@ -1107,7 +1107,7 @@ body {
 }
 .listing-detail__vendor-avatar {
   width: 44px; height: 44px; border-radius: 12px; flex: none;
-  background: linear-gradient(135deg, var(--accent-lime), #c4326a);
+  background: linear-gradient(135deg, var(--accent-lime), var(--accent-violet-deep));
   display: grid; place-items: center;
   font: 700 16px var(--font-display); color: var(--ink-deep);
 }
@@ -1154,7 +1154,7 @@ body {
 .review-card__avatar {
   width: 44px; height: 44px; border-radius: 12px; flex: none;
   display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--accent-lime), #c4326a);
+  background: linear-gradient(135deg, var(--accent-lime), var(--accent-violet-deep));
   color: var(--ink-deep); font: 700 16px var(--font-display);
 }
 .review-card__body { flex: 1; min-width: 0; }
@@ -2492,12 +2492,6 @@ body {
   padding: 12px 0; border-bottom: 1px solid var(--hairline);
 }
 .pref-row:last-child { border-bottom: none; }
-
-/* ── cart-group__brand ── */
-.cart-group__brand {
-  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
-  display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff;
-}
 
 /* ── msg-pane-ref head/body ── */
 .msg-pane-ref__head {

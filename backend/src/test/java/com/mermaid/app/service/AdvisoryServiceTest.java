@@ -107,6 +107,28 @@ class AdvisoryServiceTest {
     }
 
     @Test
+    void listAll_returnsActiveAndInactiveAdvisories() {
+        Advisory active = advisoryEntity(1L, Severity.HIGH);
+        active.setActive(true);
+        Advisory inactive = advisoryEntity(2L, Severity.LOW);
+        inactive.setActive(false);
+        when(repo.findAllOrderByCreatedAtDesc()).thenReturn(List.of(active, inactive));
+        when(mapper.toModel(any())).thenAnswer(inv -> {
+            Advisory e = inv.getArgument(0);
+            return new com.mermaid.app.model.Advisory(
+                e.getId(), e.getTitle(), e.getMessage(),
+                e.getSeverity(), e.getAffectedArea(),
+                e.getActiveFrom(), e.getActiveTo(), e.isActive());
+        });
+
+        List<com.mermaid.app.model.Advisory> result = service.listAll();
+
+        assertEquals(2, result.size());
+        assertTrue(result.get(0).getIsActive());
+        assertFalse(result.get(1).getIsActive());
+    }
+
+    @Test
     void update_notFound_throwsResourceNotFoundException() {
         when(repo.findById(99L)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class,

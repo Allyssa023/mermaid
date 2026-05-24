@@ -32,6 +32,7 @@ class ProcurementOrderServiceTest {
     @Mock FishSpeciesRepository speciesRepo;
     @Mock InventoryService inventoryService;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock LiveEventPublisher liveEventPublisher;
 
     @InjectMocks ProcurementOrderService service;
 
@@ -47,7 +48,7 @@ class ProcurementOrderServiceTest {
 
         when(alertRepo.findByIdInForUpdate(List.of(10L))).thenReturn(List.of(alert));
         when(alertRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-        Order saved = order(77L, 99L, 1L, sp, "PENDING");
+        Order saved = order(77L, 99L, 1L, sp, "CONFIRMED");
         when(orderRepo.save(any())).thenReturn(saved);
         when(eventRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
@@ -71,7 +72,7 @@ class ProcurementOrderServiceTest {
         assertThat(built.getDeal()).isSameAs(deal);
         assertThat(built.getOrderedQtyKg()).isEqualByComparingTo("30.00");
         assertThat(built.getAgreedPricePerKg()).isEqualByComparingTo("240.00");
-        assertThat(built.getStatus()).isEqualTo("PENDING");
+        assertThat(built.getStatus()).isEqualTo("CONFIRMED");
     }
 
     @Test
@@ -84,7 +85,7 @@ class ProcurementOrderServiceTest {
 
         when(alertRepo.findByIdInForUpdate(List.of(10L))).thenReturn(List.of(alert));
         when(alertRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-        when(orderRepo.save(any())).thenReturn(order(77L, 99L, 1L, sp, "PENDING"));
+        when(orderRepo.save(any())).thenReturn(order(77L, 99L, 1L, sp, "CONFIRMED"));
         when(eventRepo.save(any())).thenAnswer(i -> i.getArgument(0));
 
         service.createFromAgreement(deal, proposal);

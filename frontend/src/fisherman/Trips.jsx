@@ -111,7 +111,8 @@ export default function TripsPage() {
     if (!activeTrip?.startedAt || totalKg === 0) return 0
     // eslint-disable-next-line react-hooks/purity
     const h = (Date.now() - new Date(activeTrip.startedAt).getTime()) / 3600000
-    return h > 0 ? totalKg / h : 0
+    // Use a minimum of 1 hour for the rate calculation to prevent huge spikes right after starting the trip
+    return totalKg / Math.max(1, h)
   }, [totalKg, activeTrip?.startedAt])
 
   const startMut = useMutation({
@@ -194,7 +195,7 @@ export default function TripsPage() {
           <button className="btn btn--ghost"><I.Note size={12} /> Export log</button>
           {!activeTrip && (
             <button className="btn btn--lime" onClick={() => { setFormError(null); setModal('start') }}>
-              <I.Plus size={12} /> Start trip
+              <I.Plus size={12} /> Start New Trip
             </button>
           )}
         </div>
@@ -219,7 +220,7 @@ export default function TripsPage() {
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>No active trip</div>
               <p style={{ fontSize: 12, color: 'var(--ink-4)', margin: '0 0 16px' }}>Start a trip to begin logging your catch.</p>
               <button className="btn btn--lime" onClick={() => { setFormError(null); setModal('start') }}>
-                <I.Plus size={12} /> Start trip
+                <I.Plus size={12} /> Start New Trip
               </button>
             </div>
           )}
@@ -365,7 +366,7 @@ export default function TripsPage() {
                         {CHECKLIST_FIELDS.map(it => {
                           const on = activeTrip?.checklist?.[it.key]
                           return (
-                            <div key={it.key} className={`f-checklist-item${on ? ' f-checklist-item--on' : ''}`} style={{ border: 'none', background: 'var(--bg-card)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--hairline)', cursor: 'default' }}>
+                            <div key={it.key} className={`f-checklist-item${on ? ' f-checklist-item--on' : ''}`} style={{ background: 'var(--bg-card)', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--hairline)', cursor: 'default' }}>
                               <div className="f-checklist-item__box">{on && <I.Check size={10} />}</div>
                               <div>
                                 <div style={{ fontSize: 13, fontWeight: 500, color: on ? 'var(--ink-1)' : 'var(--ink-2)' }}>{it.label}</div>

@@ -63,7 +63,14 @@ function VendorCard({ fav, setPage, onUnsave }) {
         <button className="btn btn--sm" style={{ flex: 1 }} onClick={() => setPage('bbrowse')}>
           <I.Store size={11} /> View store
         </button>
-        <button className="btn btn--sm" onClick={() => setPage('bmessages')}>
+        <button className="btn btn--sm" onClick={() => {
+          const vId = fav.targetId ?? v.id
+          if (vId) {
+            setPage('bmessages', { id: vId, fullName: name, role: 'VENDOR' })
+          } else {
+            setPage('bmessages')
+          }
+        }} title="Message vendor">
           <I.Message size={11} />
         </button>
         <button className="btn btn--lime btn--sm" style={{ flex: 1 }} onClick={() => onUnsave(fav.targetId)}>
